@@ -1,71 +1,46 @@
-/**
- * API Service Wrapper
- * Handles requests to the backend with authentication token injection.
- */
+import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
-const api = {
-  async request(endpoint, options = {}) {
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+api.interceptors.request.use(
+  (config) => {
     const token = localStorage.getItem('token');
-    
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
-
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => {
+    if (response.data && response.data.success !== undefined && response.data.data !== undefined) {
+      return response.data.data;
+    }
+    return response.data;
+  },
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+      return Promise.reject(new Error('Session expired. Please login again.'));
     }
 
-    const config = {
-      ...options,
-      headers,
-    };
-
-    try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-      
-      if (response.status === 401) {
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-        return;
-      }
-
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Something went wrong');
-      }
-
-      return data;
-    } catch (error) {
-      console.error('API Error:', error);
-      throw error;
-    }
-  },
-
-  get(endpoint) {
-    return this.request(endpoint, { method: 'GET' });
-  },
-
-  post(endpoint, body) {
-    return this.request(endpoint, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
-  },
-
-  patch(endpoint, body) {
-    return this.request(endpoint, {
-      method: 'PATCH',
-      body: JSON.stringify(body),
-    });
-  },
-
-  delete(endpoint) {
-    return this.request(endpoint, { method: 'DELETE' });
-  },
-};
+    const message = error.response?.data?.message || error.response?.data?.error || error.message || 'Something went wrong';
+    const apiError = new Error(message);
+    apiError.statusCode = error.response?.status;
+    apiError.code = error.response?.data?.code;
+    
+    return Promise.reject(apiError);
+  }
+);
 
 export default api;

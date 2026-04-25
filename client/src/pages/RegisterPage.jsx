@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import api from '../services/api';
 import './AuthPages.css';
 
 export default function RegisterPage() {
@@ -9,15 +10,20 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (password !== confirmPassword) {
       setError('Password tidak cocok');
       return;
     }
-    // Simulating registration for scaffolding
-    localStorage.setItem('token', 'mock-token');
-    navigate('/');
+    
+    try {
+      await api.post('/auth/register', { email, password });
+      // Registrasi berhasil, arahkan ke login
+      navigate('/login');
+    } catch (err) {
+      setError(err.message || 'Registrasi gagal');
+    }
   };
 
   return (

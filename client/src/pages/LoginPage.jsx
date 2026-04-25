@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import api from '../services/api';
 import './AuthPages.css';
 
 export default function LoginPage() {
@@ -8,12 +9,22 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Simulating login for scaffolding
     if (email && password) {
-      localStorage.setItem('token', 'mock-token');
-      navigate('/');
+      try {
+        const response = await api.post('/auth/login', { email, password });
+        // After unwrapping by api.js, response is `{ accessToken, user }`
+        const token = response?.accessToken;
+        if (token) {
+          localStorage.setItem('token', token);
+          navigate('/');
+        } else {
+          setError('Login gagal: Token tidak diterima dari server');
+        }
+      } catch (err) {
+        setError(err.message || 'Login gagal');
+      }
     } else {
       setError('Email dan password harus diisi');
     }
