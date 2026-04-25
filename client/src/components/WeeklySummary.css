@@ -1,0 +1,68 @@
+.weekly-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.summary-card {
+  background: white;
+  padding: 1.25rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: var(--transition);
+}
+
+.summary-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow);
+}
+
+.summary-card.highlight {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: white;
+  border: none;
+}
+
+.summary-icon {
+  font-size: 1.5rem;
+  background: #f1f5f9;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.highlight .summary-icon {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.summary-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.summary-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.highlight .summary-label {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.summary-value {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.highlight .summary-value {
+  color: white;
+}

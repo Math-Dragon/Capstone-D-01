@@ -1,9 +1,11 @@
-// TODO: Implementasikan Pino structured logging.
-// Lihat modul Setup — sub modul "Observability & AI Boundary".
-const logger = {
-  info: (obj) => console.log(JSON.stringify(obj)),
-  warn: (obj) => console.warn(JSON.stringify(obj)),
-  error: (obj) => console.error(JSON.stringify(obj)),
-  debug: (obj) => console.debug(JSON.stringify(obj)),
-};
+const pino = require('pino');
+const config = require('../config');
+
+const logger = pino({
+  level: config.nodeEnv === 'production' ? 'info' : 'debug',
+  ...(config.nodeEnv !== 'production' && {
+    transport: { target: 'pino/file', options: { destination: 1 } },
+  }),
+});
+
 module.exports = logger;

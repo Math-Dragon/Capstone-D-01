@@ -1,6 +1,75 @@
-// TODO: Implementasikan authentication endpoints.
-// Lihat modul Scaffolding — sub modul "Authentication & CRUD".
-// POST /register, POST /login, GET /me
 const express = require('express');
 const router = express.Router();
+const { z } = require('zod');
+const authService = require('../services/auth.service');
+const { authenticate } = require('../middleware/authenticate');
+
+const registerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8).regex(/[A-Z]/, 'Must contain an uppercase letter')
+    .regex(/[a-z]/, 'Must contain a lowercase letter')
+    .regex(/\d/, 'Must contain a number'),
+  timezone: z.string().optional(),
+  preferred_time: z.string().optional(),
+  weekly_target_hours: z.number().optional(),
+});
+
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
+router.post('/register', async (req, res, next) => {
+  try {
+    const data = registerSchema.parse(req.body);
+    const user = await authService.register(data);
+    res.status(201).json({ success: true, data: user });
+  } catch (err) { next(err); }
+});
+
+router.post('/login', async (req, res, next) => {
+  try {
+    const data = loginSchema.parse(req.body);
+    const result = await authService.login(data);
+    res.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+    res.json({ success: true, data: { accessToken: result.accessToken, user: result.user } });
+  } catch (err) { next(err); }
+});
+
+router.post('/refresh', async (req, res, next) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+    if (!refreshToken) {
+      const err = new Error('No refresh token');
+      err.statusCode = 401;
+      throw err;
+    }
+    const result = await authService.refresh(refreshToken);
+    res.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+    res.json({ success: true, data: { accessToken: result.accessToken } });
+  } catch (err) { next(err); }
+});
+
+router.get('/me', authenticate, (req, res) => {
+  res.json({ success: true, data: req.user });
+});
+
+router.post('/logout', authenticate, async (req, res, next) => {
+  try {
+    await authService.logout(req.user.id, req.cookies.refreshToken);
+    res.clearCookie('refreshToken');
+    res.json({ success: true, data: { message: 'Logged out' } });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

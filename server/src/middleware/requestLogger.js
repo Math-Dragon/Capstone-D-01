@@ -1,4 +1,22 @@
-// TODO: Implementasikan request logging middleware.
-// Lihat modul Setup — sub modul "Observability & AI Boundary".
-function requestLogger(req, res, next) { next(); }
-module.exports = requestLogger;
+const { randomUUID } = require('crypto');
+const logger = require('../utils/logger');
+
+function requestLogger(req, res, next) {
+  req.requestId = randomUUID();
+  const start = Date.now();
+
+  res.on('finish', () => {
+    logger.info({
+      request_id: req.requestId,
+      method: req.method,
+      route: req.originalUrl,
+      status_code: res.statusCode,
+      duration_ms: Date.now() - start,
+      user_id: req.user?.id || null,
+    });
+  });
+
+  next();
+}
+
+module.exports = { requestLogger };

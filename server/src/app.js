@@ -1,35 +1,34 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const config = require('./config');
+const { requestLogger } = require('./middleware/requestLogger');
+const { errorHandler } = require('./middleware/errorHandler');
+const { authLimiter, aiLimiter } = require('./middleware/rateLimiter');
+const { metricsAuth } = require('./middleware/metricsAuth');
+
 const healthRoutes = require('./routes/health');
 const metricsRoutes = require('./routes/metrics');
+const authRoutes = require('./routes/auth');
+const goalRoutes = require('./routes/goals');
+const taskRoutes = require('./routes/tasks');
+const aiRoutes = require('./routes/ai');
+const progressRoutes = require('./routes/progress');
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: config.allowedOrigins, credentials: true }));
 app.use(express.json());
-
-// TODO: Tambahkan request logger middleware (modul Setup — Observability)
+app.use(cookieParser());
+app.use(requestLogger);
 
 app.use('/health', healthRoutes);
-app.use('/metrics', metricsRoutes);
+app.use('/metrics', metricsAuth, metricsRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/goals', goalRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/ai', aiLimiter, aiRoutes);
+app.use('/api/progress', progressRoutes);
 
-// TODO: Aktifkan setelah modul Scaffolding — Authentication & CRUD
-// const authRoutes = require('./routes/auth');
-// const goalRoutes = require('./routes/goals');
-// app.use('/api/auth', authRoutes);
-// app.use('/api/goals', goalRoutes);
-
-// TODO: Aktifkan setelah modul Scaffolding — AI Stub & Quality Foundation
-// const aiRoutes = require('./routes/ai');
-// app.use('/api/ai', aiRoutes);
-
-// TODO: Aktifkan setelah modul Cycle 1 — accept/reject flow
-// const taskRoutes = require('./routes/tasks');
-// app.use('/api/tasks', taskRoutes);
-
-// TODO: Aktifkan setelah modul Cycle 2
-// const progressRoutes = require('./routes/progress');
-// app.use('/api/progress', progressRoutes);
-
-// TODO: Tambahkan error handler di paling akhir (modul Scaffolding)
+app.use(errorHandler);
 
 module.exports = app;
