@@ -142,6 +142,7 @@ class CoachRouterService {
       });
 
       if (validated.plan) {
+        await this._persistPlan(userId, validated.plan);
         return {
           type: 'combined',
           data: { message, plan: validated.plan },
@@ -149,6 +150,8 @@ class CoachRouterService {
       }
       return { type: 'message', data: { message, plan: null } };
     }
+
+    await this._persistPlan(userId, validated);
 
     return { type: 'plan', data: validated };
   }
@@ -166,6 +169,33 @@ class CoachRouterService {
       CRISIS_SIGNAL: { sessionType: 'crisis', shouldCallLLM: true },
     };
     return map[action] || { sessionType: 'chat', shouldCallLLM: true };
+  }
+
+  async _persistPlan(userId, plan) {
+    if (!plan || !plan.tasks || plan.tasks.length === 0) return;
+
+    const goals = await repos.goal.list(userId);
+    const activeGoal = goals[0];
+    if (!activeGoal) {
+      logger.warn({ userId }, 'No active goal found for plan persistence');
+      return;
+    }
+
+    const tasksToCreate = plan.tasks.map(t => ({
+      goal_id: activeGoal.id,
+      title: t.title,
+      description: t.description || null,
+      duration_estimate: t.duration_estimate,
+      planned_date: t.planned_date || null,
+      planned_slot: t.planned_slot || null,
+      task_type: t.task_type || null,
+      rationale: t.rationale || null,
+      source: 'coach',
+      status: 'todo',
+    }));
+
+    await repos.task.createMany(tasksToCreate);
+    logger.info({ userId, taskCount: tasksToCreate.length }, 'Plan tasks persisted');
   }
 
   async _updateState(userId, action, payload) {
@@ -233,7 +263,7 @@ class CoachRouterService {
   async _buildContext(userId, sessionType, payload) {
     const user = await repos.user.findById(userId);
     const profile = await repos.profile.findByUserId(userId);
-    const goals = await repos.goal.findByUserId ? await repos.goal.findByUserId(userId) : [];
+    const goals = await repos.goal.list(userId);
     const activeGoal = goals[0] || {};
     const tasks = await repos.task.listByUser(userId);
     const metrics = (await repos.studentMetrics.findByUserId(userId)) || {};
@@ -263,12 +293,21 @@ class CoachRouterService {
 
     const consecutiveDrained = await this._countConsecutiveDrained(userId);
 
+    const totalTasks = tasks.length;
+    const completedCount = tasks.filter((t) => t.status === 'done' || t.status === 'completed').length;
+    let currentLevel = 'beginner';
+    if (totalTasks > 0) {
+      const ratio = completedCount / totalTasks;
+      if (ratio > 0.7) currentLevel = 'advanced';
+      else if (ratio > 0.3) currentLevel = 'intermediate';
+    }
+
     return {
       user,
       profile: {
         goal: activeGoal.title || '',
         subjects: activeGoal.description || '',
-        current_level: profile?.current_level || 'intermediate',
+        current_level: currentLevel,
         weekly_available_hours: profile?.weekly_target_hours || 5,
         preferred_slots: [profile?.preferred_time || 'morning'],
         deadline: activeGoal.deadline || null,

@@ -29,7 +29,7 @@ app.use('/api/goals', goalRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/ai', aiLimiter, aiRoutes);
 app.use('/api/progress', progressRoutes);
-app.use('/api/coach', aiLimiter, coachRoutes);
+app.use('/api/coach', coachRoutes);
 
 app.use(errorHandler);
 

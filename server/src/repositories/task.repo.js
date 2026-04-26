@@ -56,8 +56,8 @@ async function findByIdAndUser(taskId, userId, client) {
 async function create(data, client) {
   const result = await db.query(
     `INSERT INTO tasks (goal_id, title, description, duration_estimate, planned_date,
-       planned_slot, status, source, actual_duration, completed_at, rationale)
-     VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, 'todo'), COALESCE($8, 'manual'), $9, $10, $11)
+       planned_slot, status, source, actual_duration, completed_at, rationale, task_type)
+     VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, 'todo'), COALESCE($8, 'manual'), $9, $10, $11, $12)
      RETURNING *`,
     [
       data.goal_id,
@@ -71,6 +71,7 @@ async function create(data, client) {
       data.actual_duration || null,
       data.completed_at || null,
       data.rationale || null,
+      data.task_type || null,
     ],
     client
   );
@@ -83,7 +84,7 @@ async function createMany(tasksArray, client) {
   const cols = [
     'goal_id', 'title', 'description', 'duration_estimate',
     'planned_date', 'planned_slot', 'status', 'source',
-    'actual_duration', 'completed_at', 'rationale',
+    'actual_duration', 'completed_at', 'rationale', 'task_type',
   ];
   const values = [];
   const placeholders = [];
@@ -94,7 +95,7 @@ async function createMany(tasksArray, client) {
       t.goal_id, t.title, t.description || null, t.duration_estimate,
       t.planned_date || null, t.planned_slot || null, t.status || 'todo',
       t.source || 'manual', t.actual_duration || null, t.completed_at || null,
-      t.rationale || null,
+      t.rationale || null, t.task_type || null,
     ];
     placeholders.push(`(${cols.map(() => `$${i++}`).join(', ')})`);
     values.push(...row);
@@ -109,6 +110,8 @@ async function update(taskId, data, client) {
   const allowed = [
     'title', 'description', 'duration_estimate', 'planned_date',
     'planned_slot', 'status', 'source', 'actual_duration', 'completed_at', 'rationale',
+    'task_type', 'skip_reason', 'feedback_difficulty', 'feedback_focus',
+    'feedback_notes', 'feedback_submitted_at'
   ];
   const sets = [];
   const vals = [];

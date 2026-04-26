@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const config = require('../config');
 const { validateAIOutput, SuggestionSchema } = require('./llm');
 const { generateMockSuggestion } = require('./llm-mock');
@@ -77,6 +78,23 @@ class AIService {
       extra_context: context,
     };
 
+    const contextHash = crypto.createHash('md5').update(JSON.stringify(userContext)).digest('hex');
+    const cacheKey = `ai:suggest:${userId}:${goalId}:${contextHash}`;
+
+    const cached = await repos.cache.get(cacheKey);
+    if (cached) {
+      logger.info({ user_id: userId, goal_id: goalId }, 'AI suggestion cache hit');
+      const recommendation = await repos.aiRec.create({
+        user_id: userId,
+        goal_id: goalId,
+        type: 'suggest',
+        input_context: userContext,
+        output: cached,
+        status: 'pending',
+      });
+      return { recommendationId: recommendation.id, ...cached, fromCache: true };
+    }
+
     let validated;
     if (isMock) {
       const mockOutput = generateMockSuggestion(userContext);
@@ -85,6 +103,8 @@ class AIService {
     } else {
       validated = await this._callGeminiWithRetry(userContext);
     }
+
+    await repos.cache.set(cacheKey, validated, 24 * 60 * 60); // 24 hours
 
     const recommendation = await repos.aiRec.create({
       user_id: userId,

@@ -1,21 +1,47 @@
 const rateLimit = require('express-rate-limit');
+const { RedisStore } = require('rate-limit-redis');
+const { redisClient } = require('../services/redis');
 
-const authLimiter = rateLimit({
+function makeLimiter(opts) {
+  return rateLimit({
+    windowMs: opts.windowMs,
+    max: opts.max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    store: new RedisStore({
+      sendCommand: async (...args) => {
+        try {
+          if (!redisClient.isOpen) {
+            await redisClient.connect();
+          }
+          return await redisClient.sendCommand(args);
+        } catch (err) {
+          // If Redis is down, we might want to fail open or log
+          console.error('Redis Rate Limiter Error:', err);
+          throw err;
+        }
+      },
+      prefix: `rl:${opts.prefix}:`,
+    }),
+    keyGenerator: opts.keyGenerator,
+    handler: opts.handler,
+  });
+}
+
+const authLimiter = makeLimiter({
   windowMs: 60 * 1000,
   max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
+  prefix: 'auth',
   keyGenerator: (req) => req.ip,
   handler: (req, res) => {
     res.status(429).json({ success: false, error: { code: 'RATE_LIMITED', message: 'Too many auth attempts' } });
   },
 });
 
-const aiLimiter = rateLimit({
+const aiLimiter = makeLimiter({
   windowMs: 60 * 1000,
   max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
+  prefix: 'ai',
   keyGenerator: (req) => req.user?.id || req.ip,
   handler: (req, res) => {
     res.status(429).json({ success: false, error: { code: 'RATE_LIMITED', message: 'Too many AI requests' } });

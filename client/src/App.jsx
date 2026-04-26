@@ -9,6 +9,7 @@ import LoginPage from './features/auth/components/LoginPage';
 import RegisterPage from './features/auth/components/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import GoalsPage from './features/goals/components/GoalsPage';
+import GoalDetailPage from './pages/GoalDetailPage';
 import CalendarPage from './pages/CalendarPage';
 import ProgressPage from './pages/ProgressPage';
 import CoachPage from './features/coach/components/CoachPage';
@@ -30,6 +31,7 @@ export default function App() {
                 <Route path="login" element={<LoginPage />} />
                 <Route path="register" element={<RegisterPage />} />
                 <Route path="goals" element={<GoalsPage />} />
+                <Route path="goals/:id" element={<GoalDetailPage />} />
                 <Route path="calendar" element={<CalendarPage />} />
                 <Route path="progress" element={<ProgressPage />} />
                 <Route path="coach" element={<CoachPage />} />

@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
+import coachService from '../features/coach/services/coachService';
+import TaskActionModal from '../components/TaskActionModal';
 
 const DAY_NAMES = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 const SLOT_ORDER = { morning: 0, afternoon: 1, evening: 2 };
@@ -61,6 +63,44 @@ export default function CalendarPage() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [actionLoading, setActionLoading] = useState(null);
+  const [modalTask, setModalTask] = useState(null);
+  const [modalMode, setModalMode] = useState(null);
+
+  const openModal = (task, mode) => {
+    setModalTask(task);
+    setModalMode(mode);
+  };
+
+  const closeModal = () => {
+    setModalTask(null);
+    setModalMode(null);
+  };
+
+  const handleModalConfirm = async ({ action, reason, note, difficulty, focus, notes }) => {
+    if (!modalTask) return;
+    setActionLoading(modalTask.id);
+    try {
+      if (action === 'complete') {
+        await coachService.completeTask(modalTask.id);
+        setTasks((prev) =>
+          prev.map((t) => (t.id === modalTask.id ? { ...t, status: 'done' } : t))
+        );
+      } else if (action === 'skip') {
+        await coachService.skipTask(modalTask.id, reason || 'unspecified');
+        setTasks((prev) =>
+          prev.map((t) => (t.id === modalTask.id ? { ...t, status: 'skipped' } : t))
+        );
+      } else if (action === 'feedback') {
+        await coachService.submitFeedback(modalTask.id, difficulty, focus, notes);
+      }
+    } catch (err) {
+      console.error(`Failed to ${action} task:`, err);
+    } finally {
+      setActionLoading(null);
+      closeModal();
+    }
+  };
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   const todayStr = new Date().toISOString().split('T')[0];
@@ -82,8 +122,8 @@ export default function CalendarPage() {
   const tasksByDate = useMemo(() => {
     const map = {};
     tasks.forEach((t) => {
-      const d = t.planned_date;
-      if (!d) return;
+      if (!t.planned_date) return;
+      const d = t.planned_date.slice(0, 10);
       if (!map[d]) map[d] = [];
       map[d].push(t);
     });
@@ -285,15 +325,41 @@ export default function CalendarPage() {
                         </p>
                       )}
                     </div>
-                    <span
-                      className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded"
-                      style={{
-                        backgroundColor: color + '22',
-                        color,
-                      }}
-                    >
-                      {task.task_type || 'task'}
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span
+                        className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded"
+                        style={{
+                          backgroundColor: color + '22',
+                          color,
+                        }}
+                      >
+                        {task.task_type || 'task'}
+                      </span>
+                      {task.status !== 'done' && task.status !== 'completed' && task.status !== 'skipped' && (
+                        <div className="flex gap-1 mt-1">
+                          <button
+                            onClick={() => openModal(task, 'complete')}
+                            disabled={actionLoading === task.id}
+                            className="text-[10px] px-2 py-1 rounded bg-green-500/20 text-green-700 hover:bg-green-500/30 transition-colors disabled:opacity-50 font-medium"
+                          >
+                            ✓ Selesai
+                          </button>
+                          <button
+                            onClick={() => openModal(task, 'skip')}
+                            disabled={actionLoading === task.id}
+                            className="text-[10px] px-2 py-1 rounded bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors disabled:opacity-50 font-medium"
+                          >
+                            ⏭ Lewati
+                          </button>
+                          <button
+                            onClick={() => openModal(task, 'feedback')}
+                            className="text-[10px] px-2 py-1 rounded bg-blue-500/20 text-blue-600 hover:bg-blue-500/30 transition-colors font-medium"
+                          >
+                            💬 Feedback
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -301,6 +367,13 @@ export default function CalendarPage() {
           </div>
         )}
       </div>
+
+      <TaskActionModal
+        task={modalTask}
+        mode={modalMode}
+        onConfirm={handleModalConfirm}
+        onCancel={closeModal}
+      />
     </div>
   );
 }

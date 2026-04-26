@@ -18,22 +18,22 @@ function generateDates(deadline, count) {
 const SLOT_CYCLE = ['morning', 'afternoon', 'evening'];
 
 const TASK_TEMPLATES = [
-  { title: 'Review fundamentals of {topic}', desc: 'Read introductory material and take notes on core concepts of {topic}' },
-  { title: 'Practice {topic} exercises', desc: 'Complete hands-on exercises to reinforce understanding of {topic}' },
-  { title: 'Watch tutorial on {topic}', desc: 'Follow along with a video tutorial covering practical applications of {topic}' },
-  { title: 'Build a mini-project using {topic}', desc: 'Apply {topic} concepts in a small standalone project' },
-  { title: 'Summarize key takeaways on {topic}', desc: 'Write a brief summary of what was learned about {topic}' },
-  { title: 'Review and refactor {topic} code', desc: 'Go back over earlier {topic} work and improve code quality' },
-  { title: 'Study advanced patterns in {topic}', desc: 'Explore more complex patterns and best practices in {topic}' },
-  { title: 'Take a quiz on {topic}', desc: 'Test knowledge retention with practice questions about {topic}' },
+  { title: 'Review fundamentals of {topic}', desc: 'Read introductory material and take notes on core concepts of {topic}', type: 'acquire' },
+  { title: 'Practice {topic} exercises', desc: 'Complete hands-on exercises to reinforce understanding of {topic}', type: 'practice' },
+  { title: 'Recall key concepts: {topic}', desc: 'Test memory by writing down everything you remember about {topic} without looking at notes', type: 'recall' },
+  { title: 'Build a mini-project using {topic}', desc: 'Apply {topic} concepts in a small standalone project', type: 'synthesize' },
+  { title: 'Summarize key takeaways on {topic}', desc: 'Write a brief summary of what was learned about {topic}', type: 'reflect' },
+  { title: 'Review and refactor {topic} code', desc: 'Go back over earlier {topic} work and improve code quality', type: 'review' },
+  { title: 'Study advanced patterns in {topic}', desc: 'Explore more complex patterns and best practices in {topic}', type: 'interleave' },
+  { title: 'Take a quiz on {topic}', desc: 'Test knowledge retention with practice questions about {topic}', type: 'assess' },
 ];
 
-function generateMockSuggestion(userContext) {
-  const goalTitle = userContext.goal?.title || 'General Study';
+function generateMockSuggestion(ctx) {
+  const goalTitle = ctx.profile?.goal || 'General Study';
   const topic = goalTitle.replace(/^(Learn|Study|Master|Practice|Review)\s+/i, '').trim() || 'the topic';
-  const deadline = userContext.goal?.deadline;
-  const preferredSlot = userContext.preferred_time || 'morning';
-  const weeklyHours = Number(userContext.weekly_target_hours) || 5;
+  const deadline = ctx.profile?.deadline;
+  const preferredSlot = ctx.profile?.preferred_slots?.[0] || 'morning';
+  const weeklyHours = ctx.profile?.weekly_available_hours || 5;
   const taskCount = Math.min(Math.max(Math.round(weeklyHours), 2), 5);
 
   const seededIdx = (i) => {
@@ -47,18 +47,25 @@ function generateMockSuggestion(userContext) {
   for (let i = 0; i < taskCount; i++) {
     const tmpl = TASK_TEMPLATES[seededIdx(i) % TASK_TEMPLATES.length];
     tasks.push({
+      id: `t${i + 1}`,
       title: tmpl.title.replace(/\{topic\}/g, topic),
       description: tmpl.desc.replace(/\{topic\}/g, topic),
+      task_type: tmpl.type,
       duration_estimate: [25, 30, 45, 60, 45, 30, 45, 30][i % 8],
       planned_date: dates[i],
       planned_slot: SLOT_CYCLE[(SLOT_CYCLE.indexOf(preferredSlot) + i) % 3],
-      rationale: `Mock suggestion: scheduled for ${preferredSlot} session to align with your learning preference`,
+      priority: i === 0 ? 'high' : 'medium',
+      rationale: `[MOCK] ${tmpl.type} task scheduled for ${SLOT_CYCLE[(SLOT_CYCLE.indexOf(preferredSlot) + i) % 3]} session to align with your learning preference.`,
     });
   }
+
+  const nextCheckIn = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
 
   return {
     tasks,
     summary: `[MOCK] Generated ${taskCount} study tasks for "${goalTitle}" based on your ${weeklyHours}h/week target. Set LLM_PROVIDER=gemini to use real AI.`,
+    next_check_in: nextCheckIn,
+    adaptation_notes: null,
   };
 }
 

@@ -2,7 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { z } = require('zod');
 const coachRouter = require('../services/coach-router.service');
+const repos = require('../repositories');
 const { authenticate } = require('../middleware/authenticate');
+const { aiLimiter } = require('../middleware/rateLimiter');
 
 const coachActionSchema = z.object({
   action: z.enum([
@@ -17,7 +19,16 @@ const coachActionSchema = z.object({
 
 router.use(authenticate);
 
-router.post('/', async (req, res, next) => {
+router.get('/history', async (req, res, next) => {
+  try {
+    const messages = await repos.chatMessage.findByUser(req.user.id);
+    res.json(messages);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/', aiLimiter, async (req, res, next) => {
   try {
     const { action, payload } = coachActionSchema.parse(req.body);
     const result = await coachRouter.dispatch(req.user.id, action, payload);

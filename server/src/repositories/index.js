@@ -8,6 +8,7 @@ const auditRepo = require('./audit-log.repo');
 const refreshTokenRepo = require('./refresh-token.repo');
 const chatMessageRepo = require('./chat-message.repo');
 const studentMetricsRepo = require('./student-metrics.repo');
+const cacheRepo = require('./cache.repo');
 
 module.exports = {
   user: userRepo,
@@ -20,4 +21,5 @@ module.exports = {
   refreshToken: refreshTokenRepo,
   chatMessage: chatMessageRepo,
   studentMetrics: studentMetricsRepo,
+  cache: cacheRepo,
 };

@@ -1,6 +1,14 @@
 import api from '../../../services/api';
 
 export const coachService = {
+  initialPlan: async (profile) => {
+    const data = await api.post('/coach', {
+      action: 'INITIAL_PLAN',
+      payload: profile || {},
+    });
+    return data;
+  },
+
   sendMessage: async (message) => {
     const data = await api.post('/coach', {
       action: 'CHAT_MESSAGE',

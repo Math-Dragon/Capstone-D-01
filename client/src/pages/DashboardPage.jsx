@@ -1,29 +1,44 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import coachService from '../features/coach/services/coachService';
 
 export default function DashboardPage() {
   const [tasks, setTasks] = useState([]);
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+
+  const loadData = async () => {
+    try {
+      const [fetchedTasks, fetchedGoals] = await Promise.all([
+        api.get('/tasks').catch(() => []),
+        api.get('/goals').catch(() => []),
+      ]);
+      setTasks(Array.isArray(fetchedTasks) ? fetchedTasks : []);
+      setGoals(Array.isArray(fetchedGoals) ? fetchedGoals : []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const [fetchedTasks, fetchedGoals] = await Promise.all([
-          api.get('/tasks').catch(() => []),
-          api.get('/goals').catch(() => []),
-        ]);
-        setTasks(Array.isArray(fetchedTasks) ? fetchedTasks : []);
-        setGoals(Array.isArray(fetchedGoals) ? fetchedGoals : []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadData();
   }, []);
+
+  const handleGeneratePlan = async () => {
+    setGenerating(true);
+    try {
+      await coachService.initialPlan();
+      await loadData();
+    } catch (err) {
+      console.error('Failed to generate plan:', err);
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -109,9 +124,13 @@ export default function DashboardPage() {
                 <div className="text-4xl mb-4">✨</div>
                 <h4 className="text-lg font-semibold text-primary-900 mb-2">Belum ada tugas</h4>
                 <p className="text-primary-400 mb-6">Minta AI untuk menyusun rencana belajar berdasarkan targetmu.</p>
-                <Link to="/goals" className="btn-primary">
-                  Sarankan Rencana Belajar
-                </Link>
+                <button
+                  onClick={handleGeneratePlan}
+                  disabled={generating}
+                  className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {generating ? 'Menyusun Rencana...' : 'Sarankan Rencana Belajar'}
+                </button>
               </div>
             ) : (
               <div className="card p-8 text-center">
@@ -196,6 +215,9 @@ export default function DashboardPage() {
           <div className="card p-5">
             <h3 className="font-semibold text-primary-900 mb-4">Aksi Cepat</h3>
             <div className="space-y-2">
+              <Link to="/coach" className="block px-4 py-2.5 rounded-xl text-sm font-medium text-primary-700 hover:bg-primary-50 transition-colors">
+                🤖 Tanya Coach
+              </Link>
               <Link to="/goals" className="block px-4 py-2.5 rounded-xl text-sm font-medium text-primary-700 hover:bg-primary-50 transition-colors">
                 🎯 Kelola Target
               </Link>

@@ -36,7 +36,10 @@ export default function GoalsPage() {
 
   const onSubmit = async (data) => {
     try {
-      const newGoal = await api.post('/goals', { title: data.title });
+      const payload = { title: data.title };
+      if (data.description) payload.description = data.description;
+      if (data.deadline) payload.deadline = data.deadline;
+      const newGoal = await api.post('/goals', payload);
       setGoals([newGoal, ...goals]);
       reset();
       setShowForm(false);
@@ -85,6 +88,32 @@ export default function GoalsPage() {
             {errors.title && (
               <p className="mt-2 text-sm text-red-500">{errors.title.message}</p>
             )}
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-primary-700 mb-2">
+              Deskripsi
+            </label>
+            <textarea
+              placeholder="Jelaskan target belajarmu secara singkat..."
+              className="input min-h-[80px]"
+              rows={3}
+              {...register('description', {
+                maxLength: { value: 1000, message: 'Deskripsi terlalu panjang' },
+              })}
+            />
+            {errors.description && (
+              <p className="mt-2 text-sm text-red-500">{errors.description.message}</p>
+            )}
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-primary-700 mb-2">
+              Deadline
+            </label>
+            <input
+              type="date"
+              className="input"
+              {...register('deadline')}
+            />
           </div>
           <div className="flex gap-3">
             <button type="button" onClick={() => { setShowForm(false); reset(); }} className="btn-secondary">
