@@ -1,40 +1,19 @@
-import { NavLink } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
-export default function GoalCard({ goal, onDelete, onEdit }) {
+export default function GoalCard({ goal }) {
   return (
-    <div className="goal-card card">
-      <div className="flex justify-between items-start">
-        <NavLink to={`/goals/${goal.id}`} className="flex-1">
-          <h3 className="text-lg font-semibold mb-2 hover:text-primary transition-colors">
-            {goal.title}
-          </h3>
-        </NavLink>
-        <div className="flex gap-2">
-          {onEdit && (
-            <button onClick={() => onEdit(goal)} className="btn-icon" title="Edit">
-              ✏️
-            </button>
-          )}
-          {onDelete && (
-            <button onClick={() => onDelete(goal.id)} className="btn-icon text-red-500" title="Hapus">
-              🗑️
-            </button>
-          )}
-        </div>
-      </div>
+    <div className="card p-5 hover:-translate-y-1 transition-all duration-300">
+      <Link to={`/goals/${goal.id}`}>
+        <h3 className="font-semibold text-primary-900 mb-2 hover:text-primary-600 transition-colors">
+          {goal.title}
+        </h3>
+      </Link>
       {goal.description && (
-        <p className="text-muted text-sm mb-4 line-clamp-2">{goal.description}</p>
+        <p className="text-sm text-primary-500 mb-3 line-clamp-2">{goal.description}</p>
       )}
-      <div className="flex items-center gap-4 text-sm text-muted">
+      <div className="flex items-center gap-4 text-sm text-primary-400">
         {goal.deadline && (
-          <span className="flex items-center gap-1">
-            📅 {new Date(goal.deadline).toLocaleDateString('id-ID')}
-          </span>
-        )}
-        {goal.task_count !== undefined && (
-          <span className="flex items-center gap-1">
-            📝 {goal.task_count} tugas
-          </span>
+          <span>📅 {new Date(goal.deadline).toLocaleDateString('id-ID')}</span>
         )}
       </div>
     </div>

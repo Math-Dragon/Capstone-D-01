@@ -1,49 +1,66 @@
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
-import { useGoals } from '../context/GoalsContext';
-import { goalSchema } from '../schemas';
+import api from '../../../services/api';
 import GoalCard from './GoalCard';
 
 export default function GoalsPage() {
-  const { goals, loading, error, create, refresh } = useGoals();
+  const [goals, setGoals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  
+
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm({
-    resolver: zodResolver(goalSchema),
-  });
+  } = useForm();
+
+  const fetchGoals = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.get('/goals');
+      setGoals(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err.message);
+      setGoals([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGoals();
+  }, []);
 
   const onSubmit = async (data) => {
     try {
-      await create(data.title);
+      const newGoal = await api.post('/goals', { title: data.title });
+      setGoals([newGoal, ...goals]);
       reset();
       setShowForm(false);
-    } catch {
-      // Error handled by context
+    } catch (err) {
+      setError(err.message);
     }
   };
 
   if (error) {
     return (
-      <div className="goals-page">
-        <h2>Target Belajar</h2>
-        <div className="error-state card">
-          <p className="error">{error}</p>
-          <button onClick={refresh} className="btn-secondary">Coba Lagi</button>
+      <div>
+        <h2 className="text-2xl font-bold text-primary-900 mb-8">Target Belajar</h2>
+        <div className="card p-8 text-center">
+          <p className="text-red-500 mb-4">{error}</p>
+          <button onClick={fetchGoals} className="btn-secondary">Coba Lagi</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="goals-page">
+    <div>
       <div className="flex justify-between items-center mb-8">
-        <h2>Target Belajar</h2>
+        <h2 className="text-2xl font-bold text-primary-900">Target Belajar</h2>
         {!showForm && (
           <button onClick={() => setShowForm(true)} className="btn-primary">
             + Tambah Goal
@@ -52,41 +69,47 @@ export default function GoalsPage() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit(onSubmit)} className="card mb-8">
-          <div className="form-group">
-            <label htmlFor="title">Judul Goal</label>
+        <form onSubmit={handleSubmit(onSubmit)} className="card p-6 mb-8">
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-primary-700 mb-2">
+              Judul Goal
+            </label>
             <input
-              id="title"
               placeholder="Contoh: Menguasai React hooks"
-              {...register('title')}
-              className={errors.title ? 'error' : ''}
+              className="input"
+              {...register('title', {
+                required: 'Judul harus diisi',
+                maxLength: { value: 200, message: 'Judul terlalu panjang' },
+              })}
             />
-            {errors.title && <span className="error-text">{errors.title.message}</span>}
+            {errors.title && (
+              <p className="mt-2 text-sm text-red-500">{errors.title.message}</p>
+            )}
           </div>
-          <div className="flex gap-4">
-            <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">
+          <div className="flex gap-3">
+            <button type="button" onClick={() => { setShowForm(false); reset(); }} className="btn-secondary">
               Batal
             </button>
-            <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? 'Menyimpan...' : 'Simpan'}
+            <button type="submit" className="btn-primary">
+              Simpan
             </button>
           </div>
         </form>
       )}
 
-      {loading && goals.length === 0 ? (
-        <div className="loading-skeleton">Memuat goals...</div>
+      {loading ? (
+        <div className="text-center py-12 text-primary-500">Memuat goals...</div>
       ) : goals.length === 0 ? (
-        <div className="card text-center py-16">
-          <div className="text-4xl mb-4">🎯</div>
-          <h3>Belum ada target belajar</h3>
-          <p className="text-muted mb-8">Mulai dengan membuat target belajar pertamamu.</p>
+        <div className="card p-12 text-center">
+          <div className="text-5xl mb-4">🎯</div>
+          <h3 className="text-xl font-semibold text-primary-900 mb-2">Belum ada target belajar</h3>
+          <p className="text-primary-500 mb-6">Mulai dengan membuat target belajar pertamamu.</p>
           <button onClick={() => setShowForm(true)} className="btn-primary">
             Buat Goal Pertama
           </button>
         </div>
       ) : (
-        <div className="goals-grid">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {goals.map((goal) => (
             <GoalCard key={goal.id} goal={goal} />
           ))}

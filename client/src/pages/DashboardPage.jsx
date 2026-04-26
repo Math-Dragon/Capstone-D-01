@@ -1,10 +1,6 @@
-import ProgressBar from '../components/ProgressBar';
-import TaskItem from '../components/TaskItem';
-import WeeklySummary from '../components/WeeklySummary';
-import AISuggestionPanel from '../components/AISuggestionPanel';
 import { useState, useEffect } from 'react';
-import api from '../services/api';
 import { Link } from 'react-router-dom';
+import api from '../services/api';
 
 export default function DashboardPage() {
   const [tasks, setTasks] = useState([]);
@@ -16,10 +12,10 @@ export default function DashboardPage() {
       try {
         const [fetchedTasks, fetchedGoals] = await Promise.all([
           api.get('/tasks').catch(() => []),
-          api.get('/goals').catch(() => [])
+          api.get('/goals').catch(() => []),
         ]);
-        setTasks(fetchedTasks || []);
-        setGoals(fetchedGoals || []);
+        setTasks(Array.isArray(fetchedTasks) ? fetchedTasks : []);
+        setGoals(Array.isArray(fetchedGoals) ? fetchedGoals : []);
       } catch (err) {
         console.error(err);
       } finally {
@@ -29,88 +25,189 @@ export default function DashboardPage() {
     loadData();
   }, []);
 
-  const handleStatusChange = async (id, newStatus) => {
-    try {
-      const updated = await api.put(`/tasks/${id}`, { status: newStatus });
-      setTasks(tasks.map(t => t.id === id ? updated : t));
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleAiAccept = (newTasks) => {
-    if (Array.isArray(newTasks)) {
-      setTasks([...tasks, ...newTasks]);
-    } else {
-      // Re-fetch if unexpected format
-      api.get('/tasks').then(fetchedTasks => setTasks(fetchedTasks || []));
-    }
-  };
-
   if (loading) {
-    return <div style={{ padding: '2rem', textAlign: 'center' }}>Memuat data...</div>;
+    return (
+      <div className="flex items-center justify-center py-20">
+        <svg className="animate-spin h-8 w-8 text-primary-400" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
+      </div>
+    );
   }
 
-  const completedCount = tasks.filter(t => t.status === 'done' || t.status === 'completed').length;
-  const activeGoal = goals.length > 0 ? goals[0] : null;
+  const completedCount = tasks.filter((t) => t.status === 'done' || t.status === 'completed').length;
+  const totalCount = tasks.length;
+  const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const activeGoal = goals[0] || null;
 
   return (
-    <div className="dashboard-page">
-      <section className="welcome-section" style={{ marginBottom: '2.5rem' }}>
-        <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Selamat Datang Kembali! 👋</h2>
-        <p className="text-muted">Ini ringkasan progres belajarmu minggu ini.</p>
+    <div>
+      {/* Welcome */}
+      <section className="mb-10">
+        <h2 className="text-2xl sm:text-3xl font-bold text-primary-900 mb-2">
+          Selamat Datang Kembali! 👋
+        </h2>
+        <p className="text-primary-400">Ini ringkasan progres belajarmu minggu ini.</p>
       </section>
-      
-      <WeeklySummary plannedHours={12} completedHours={8} rate={tasks.length > 0 ? Math.round((completedCount/tasks.length)*100) : 0} />
 
-      <div style={{ marginTop: '3rem', display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
-        <section className="tasks-section">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h3>Tugas Mendatang</h3>
-            <button className="text-primary" style={{ fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}>Lihat Semua</button>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+        {[
+          { label: 'Target Aktif', value: goals.length, icon: '🎯' },
+          { label: 'Total Tugas', value: totalCount, icon: '📝' },
+          { label: 'Selesai', value: completedCount, icon: '✅' },
+          { label: 'Progres', value: `${progressPercent}%`, icon: '📈' },
+        ].map((stat) => (
+          <div key={stat.label} className="card p-5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-primary-400">{stat.label}</span>
+              <span className="text-xl">{stat.icon}</span>
+            </div>
+            <div className="text-2xl font-bold text-primary-900">{stat.value}</div>
           </div>
-          
+        ))}
+      </div>
+
+      {/* Progress Bar */}
+      {totalCount > 0 && (
+        <div className="card p-6 mb-10">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-primary-900">Progres Keseluruhan</h3>
+            <span className="text-sm text-primary-400">{completedCount}/{totalCount} tugas</span>
+          </div>
+          <div className="w-full bg-primary-100 rounded-full h-3">
+            <div
+              className="bg-primary-900 h-3 rounded-full transition-all duration-500"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+          <p className="text-sm text-primary-400 mt-3">
+            {completedCount === totalCount && totalCount > 0
+              ? 'Luar biasa! Semua tugas selesai! 🎉'
+              : `Tinggal ${totalCount - completedCount} tugas lagi untuk mencapai targetmu.`}
+          </p>
+        </div>
+      )}
+
+      {/* Main Content Grid */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Tasks */}
+        <div className="lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-primary-900">Tugas Mendatang</h3>
+            {tasks.length > 0 && (
+              <Link to="/calendar" className="text-sm font-medium text-primary-400 hover:text-primary-900">
+                Lihat Semua
+              </Link>
+            )}
+          </div>
+
           {tasks.length === 0 ? (
             activeGoal ? (
-              <AISuggestionPanel goalId={activeGoal.id} onAccept={handleAiAccept} />
+              <div className="card p-8 text-center">
+                <div className="text-4xl mb-4">✨</div>
+                <h4 className="text-lg font-semibold text-primary-900 mb-2">Belum ada tugas</h4>
+                <p className="text-primary-400 mb-6">Minta AI untuk menyusun rencana belajar berdasarkan targetmu.</p>
+                <Link to="/goals" className="btn-primary">
+                  Sarankan Rencana Belajar
+                </Link>
+              </div>
             ) : (
-              <div className="card" style={{ textAlign: 'center', padding: '3rem 2rem' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎯</div>
-                <h3>Belum ada target belajar</h3>
-                <p className="text-muted" style={{ marginBottom: '1.5rem' }}>Mulai dengan membuat target belajar agar AI bisa memberikan rekomendasi.</p>
-                <Link to="/goals" className="btn-primary" style={{ display: 'inline-block', textDecoration: 'none' }}>Buat Target Sekarang</Link>
+              <div className="card p-8 text-center">
+                <div className="text-4xl mb-4">🎯</div>
+                <h4 className="text-lg font-semibold text-primary-900 mb-2">Belum ada target belajar</h4>
+                <p className="text-primary-400 mb-6">Mulai dengan membuat target belajar agar AI bisa memberikan rekomendasi.</p>
+                <Link to="/goals" className="btn-primary">
+                  Buat Target Sekarang
+                </Link>
               </div>
             )
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {tasks.map(task => (
-                <TaskItem 
-                  key={task.id} 
-                  task={task} 
-                  onStatusChange={(status) => handleStatusChange(task.id, status)} 
-                />
+            <div className="space-y-3">
+              {tasks.slice(0, 5).map((task) => (
+                <div key={task.id} className="card p-4 flex items-center gap-4">
+                  <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                    task.status === 'done' || task.status === 'completed'
+                      ? 'bg-green-500'
+                      : task.status === 'in_progress'
+                      ? 'bg-yellow-400'
+                      : 'bg-primary-200'
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-medium text-sm ${
+                      task.status === 'done' || task.status === 'completed'
+                        ? 'line-through text-primary-400'
+                        : 'text-primary-900'
+                    }`}>
+                      {task.title}
+                    </p>
+                    {task.planned_date && (
+                      <p className="text-xs text-primary-400 mt-0.5">
+                        📅 {task.planned_date} · {task.planned_slot || ''}
+                      </p>
+                    )}
+                  </div>
+                  {task.duration_estimate && (
+                    <span className="text-xs text-primary-400 flex-shrink-0">
+                      {task.duration_estimate}m
+                    </span>
+                  )}
+                </div>
               ))}
             </div>
           )}
-        </section>
+        </div>
 
-        <section className="stats-sidebar">
-          <div className="card">
-            <h3>Progres Mingguan</h3>
-            <div style={{ marginTop: '1.5rem' }}>
-              <ProgressBar completed={completedCount} total={tasks.length} label="Total Tugas" />
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Active Goals */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-primary-900">Target Belajar</h3>
+              <Link to="/goals" className="text-sm font-medium text-primary-400 hover:text-primary-900">
+                Kelola
+              </Link>
             </div>
-            <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border)' }}>
-              <p className="text-muted" style={{ fontSize: '0.875rem' }}>
-                {tasks.length > 0 ? (
-                  <>Tetap semangat! Kamu tinggal <strong>{tasks.length - completedCount} tugas lagi</strong> untuk mencapai target mingguanmu.</>
-                ) : (
-                  <>Belum ada tugas minggu ini.</>
-                )}
-              </p>
+            {goals.length === 0 ? (
+              <div className="card p-5 text-center">
+                <p className="text-sm text-primary-400 mb-3">Belum ada target</p>
+                <Link to="/goals" className="btn-secondary text-sm">
+                  + Buat Target
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {goals.slice(0, 3).map((goal) => (
+                  <Link key={goal.id} to="/goals" className="card p-4 block hover:-translate-y-0.5 transition-all duration-200">
+                    <h4 className="font-medium text-primary-900 text-sm">{goal.title}</h4>
+                    {goal.deadline && (
+                      <p className="text-xs text-primary-400 mt-1">
+                        Deadline: {new Date(goal.deadline).toLocaleDateString('id-ID')}
+                      </p>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Quick Links */}
+          <div className="card p-5">
+            <h3 className="font-semibold text-primary-900 mb-4">Aksi Cepat</h3>
+            <div className="space-y-2">
+              <Link to="/goals" className="block px-4 py-2.5 rounded-xl text-sm font-medium text-primary-700 hover:bg-primary-50 transition-colors">
+                🎯 Kelola Target
+              </Link>
+              <Link to="/calendar" className="block px-4 py-2.5 rounded-xl text-sm font-medium text-primary-700 hover:bg-primary-50 transition-colors">
+                📅 Lihat Kalender
+              </Link>
+              <Link to="/progress" className="block px-4 py-2.5 rounded-xl text-sm font-medium text-primary-700 hover:bg-primary-50 transition-colors">
+                📈 Statistik Progres
+              </Link>
             </div>
           </div>
-        </section>
+        </div>
       </div>
     </div>
   );

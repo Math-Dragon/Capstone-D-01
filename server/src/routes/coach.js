@@ -1,0 +1,45 @@
+const express = require('express');
+const router = express.Router();
+const { z } = require('zod');
+const coachRouter = require('../services/coach-router.service');
+const { authenticate } = require('../middleware/authenticate');
+
+const coachActionSchema = z.object({
+  action: z.enum([
+    'INITIAL_PLAN', 'CHECK_IN', 'COMPLETE_TASK', 'SKIP_TASK',
+    'MODIFY_TASK', 'SUBMIT_FEEDBACK', 'REQUEST_ADJUSTMENT',
+    'CHAT_MESSAGE', 'CRISIS_SIGNAL',
+  ]),
+  payload: z.record(z.any()),
+  client_timestamp: z.number().optional(),
+  app_version: z.string().optional(),
+});
+
+router.use(authenticate);
+
+router.post('/', async (req, res, next) => {
+  try {
+    const { action, payload } = coachActionSchema.parse(req.body);
+    const result = await coachRouter.dispatch(req.user.id, action, payload);
+
+    res.json({
+      success: true,
+      status: 'ok',
+      type: result.type,
+      data: result.data,
+      server_timestamp: Date.now(),
+    });
+  } catch (err) {
+    if (err.name === 'ZodError') {
+      return res.status(400).json({
+        success: false,
+        status: 'error',
+        error_code: 'VALIDATION_FAILED',
+        message: err.errors.map((e) => e.message).join(', '),
+      });
+    }
+    next(err);
+  }
+});
+
+module.exports = router;

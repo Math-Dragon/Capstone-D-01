@@ -23,11 +23,11 @@ module.exports = {
   },
 
   async down(pgm) {
-    pgm.removeConstraint('profiles', 'profiles_preferred_time_check');
-    pgm.removeConstraint('ai_recommendations', 'ai_recommendations_status_check');
-    pgm.removeConstraint('goals', 'goals_status_check');
-    pgm.removeConstraint('tasks', 'tasks_planned_slot_check');
-    pgm.removeConstraint('tasks', 'tasks_source_check');
-    pgm.removeConstraint('tasks', 'tasks_status_check');
+    pgm.dropConstraint('profiles', 'profiles_preferred_time_check');
+    pgm.dropConstraint('ai_recommendations', 'ai_recommendations_status_check');
+    pgm.dropConstraint('goals', 'goals_status_check');
+    pgm.dropConstraint('tasks', 'tasks_planned_slot_check');
+    pgm.dropConstraint('tasks', 'tasks_source_check');
+    pgm.dropConstraint('tasks', 'tasks_status_check');
   },
 };

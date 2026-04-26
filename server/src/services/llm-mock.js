@@ -63,3 +63,21 @@ function generateMockSuggestion(userContext) {
 }
 
 module.exports = { generateMockSuggestion };
+
+function generateMockChat(ctx) {
+  const studentMsg = (ctx.payload && ctx.payload.message) || '';
+  const lower = studentMsg.toLowerCase();
+
+  let message;
+  if (lower.includes('sulit') || lower.includes('hard') || lower.includes('struggle')) {
+    message = 'Saya mengerti bahwa ini terasa sulit. Coba pecah menjadi bagian yang lebih kecil dan fokus pada satu konsep dalam satu waktu. Apakah ada topik tertentu yang ingin kita bahas lebih detail?';
+  } else if (lower.includes('lebih') || lower.includes('more') || lower.includes('challenge')) {
+    message = 'Bagus, semangat belajarmu tinggi! Saya akan tingkatkan tingkat kesulitan pada tugas berikutnya. Tetap pertahankan konsistensi belajarmu.';
+  } else {
+    message = 'Terima kasih sudah berbagi! Saya akan terus mendukung proses belajarmu. Jangan ragu untuk bertanya jika ada yang ingin kamu diskusikan tentang rencana belajar.';
+  }
+
+  return { message, plan: null };
+}
+
+module.exports = { generateMockSuggestion, generateMockChat };

@@ -6,6 +6,8 @@ const aiRecRepo = require('./ai-recommendation.repo');
 const progressRepo = require('./progress-snapshot.repo');
 const auditRepo = require('./audit-log.repo');
 const refreshTokenRepo = require('./refresh-token.repo');
+const chatMessageRepo = require('./chat-message.repo');
+const studentMetricsRepo = require('./student-metrics.repo');
 
 module.exports = {
   user: userRepo,
@@ -16,4 +18,6 @@ module.exports = {
   progress: progressRepo,
   audit: auditRepo,
   refreshToken: refreshTokenRepo,
+  chatMessage: chatMessageRepo,
+  studentMetrics: studentMetricsRepo,
 };

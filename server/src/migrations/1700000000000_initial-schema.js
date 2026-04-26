@@ -14,10 +14,10 @@ module.exports = {
     pgm.createTable('profiles', {
       id: { type: 'uuid', primaryKey: true, default: pgm.func('gen_random_uuid()') },
       user_id: { type: 'uuid', notNull: true, references: 'users(id)', onDelete: 'CASCADE', unique: true },
-      timezone: { type: 'varchar(50)', notNull: true, default: "'Asia/Jakarta'" },
-      preferred_time: { type: 'varchar(20)', notNull: true, default: "'morning'" },
+      timezone: { type: 'varchar(50)', notNull: true, default: 'Asia/Jakarta' },
+      preferred_time: { type: 'varchar(20)', notNull: true, default: 'morning' },
       weekly_target_hours: { type: 'numeric(4,1)', notNull: true, default: '5.0' },
-      availability: { type: 'jsonb', notNull: true, default: "'{}'::jsonb" },
+      availability: { type: 'jsonb', notNull: true, default: pgm.func("'{}'::jsonb") },
     });
 
     pgm.createTable('goals', {
@@ -26,7 +26,7 @@ module.exports = {
       title: { type: 'varchar(255)', notNull: true },
       description: { type: 'text' },
       deadline: { type: 'date' },
-      status: { type: 'varchar(20)', notNull: true, default: "'active'" },
+      status: { type: 'varchar(20)', notNull: true, default: 'active' },
       created_at: { type: 'timestamptz', notNull: true, default: pgm.func('NOW()') },
     });
 
@@ -40,8 +40,8 @@ module.exports = {
       duration_estimate: { type: 'integer', notNull: true },
       planned_date: { type: 'date' },
       planned_slot: { type: 'varchar(20)' },
-      status: { type: 'varchar(20)', notNull: true, default: "'todo'" },
-      source: { type: 'varchar(10)', notNull: true, default: "'manual'" },
+      status: { type: 'varchar(20)', notNull: true, default: 'todo' },
+      source: { type: 'varchar(10)', notNull: true, default: 'manual' },
       actual_duration: { type: 'integer' },
       completed_at: { type: 'timestamptz' },
       rationale: { type: 'text' },
@@ -58,7 +58,7 @@ module.exports = {
       type: { type: 'varchar(20)', notNull: true },
       input_context: { type: 'jsonb', notNull: true },
       output: { type: 'jsonb', notNull: true },
-      status: { type: 'varchar(20)', notNull: true, default: "'pending'" },
+      status: { type: 'varchar(20)', notNull: true, default: 'pending' },
       created_at: { type: 'timestamptz', notNull: true, default: pgm.func('NOW()') },
     });
 
@@ -85,7 +85,7 @@ module.exports = {
       user_id: { type: 'uuid', references: 'users(id)' },
       recommendation_id: { type: 'uuid', references: 'ai_recommendations(id)' },
       action: { type: 'varchar(50)', notNull: true },
-      metadata: { type: 'jsonb', notNull: true, default: "'{}'::jsonb" },
+      metadata: { type: 'jsonb', notNull: true, default: pgm.func("'{}'::jsonb") },
       created_at: { type: 'timestamptz', notNull: true, default: pgm.func('NOW()') },
     });
 

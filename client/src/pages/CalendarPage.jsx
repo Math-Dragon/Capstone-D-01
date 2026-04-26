@@ -1,14 +1,305 @@
+import { useState, useEffect, useMemo } from 'react';
+import api from '../services/api';
+
+const DAY_NAMES = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+const SLOT_ORDER = { morning: 0, afternoon: 1, evening: 2 };
+const SLOT_META = {
+  morning: { icon: '☀️', label: 'Pagi' },
+  afternoon: { icon: '⛅', label: 'Siang' },
+  evening: { icon: '🌙', label: 'Malam' },
+};
+const TASK_TYPE_COLORS = {
+  acquire: '#818CF8',
+  practice: '#F0A500',
+  recall: '#EC4899',
+  interleave: '#06B6D4',
+  synthesize: '#A78BFA',
+  review: '#34D399',
+  assess: '#F87171',
+  reflect: '#94A3B8',
+};
+
+function getWeekDates(offset = 0) {
+  const now = new Date();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7) + offset * 7);
+  const dates = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    dates.push(d.toISOString().split('T')[0]);
+  }
+  return dates;
+}
+
+function formatWeekRange(dates) {
+  if (!dates.length) return '';
+  const start = new Date(dates[0] + 'T00:00:00');
+  const end = new Date(dates[6] + 'T00:00:00');
+  const opts = { day: 'numeric', month: 'short', year: 'numeric' };
+  const locale = 'id-ID';
+  if (start.getMonth() === end.getMonth()) {
+    return `${start.getDate()} – ${end.toLocaleDateString(locale, opts)}`;
+  }
+  return `${start.toLocaleDateString(locale, { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString(locale, opts)}`;
+}
+
+function formatDuration(min) {
+  if (min < 60) return `${min}m`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m > 0 ? `${h}j ${m}m` : `${h}j`;
+}
+
+function formatSlotLabel(slot) {
+  const meta = SLOT_META[slot];
+  return meta ? `${meta.icon} ${meta.label}` : slot;
+}
+
 export default function CalendarPage() {
-  return (
-    <div className="calendar-page">
-      <div style={{ marginBottom: '2rem' }}>
-        <h2>Jadwal Belajar</h2>
-        <p className="text-muted">Atur waktu belajarmu dengan efisien.</p>
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(null);
+
+  const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await api.get('/tasks');
+        setTasks(Array.isArray(data) ? data : []);
+      } catch {
+        setTasks([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const tasksByDate = useMemo(() => {
+    const map = {};
+    tasks.forEach((t) => {
+      const d = t.planned_date;
+      if (!d) return;
+      if (!map[d]) map[d] = [];
+      map[d].push(t);
+    });
+    Object.values(map).forEach((arr) =>
+      arr.sort((a, b) => (SLOT_ORDER[a.planned_slot] ?? 1) - (SLOT_ORDER[b.planned_slot] ?? 1))
+    );
+    return map;
+  }, [tasks]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <svg className="animate-spin h-8 w-8 text-primary-400" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
       </div>
-      
-      <div className="card">
-        <h3>Kalender Mingguan</h3>
-        <p className="text-muted" style={{ padding: '2rem 0' }}>Fitur kalender akan segera hadir.</p>
+    );
+  }
+
+  const totalWeekMin = weekDates.reduce(
+    (sum, d) => sum + (tasksByDate[d] || []).reduce((s, t) => s + (t.duration_estimate || 0), 0),
+    0
+  );
+
+  const displayDate = selectedDate || todayStr;
+  const displayTasks = (tasksByDate[displayDate] || []).filter(
+    (t) => t.status === 'todo'
+  );
+
+  return (
+    <div>
+      <div className="mb-8">
+        <h2 className="text-2xl sm:text-3xl font-bold text-primary-900 mb-2">
+          Jadwal Belajar
+        </h2>
+        <p className="text-primary-400">Lihat rencana belajarmu minggu ini.</p>
+      </div>
+
+      {/* Week Navigation */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={() => setWeekOffset((p) => p - 1)}
+          className="p-2 rounded-lg hover:bg-primary-100 text-primary-600 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <div className="text-center">
+          <span className="text-sm font-semibold text-primary-900">
+            {formatWeekRange(weekDates)}
+          </span>
+        </div>
+        <button
+          onClick={() => setWeekOffset((p) => p + 1)}
+          className="p-2 rounded-lg hover:bg-primary-100 text-primary-600 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Calendar Grid */}
+      <div className="grid grid-cols-7 gap-2 mb-6">
+        {weekDates.map((date, i) => {
+          const dayTasks = tasksByDate[date] || [];
+          const isToday = date === todayStr;
+          const isSelected = date === displayDate;
+          const totalMin = dayTasks.reduce((s, t) => s + (t.duration_estimate || 0), 0);
+          const completedCount = dayTasks.filter(
+            (t) => t.status === 'done' || t.status === 'completed'
+          ).length;
+
+          return (
+            <button
+              key={date}
+              onClick={() => setSelectedDate(date)}
+              className={`rounded-xl p-2 text-center transition-all duration-200 border ${
+                isSelected
+                  ? 'border-primary-900 bg-primary-100 shadow-soft'
+                  : isToday
+                  ? 'border-accent-400 bg-accent-50'
+                  : 'border-primary-100 bg-white hover:border-primary-200'
+              }`}
+            >
+              <div
+                className={`text-[11px] font-medium mb-1 ${
+                  isSelected ? 'text-primary-900' : isToday ? 'text-accent-600' : 'text-primary-400'
+                }`}
+              >
+                {DAY_NAMES[i]}
+              </div>
+              <div
+                className={`text-lg font-bold mb-2 ${
+                  isSelected ? 'text-primary-900' : isToday ? 'text-accent-600' : 'text-primary-700'
+                }`}
+              >
+                {new Date(date + 'T00:00:00').getDate()}
+              </div>
+              {dayTasks.length > 0 ? (
+                <>
+                  <div className="text-[10px] text-primary-400 mb-1">
+                    {formatDuration(totalMin)}
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-0.5">
+                    {dayTasks.slice(0, 6).map((t) => (
+                      <span
+                        key={t.id}
+                        className="w-1.5 h-1.5 rounded-full inline-block"
+                        style={{
+                          backgroundColor:
+                            t.status === 'done' || t.status === 'completed'
+                              ? '#22C55E'
+                              : TASK_TYPE_COLORS[t.task_type] || '#94A3B8',
+                        }}
+                      />
+                    ))}
+                  </div>
+                  {completedCount > 0 && (
+                    <div className="text-[9px] text-green-600 mt-1">
+                      {completedCount}/{dayTasks.length}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-[10px] text-primary-300">Istirahat</div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Week Summary */}
+      <div className="card p-4 mb-6">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-primary-500">Total rencana minggu ini</span>
+          <span className="text-sm font-semibold text-primary-900">
+            {formatDuration(totalWeekMin)}
+          </span>
+        </div>
+      </div>
+
+      {/* Day Tasks */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-primary-900">
+            Tugas {new Date(displayDate + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </h3>
+          {selectedDate && (
+            <button
+              onClick={() => setSelectedDate(null)}
+              className="text-xs text-primary-400 hover:text-primary-600 transition-colors"
+            >
+              Kembali ke hari ini
+            </button>
+          )}
+        </div>
+
+        {displayTasks.length === 0 ? (
+          <div className="card p-8 text-center">
+            <div className="text-3xl mb-3">✅</div>
+            <p className="text-primary-400">
+              {displayDate === todayStr
+                ? 'Semua tugas hari ini sudah selesai!'
+                : 'Tidak ada tugas terjadwal untuk hari ini.'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {displayTasks.map((task) => {
+              const color = TASK_TYPE_COLORS[task.task_type] || '#94A3B8';
+              return (
+                <div
+                  key={task.id}
+                  className="card p-4 border-l-4"
+                  style={{ borderLeftColor: color }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        {task.planned_slot && (
+                          <span className="text-xs text-primary-400">
+                            {formatSlotLabel(task.planned_slot)}
+                          </span>
+                        )}
+                        <span className="text-xs text-primary-300">·</span>
+                        <span className="text-xs font-medium text-primary-900">
+                          {task.duration_estimate}m
+                        </span>
+                      </div>
+                      <h4 className="font-medium text-sm text-primary-900">
+                        {task.title}
+                      </h4>
+                      {task.description && (
+                        <p className="text-xs text-primary-400 mt-1 line-clamp-2">
+                          {task.description}
+                        </p>
+                      )}
+                    </div>
+                    <span
+                      className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded"
+                      style={{
+                        backgroundColor: color + '22',
+                        color,
+                      }}
+                    >
+                      {task.task_type || 'task'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

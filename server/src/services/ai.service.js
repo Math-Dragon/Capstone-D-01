@@ -16,7 +16,7 @@ let SYSTEM_PROMPT;
 if (!isMock) {
   const { GoogleGenerativeAI } = require('@google/generative-ai');
   genAI = new GoogleGenerativeAI(config.geminiKey);
-  SYSTEM_PROMPT = fs.readFileSync(path.join(__dirname, '../prompts/system.md'), 'utf8');
+  SYSTEM_PROMPT = fs.readFileSync(path.join(__dirname, '../prompts/system-v3.md'), 'utf8');
 }
 
 const AI_TIMEOUT_MS = 30000;

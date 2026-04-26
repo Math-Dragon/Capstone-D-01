@@ -14,6 +14,7 @@ const goalRoutes = require('./routes/goals');
 const taskRoutes = require('./routes/tasks');
 const aiRoutes = require('./routes/ai');
 const progressRoutes = require('./routes/progress');
+const coachRoutes = require('./routes/coach');
 
 const app = express();
 app.use(cors({ origin: config.allowedOrigins, credentials: true }));
@@ -28,6 +29,7 @@ app.use('/api/goals', goalRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/ai', aiLimiter, aiRoutes);
 app.use('/api/progress', progressRoutes);
+app.use('/api/coach', aiLimiter, coachRoutes);
 
 app.use(errorHandler);
 

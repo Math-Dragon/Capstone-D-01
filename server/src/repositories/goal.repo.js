@@ -26,11 +26,11 @@ async function findByIdAndUserId(goalId, userId, client) {
   return result.rows[0] || null;
 }
 
-async function create({ user_id, title, description, deadline }, client) {
+async function create({ user_id, title, description, deadline, status }, client) {
   const result = await db.query(
-    `INSERT INTO goals (user_id, title, description, deadline)
-     VALUES ($1, $2, $3, $4) RETURNING *`,
-    [user_id, title, description || null, deadline || null],
+    `INSERT INTO goals (user_id, title, description, deadline, status)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [user_id, title, description || null, deadline || null, status || 'active'],
     client
   );
   return result.rows[0];
