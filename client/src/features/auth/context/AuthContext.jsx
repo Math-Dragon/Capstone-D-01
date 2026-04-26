@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setUser, logout as logoutAction, setLoading, setError } from '../../../store/slices/authSlice';
 import authService from '../services/authService';
@@ -9,22 +9,39 @@ export function AuthProvider({ children }) {
   const dispatch = useDispatch();
   const { user, isAuthenticated, loading, error } = useSelector((state) => state.auth);
 
+  const [isInitialized, setIsInitialized] = useState(false);
+
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token && !user) {
-      dispatch(setLoading(true));
-      authService.getProfile()
-        .then((data) => {
-          dispatch(setUser(data));
-        })
-        .catch(() => {
+    if (!isInitialized && !user) {
+      const initAuth = async () => {
+        dispatch(setLoading(true));
+        try {
+          let token = localStorage.getItem('token');
+          if (!token) {
+            try {
+              const data = await authService.refreshToken();
+              token = data.accessToken;
+              localStorage.setItem('token', token);
+            } catch (err) {
+              // Silent failure, no token or refresh cookie
+            }
+          }
+          
+          if (token) {
+            const profileData = await authService.getProfile();
+            dispatch(setUser(profileData));
+          }
+        } catch (err) {
           localStorage.removeItem('token');
-        })
-        .finally(() => {
+        } finally {
           dispatch(setLoading(false));
-        });
+          setIsInitialized(true);
+        }
+      };
+      
+      initAuth();
     }
-  }, [dispatch, user]);
+  }, [dispatch, user, isInitialized]);
 
   const login = async (credentials) => {
     dispatch(setLoading(true));

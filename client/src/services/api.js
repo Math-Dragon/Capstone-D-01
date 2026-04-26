@@ -4,10 +4,25 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
 
 api.interceptors.request.use(
   (config) => {
@@ -27,11 +42,68 @@ api.interceptors.response.use(
     }
     return response.data;
   },
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
-      return Promise.reject(new Error('Session expired. Please login again.'));
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (!error.response) {
+      return Promise.reject(error);
+    }
+
+    if (
+      error.response.status === 401 &&
+      !originalRequest._retry &&
+      originalRequest.url !== '/auth/login' &&
+      originalRequest.url !== '/auth/refresh'
+    ) {
+      if (isRefreshing) {
+        try {
+          const token = await new Promise(function(resolve, reject) {
+            failedQueue.push({ resolve, reject });
+          });
+          originalRequest.headers['Authorization'] = 'Bearer ' + token;
+          return axios(originalRequest).then(res => {
+            if (res.data && res.data.success !== undefined && res.data.data !== undefined) {
+              return res.data.data;
+            }
+            return res.data;
+          });
+        } catch (err) {
+          return Promise.reject(err);
+        }
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const res = await axios.post(`${API_BASE_URL}/auth/refresh`, {}, { withCredentials: true });
+        const data = res.data;
+        const newAccessToken = data.data ? data.data.accessToken : data.accessToken;
+        
+        localStorage.setItem('token', newAccessToken);
+        api.defaults.headers.common['Authorization'] = 'Bearer ' + newAccessToken;
+        originalRequest.headers['Authorization'] = 'Bearer ' + newAccessToken;
+        
+        processQueue(null, newAccessToken);
+        
+        // Retry original request via axios to avoid duplicate interceptor unwrapping
+        // or we use axios and handle unwrapping here.
+        const retryRes = await axios(originalRequest);
+        isRefreshing = false;
+        
+        if (retryRes.data && retryRes.data.success !== undefined && retryRes.data.data !== undefined) {
+          return retryRes.data.data;
+        }
+        return retryRes.data;
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        isRefreshing = false;
+        localStorage.removeItem('token');
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+        return Promise.reject(refreshError);
+      }
     }
 
     const message = error.response?.data?.message || error.response?.data?.error || error.message || 'Something went wrong';
