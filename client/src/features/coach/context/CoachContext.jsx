@@ -72,10 +72,10 @@ export function CoachProvider({ children }) {
       const coachMsg = {
         id: `coach-${Date.now()}`,
         role: 'coach',
-        content: result?.data?.message || 'Rencana belajarmu telah diperbarui.',
+        content: result?.message || 'Rencana belajarmu telah diperbarui.',
         timestamp: new Date().toISOString(),
-        planSnapshot: result?.data?.plan?.summary || null,
-        plan: result?.data?.plan || null,
+        planSnapshot: result?.plan?.summary || null,
+        plan: result?.plan || null,
       };
 
       setMessages((prev) => [...prev, coachMsg]);
@@ -112,14 +112,14 @@ export function CoachProvider({ children }) {
       const result = await coachService.dispatchAction(action, payload);
       setStatus('idle');
 
-      if (result?.data?.message) {
+      if (result?.message) {
         const coachMsg = {
           id: `coach-${Date.now()}`,
           role: 'coach',
-          content: result.data.message,
+          content: result.message,
           timestamp: new Date().toISOString(),
-          planSnapshot: result.data.plan?.summary || null,
-          plan: result.data.plan || null,
+          planSnapshot: result.plan?.summary || null,
+          plan: result.plan || null,
         };
         setMessages((prev) => [...prev, coachMsg]);
       }
@@ -146,10 +146,10 @@ export function CoachProvider({ children }) {
       const coachMsg = {
         id: `coach-${Date.now()}`,
         role: 'coach',
-        content: result?.data?.summary || `Rencana belajar berhasil dibuat! ${result?.data?.tasks?.length || 0} tugas telah ditambahkan ke jadwal kamu.`,
+        content: result?.summary || `Rencana belajar berhasil dibuat! ${result?.tasks?.length || 0} tugas telah ditambahkan ke jadwal kamu.`,
         timestamp: new Date().toISOString(),
-        planSnapshot: result?.data?.summary || null,
-        plan: result?.data || null,
+        planSnapshot: result?.summary || null,
+        plan: result || null,
       };
 
       setMessages((prev) => [...prev, coachMsg]);

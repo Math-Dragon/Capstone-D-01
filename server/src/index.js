@@ -7,8 +7,22 @@ const { connectRedis, redisClient } = require('./services/redis');
 const startupChecks = [isHealthy(), connectRedis()];
 
 if (config.llmProvider !== 'mock') {
-  const { validateConnection } = require('./services/llm-client');
-  startupChecks.push(validateConnection());
+  const { validateConnection, setIsMock } = require('./services/llm-client');
+  startupChecks.push(
+    validateConnection()
+      .then((result) => {
+        if (result.primaryFailed) {
+          logger.info('LLM active on fallback provider (primary unavailable)');
+        }
+        return result;
+      })
+      .catch((err) => {
+        logger.warn({ err: err.message }, 'All LLM providers failed — falling back to mock');
+        setIsMock(true);
+        config.llmProvider = 'mock';
+        return { ok: true, provider: 'mock', fallback: true };
+      })
+  );
 }
 
 Promise.all(startupChecks)

@@ -72,7 +72,39 @@ function generateMockSuggestion(ctx) {
 module.exports = { generateMockSuggestion };
 
 function generateMockChat(ctx) {
-  const studentMsg = (ctx.payload && ctx.payload.message) || '';
+  const payload = ctx.payload || {};
+
+  if (payload.reason !== undefined) {
+    const title = payload.taskTitle || 'tugas tersebut';
+    const reasonMap = {
+      too_hard: 'terlalu sulit',
+      no_time: 'tidak ada waktu',
+      not_interested: 'kurang menarik',
+      other: 'alasan lain',
+    };
+    const reasonText = reasonMap[payload.reason] || payload.reason;
+    let message = `Saya mengerti kamu melewatkan "${title}" karena ${reasonText}. `;
+    if (payload.note) message += `Catatanmu: "${payload.note}". `;
+    message += 'Tidak apa-apa, kita bisa menyesuaikan rencana. Apakah kamu ingin tugas ini dijadwalkan ulang atau diganti?';
+    return { message, plan: null };
+  }
+
+  if (payload.difficulty !== undefined) {
+    const title = payload.taskTitle || 'tugas tersebut';
+    let message = `Terima kasih atas feedback untuk "${title}"! `;
+    message += `Tingkat kesulitan: ${payload.difficulty}/5, Fokus: ${payload.focus}/5. `;
+    if (payload.notes) message += `Catatan: "${payload.notes}". `;
+    if (payload.difficulty >= 4) {
+      message += 'Tampaknya cukup menantang — saya akan menyesuaikan tugas berikutnya agar lebih manageable.';
+    } else if (payload.difficulty <= 2) {
+      message += 'Sepertinya sudah cukup mudah — saya akan tingkatkan tingkat kesulitan berikutnya untuk terus menantang kamu.';
+    } else {
+      message += 'Tingkat kesulitannya pas. Pertahankan momentum belajarmu!';
+    }
+    return { message, plan: null };
+  }
+
+  const studentMsg = payload.message || '';
   const lower = studentMsg.toLowerCase();
 
   let message;
