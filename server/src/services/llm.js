@@ -1,35 +1,4 @@
-const { z } = require('zod');
-
-const TaskSchema = z.object({
-  id: z.string().optional(),
-  title: z.string().min(1),
-  description: z.string(),
-  task_type: z.enum(['acquire', 'practice', 'recall', 'interleave', 'synthesize', 'review', 'assess', 'reflect']).optional(),
-  duration_estimate: z.number().int().min(10).max(90),
-  planned_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  planned_slot: z.enum(['morning', 'afternoon', 'evening']),
-  priority: z.enum(['high', 'medium', 'low']).optional(),
-  completion_criteria: z.string().optional(),
-  prerequisites: z.array(z.string()).optional(),
-  rationale: z.string().min(1),
-});
-
-const PlanSchema = z.object({
-  tasks: z.array(TaskSchema).min(1),
-  summary: z.string(),
-  next_check_in: z.string().optional(),
-  adaptation_notes: z.string().nullable().optional(),
-});
-
-const SuggestionSchema = z.object({
-  tasks: z.array(TaskSchema).min(1),
-  summary: z.string(),
-});
-
-const ChatResponseSchema = z.object({
-  message: z.string().min(1),
-  plan: PlanSchema.nullable(),
-});
+const { PlanSchema, SuggestionSchema, ChatResponseSchema } = require('../models/llm.model');
 
 function _parse(raw) {
   try {
@@ -68,4 +37,4 @@ function validateChatOutput(raw) {
   return result.data;
 }
 
-module.exports = { validateAIOutput, validateChatOutput, SuggestionSchema, PlanSchema, ChatResponseSchema, TaskSchema };
+module.exports = { validateAIOutput, validateChatOutput, SuggestionSchema, PlanSchema, ChatResponseSchema };

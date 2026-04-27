@@ -1,19 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { z } = require('zod');
 const aiService = require('../services/ai.service');
 const { authenticate } = require('../middleware/authenticate');
-
-const suggestSchema = z.object({
-  goalId: z.string().uuid(),
-  context: z.record(z.any()).optional(),
-});
+const { suggestPlanSchema } = require('../models/ai-recommendation.model');
 
 router.use(authenticate);
 
 router.post('/plan/suggest', async (req, res, next) => {
   try {
-    const data = suggestSchema.parse(req.body);
+    const data = suggestPlanSchema.parse(req.body);
     const result = await aiService.suggestPlan(req.user.id, data.goalId, data.context);
     res.json({ success: true, data: result });
   } catch (err) { next(err); }

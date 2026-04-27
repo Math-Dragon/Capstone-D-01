@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useCoach } from '../features/coach/context/CoachContext';
+import { useGoals } from '../features/goals/context/GoalsContext';
 import TaskActionModal from '../components/TaskActionModal';
 
 const TASK_TYPE_COLORS = {
@@ -30,7 +31,9 @@ const STATUS_MAP = {
 };
 
 export default function GoalDetailPage() {
+  const navigate = useNavigate();
   const coachCtx = useCoach();
+  const { update, remove } = useGoals();
   const { id } = useParams();
   const [goal, setGoal] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,6 +42,14 @@ export default function GoalDetailPage() {
   const [modalTask, setModalTask] = useState(null);
   const [modalMode, setModalMode] = useState(null);
   const [toast, setToast] = useState(null);
+
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editDeadline, setEditDeadline] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const openModal = (task, mode) => {
     setModalTask(task);
@@ -83,6 +94,46 @@ export default function GoalDetailPage() {
     } finally {
       setActionLoading(null);
       closeModal();
+    }
+  };
+
+  const startEditing = () => {
+    setEditTitle(goal.title);
+    setEditDescription(goal.description || '');
+    setEditDeadline(goal.deadline ? goal.deadline.slice(0, 10) : '');
+    setEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setEditing(false);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const updated = await update(id, {
+        title: editTitle,
+        description: editDescription || null,
+        deadline: editDeadline || null,
+      });
+      setGoal((prev) => ({ ...prev, ...updated }));
+      setEditing(false);
+    } catch (err) {
+      console.error('Failed to update goal:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await remove(id);
+      navigate('/goals');
+    } catch (err) {
+      console.error('Failed to delete goal:', err);
+      setDeleting(false);
+      setConfirmDelete(false);
     }
   };
 
@@ -145,29 +196,99 @@ export default function GoalDetailPage() {
 
       {/* Goal Header */}
       <div className="card p-6 mb-6">
-        <div className="flex items-start justify-between gap-4 mb-4">
+        {editing ? (
           <div>
-            <h2 className="text-2xl font-bold text-primary-900">{goal.title}</h2>
-            {goal.description && (
-              <p className="text-primary-500 mt-2">{goal.description}</p>
-            )}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-primary-700 mb-2">Judul Goal</label>
+              <input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="input"
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-primary-700 mb-2">Deskripsi</label>
+              <textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                className="input min-h-[80px]"
+                rows={3}
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-primary-700 mb-2">Deadline</label>
+              <input
+                type="date"
+                value={editDeadline}
+                onChange={(e) => setEditDeadline(e.target.value)}
+                className="input"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button onClick={cancelEditing} className="btn-secondary" disabled={saving}>Batal</button>
+              <button onClick={handleSave} className="btn-primary" disabled={saving}>
+                {saving ? 'Menyimpan...' : 'Simpan'}
+              </button>
+            </div>
           </div>
-          <span className={`text-xs font-semibold uppercase px-3 py-1 rounded-full ${
-            goal.status === 'active'
-              ? 'bg-green-100 text-green-700'
-              : goal.status === 'completed'
-              ? 'bg-primary-100 text-primary-700'
-              : 'bg-primary-50 text-primary-400'
-          }`}>
-            {goal.status === 'active' ? 'Aktif' : goal.status}
-          </span>
-        </div>
-        {goal.deadline && (
-          <p className="text-sm text-primary-400">
-            📅 Deadline: {new Date(goal.deadline).toLocaleDateString('id-ID', {
-              weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-            })}
-          </p>
+        ) : (
+          <>
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-primary-900">{goal.title}</h2>
+                {goal.description && (
+                  <p className="text-primary-500 mt-2">{goal.description}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className={`text-xs font-semibold uppercase px-3 py-1 rounded-full ${
+                  goal.status === 'active'
+                    ? 'bg-green-100 text-green-700'
+                    : goal.status === 'completed'
+                    ? 'bg-primary-100 text-primary-700'
+                    : 'bg-primary-50 text-primary-400'
+                }`}>
+                  {goal.status === 'active' ? 'Aktif' : goal.status}
+                </span>
+              </div>
+            </div>
+            {goal.deadline && (
+              <p className="text-sm text-primary-400">
+                📅 Deadline: {new Date(goal.deadline).toLocaleDateString('id-ID', {
+                  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+                })}
+              </p>
+            )}
+            <div className="flex gap-2 mt-4 pt-4 border-t border-primary-100">
+              <button onClick={startEditing} className="text-sm px-3 py-1.5 rounded bg-primary-100 text-primary-700 hover:bg-primary-200 transition-colors">
+                ✏️ Edit Goal
+              </button>
+              {confirmDelete ? (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="text-sm px-3 py-1.5 rounded bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+                  >
+                    {deleting ? 'Menghapus...' : 'Ya, Hapus'}
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    className="text-sm px-3 py-1.5 rounded bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors"
+                  >
+                    Batal
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="text-sm px-3 py-1.5 rounded bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                >
+                  🗑️ Hapus Goal
+                </button>
+              )}
+            </div>
+          </>
         )}
       </div>
 

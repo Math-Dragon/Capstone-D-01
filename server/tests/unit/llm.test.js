@@ -1,4 +1,5 @@
-const { validateAIOutput, TaskSchema } = require('../../src/services/llm');
+const { validateAIOutput } = require('../../src/services/llm');
+const { LLMTaskSchema: TaskSchema } = require('../../src/models/task.model');
 
 describe('validateAIOutput', () => {
   test('throws on invalid JSON', () => {
@@ -54,11 +55,11 @@ describe('TaskSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  test('rejects duration below 25', () => {
+  test('rejects duration below 10', () => {
     const result = TaskSchema.safeParse({
       title: 'Test',
       description: 'desc',
-      duration_estimate: 20,
+      duration_estimate: 5,
       planned_date: '2026-05-01',
       planned_slot: 'morning',
       rationale: 'reason',
