@@ -4,7 +4,14 @@ const config = require('./config');
 const logger = require('./utils/logger');
 const { connectRedis, redisClient } = require('./services/redis');
 
-Promise.all([isHealthy(), connectRedis()])
+const startupChecks = [isHealthy(), connectRedis()];
+
+if (config.llmProvider !== 'mock') {
+  const { validateConnection } = require('./services/llm-client');
+  startupChecks.push(validateConnection());
+}
+
+Promise.all(startupChecks)
   .then(([dbOk]) => {
     if (!dbOk) throw new Error('Database health check failed');
     logger.info('Services connected');

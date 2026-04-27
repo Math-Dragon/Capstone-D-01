@@ -17,11 +17,22 @@ function TypingIndicator() {
 }
 
 function MessageBubble({ msg }) {
+  const isSystem = msg.role === 'system';
   const isStudent = msg.role === 'student';
   const time = new Date(msg.timestamp).toLocaleTimeString('id-ID', {
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  if (isSystem) {
+    return (
+      <div className="flex justify-center mb-2 animate-fade-in">
+        <span className="text-[11px] text-primary-400 bg-primary-50 px-3 py-1 rounded-full">
+          {msg.content}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex ${isStudent ? 'justify-end' : 'justify-start'} mb-3 animate-fade-in`}>

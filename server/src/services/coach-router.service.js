@@ -1,33 +1,9 @@
-const fs = require('fs');
-const path = require('path');
-const config = require('../config');
 const repos = require('../repositories');
 const { validateAIOutput, validateChatOutput } = require('./llm');
 const { generateMockSuggestion, generateMockChat } = require('./llm-mock');
-const { withRetry } = require('../utils/retry');
+const { isMock, callWithRetry } = require('./llm-client');
 const logger = require('../utils/logger');
 const adaptationTrigger = require('./adaptation-trigger.service');
-
-const isMock = config.llmProvider === 'mock';
-
-let genAI;
-let SYSTEM_PROMPT;
-
-if (!isMock) {
-  const { GoogleGenerativeAI } = require('@google/generative-ai');
-  genAI = new GoogleGenerativeAI(config.geminiKey);
-  SYSTEM_PROMPT = fs.readFileSync(path.join(__dirname, '../prompts/system-v3.md'), 'utf8');
-}
-
-const AI_TIMEOUT_MS = 30000;
-const AI_MAX_RETRIES = 2;
-
-function isRetryableAIError(err) {
-  if (err.name === 'AbortError') return false;
-  if (err.code === 'AI_OUTPUT_INVALID') return false;
-  if (err.statusCode === 401 || err.statusCode === 403) return false;
-  return true;
-}
 
 const TEMPLATES = {
   initial_plan: (ctx) =>
@@ -62,16 +38,30 @@ const TEMPLATES = {
     `- Streak: ${ctx.metrics.streak_days} days\n\n` +
     'Adjust the plan to accommodate this change. Only modify tasks that are affected. Explain changes in adaptation_notes.',
 
-  chat: (ctx) =>
-    '[session_type: chat]\n\n' +
-    `Student message: ${ctx.payload.message}\n\n` +
-    `Recent conversation:\n${ctx.chatHistory}\n\n` +
-    `Current plan summary:\n${ctx.remainingTasksSummary}\n\n` +
-    'Student metrics:\n' +
-    `- Streak: ${ctx.metrics.streak_days} days\n` +
-    `- Completion rate (7d): ${Math.round((ctx.metrics.completion_rate_7d || 0) * 100)}%\n` +
-    `- Mood: ${ctx.metrics.last_mood || 'unknown'}\n\n` +
-    'Respond conversationally. If the student needs a plan change, adjust the plan and explain why. Otherwise just answer. Keep response under 150 words.',
+  chat: (ctx) => {
+    let body = '[session_type: chat]\n\n';
+    if (ctx.payload.reason !== undefined) {
+      body += `Student skipped task "${ctx.payload.taskTitle || 'unknown'}" with reason: ${ctx.payload.reason}`;
+      if (ctx.payload.note) body += `\nNote: ${ctx.payload.note}`;
+      body += '\n\n';
+    } else if (ctx.payload.difficulty !== undefined) {
+      body += `Student feedback on task "${ctx.payload.taskTitle || 'unknown'}"` +
+        `\n- Difficulty: ${ctx.payload.difficulty}/5` +
+        `\n- Focus: ${ctx.payload.focus}/5`;
+      if (ctx.payload.notes) body += `\n- Notes: ${ctx.payload.notes}`;
+      body += '\n\n';
+    } else {
+      body += `Student message: ${ctx.payload.message || ''}\n\n`;
+    }
+    body += `Recent conversation:\n${ctx.chatHistory}\n\n` +
+      `Current plan summary:\n${ctx.remainingTasksSummary}\n\n` +
+      'Student metrics:\n' +
+      `- Streak: ${ctx.metrics.streak_days} days\n` +
+      `- Completion rate (7d): ${Math.round((ctx.metrics.completion_rate_7d || 0) * 100)}%\n` +
+      `- Mood: ${ctx.metrics.last_mood || 'unknown'}\n\n` +
+      'Respond conversationally. If the student needs a plan change, adjust the plan and explain why. Otherwise just answer. Keep response under 150 words.';
+    return body;
+  },
 
   crisis: (ctx) =>
     '[session_type: crisis]\n\n' +
@@ -98,6 +88,17 @@ class CoachRouterService {
     const { sessionType, shouldCallLLM } = this._resolveAction(action);
 
     await this._updateState(userId, action, payload);
+
+    // Fast-path template response for task completion (no LLM call)
+    if (action === 'COMPLETE_TASK') {
+      return this._respondTaskCompleted(userId, payload);
+    }
+
+    // Enrich payload with task title for skip/feedback so the chat template can reference it
+    if ((action === 'SKIP_TASK' || action === 'SUBMIT_FEEDBACK') && payload && payload.taskId) {
+      const task = await repos.task.findById(payload.taskId);
+      payload = { ...payload, taskTitle: task?.title || 'Unknown' };
+    }
 
     const ctx = await this._buildContext(userId, sessionType, payload);
 
@@ -141,6 +142,16 @@ class CoachRouterService {
         session_type: effectiveSessionType,
       });
 
+      await repos.audit.create({
+        user_id: userId,
+        action: 'COACH_CHAT_RESPONDED',
+        metadata: {
+          session_type: effectiveSessionType,
+          message_preview: message.slice(0, 120),
+          has_plan_adjustment: !!validated.plan,
+        },
+      });
+
       if (validated.plan) {
         await this._persistPlan(userId, validated.plan);
         return {
@@ -153,6 +164,18 @@ class CoachRouterService {
 
     await this._persistPlan(userId, validated);
 
+    if (validated && validated.tasks) {
+      await repos.audit.create({
+        user_id: userId,
+        action: 'COACH_PLAN_GENERATED',
+        metadata: {
+          session_type: effectiveSessionType,
+          task_count: validated.tasks.length,
+          summary: validated.summary,
+        },
+      });
+    }
+
     return { type: 'plan', data: validated };
   }
 
@@ -161,14 +184,46 @@ class CoachRouterService {
       INITIAL_PLAN: { sessionType: 'initial_plan', shouldCallLLM: true },
       CHECK_IN: { sessionType: 'check_in', shouldCallLLM: true },
       COMPLETE_TASK: { sessionType: null, shouldCallLLM: false },
-      SKIP_TASK: { sessionType: 'adjustment', shouldCallLLM: true },
+      SKIP_TASK: { sessionType: 'chat', shouldCallLLM: true },
       MODIFY_TASK: { sessionType: 'adjustment', shouldCallLLM: true },
-      SUBMIT_FEEDBACK: { sessionType: null, shouldCallLLM: false },
+      SUBMIT_FEEDBACK: { sessionType: 'chat', shouldCallLLM: true },
       REQUEST_ADJUSTMENT: { sessionType: 'adjustment', shouldCallLLM: true },
       CHAT_MESSAGE: { sessionType: 'chat', shouldCallLLM: true },
       CRISIS_SIGNAL: { sessionType: 'crisis', shouldCallLLM: true },
     };
     return map[action] || { sessionType: 'chat', shouldCallLLM: true };
+  }
+
+  async _respondTaskCompleted(userId, payload) {
+    const metrics = (await repos.studentMetrics.findByUserId(userId)) || {};
+    const task = await repos.task.findById(payload.taskId);
+    const streak = metrics.streak_days || 0;
+    const totalCompleted = metrics.total_completed || 0;
+
+    let message;
+    if (streak >= 7) {
+      message = `🎉 Luar biasa! "${task?.title || 'Tugas'}" selesai. Streak belajarmu ${streak} hari — konsistensimu menginspirasi!`;
+    } else if (streak >= 3) {
+      message = `🔥 Kerja bagus! "${task?.title || 'Tugas'}" selesai. Streak-mu sekarang ${streak} hari. Pertahankan momentum!`;
+    } else {
+      message = `✅ "${task?.title || 'Tugas'}" selesai. Total tugas selesai: ${totalCompleted}. Lanjutkan!`;
+    }
+
+    await repos.chatMessage.create({
+      user_id: userId,
+      role: 'coach',
+      content: message,
+      plan_snapshot_summary: null,
+      session_type: 'task_complete',
+    });
+
+    await repos.audit.create({
+      user_id: userId,
+      action: 'COACH_TASK_COMPLETED_RESPONSE',
+      metadata: { task_id: payload.taskId, streak_days: streak },
+    });
+
+    return { type: 'message', data: { message, plan: null } };
   }
 
   async _persistPlan(userId, plan) {
@@ -210,6 +265,11 @@ class CoachRouterService {
             status: 'done',
             completed_at: new Date().toISOString(),
           });
+          await repos.audit.create({
+            user_id: userId,
+            action: 'COACH_TASK_COMPLETED',
+            metadata: { task_id: payload.taskId, task_title: task.title },
+          });
         }
         updates.streak_days = (metrics.streak_days || 0) + 1;
         updates.total_completed = (metrics.total_completed || 0) + 1;
@@ -222,6 +282,11 @@ class CoachRouterService {
           await repos.task.update(payload.taskId, {
             status: 'skipped',
             skip_reason: payload.reason || 'unspecified',
+          });
+          await repos.audit.create({
+            user_id: userId,
+            action: 'COACH_TASK_SKIPPED',
+            metadata: { task_id: payload.taskId, task_title: task.title, reason: payload.reason || 'unspecified' },
           });
         }
         updates.total_skipped = (metrics.total_skipped || 0) + 1;
@@ -236,6 +301,11 @@ class CoachRouterService {
           feedback_submitted_at: new Date().toISOString(),
         };
         await repos.task.update(payload.taskId, fb);
+        await repos.audit.create({
+          user_id: userId,
+          action: 'COACH_FEEDBACK_SUBMITTED',
+          metadata: { task_id: payload.taskId, difficulty: payload.difficulty, focus: payload.focus },
+        });
         break;
       }
       case 'CHECK_IN': {
@@ -248,6 +318,11 @@ class CoachRouterService {
           user_id: userId,
           role: 'student',
           content: payload.message,
+        });
+        await repos.audit.create({
+          user_id: userId,
+          action: 'COACH_CHAT_MESSAGE',
+          metadata: { message_preview: (payload.message || '').slice(0, 120) },
         });
         break;
       }
@@ -354,16 +429,7 @@ class CoachRouterService {
 
     let raw;
     try {
-      raw = await withRetry(
-        () => this._callGemini(userMessage),
-        {
-          maxAttempts: AI_MAX_RETRIES,
-          delayMs: 500,
-          maxDelayMs: 8000,
-          shouldRetry: isRetryableAIError,
-          label: `coach.${ctx.sessionType}`,
-        }
-      );
+      raw = await callWithRetry(userMessage, { maxRetries: 2, label: `coach.${ctx.sessionType}` });
     } catch (err) {
       logger.error({ err: err.message }, 'Coach LLM call failed after retries');
       if (isChat) {
@@ -373,26 +439,6 @@ class CoachRouterService {
     }
 
     return isChat ? validateChatOutput(raw) : validateAIOutput(raw);
-  }
-
-  async _callGemini(userMessage) {
-    const model = genAI.getGenerativeModel({ model: config.geminiModel });
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
-
-    try {
-      const result = await model.generateContent({
-        contents: [{
-          role: 'user',
-          parts: [{ text: SYSTEM_PROMPT + '\n\n' + userMessage }],
-        }],
-        generationConfig: { responseMimeType: 'application/json' },
-        requestOptions: { signal: controller.signal },
-      });
-      return result.response.text();
-    } finally {
-      clearTimeout(timeout);
-    }
   }
 }
 

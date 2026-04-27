@@ -1,6 +1,11 @@
 import api from '../../../services/api';
 
 export const coachService = {
+  dispatchAction: async (action, payload) => {
+    const data = await api.post('/coach', { action, payload });
+    return data;
+  },
+
   initialPlan: async (profile) => {
     const data = await api.post('/coach', {
       action: 'INITIAL_PLAN',

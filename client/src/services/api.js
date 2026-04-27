@@ -106,10 +106,11 @@ api.interceptors.response.use(
       }
     }
 
-    const message = error.response?.data?.message || error.response?.data?.error || error.message || 'Something went wrong';
+    const data = error.response?.data;
+    const message = data?.message || data?.error?.message || data?.error || error.message || 'Something went wrong';
     const apiError = new Error(message);
     apiError.statusCode = error.response?.status;
-    apiError.code = error.response?.data?.code;
+    apiError.code = data?.error?.code || data?.code;
     
     return Promise.reject(apiError);
   }

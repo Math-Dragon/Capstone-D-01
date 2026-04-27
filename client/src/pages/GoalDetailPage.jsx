@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../services/api';
-import coachService from '../features/coach/services/coachService';
+import { useCoach } from '../features/coach/context/CoachContext';
 import TaskActionModal from '../components/TaskActionModal';
 
 const TASK_TYPE_COLORS = {
@@ -30,6 +30,7 @@ const STATUS_MAP = {
 };
 
 export default function GoalDetailPage() {
+  const coachCtx = useCoach();
   const { id } = useParams();
   const [goal, setGoal] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -37,6 +38,7 @@ export default function GoalDetailPage() {
   const [actionLoading, setActionLoading] = useState(null);
   const [modalTask, setModalTask] = useState(null);
   const [modalMode, setModalMode] = useState(null);
+  const [toast, setToast] = useState(null);
 
   const openModal = (task, mode) => {
     setModalTask(task);
@@ -52,8 +54,9 @@ export default function GoalDetailPage() {
     if (!modalTask) return;
     setActionLoading(modalTask.id);
     try {
+      let result;
       if (action === 'complete') {
-        await coachService.completeTask(modalTask.id);
+        result = await coachCtx.dispatchTaskAction('COMPLETE_TASK', { taskId: modalTask.id });
         setGoal((prev) => ({
           ...prev,
           tasks: prev.tasks.map((t) =>
@@ -61,7 +64,7 @@ export default function GoalDetailPage() {
           ),
         }));
       } else if (action === 'skip') {
-        await coachService.skipTask(modalTask.id, reason || 'unspecified');
+        result = await coachCtx.dispatchTaskAction('SKIP_TASK', { taskId: modalTask.id, reason: reason || 'unspecified' });
         setGoal((prev) => ({
           ...prev,
           tasks: prev.tasks.map((t) =>
@@ -69,7 +72,11 @@ export default function GoalDetailPage() {
           ),
         }));
       } else if (action === 'feedback') {
-        await coachService.submitFeedback(modalTask.id, difficulty, focus, notes);
+        result = await coachCtx.dispatchTaskAction('SUBMIT_FEEDBACK', { taskId: modalTask.id, difficulty, focus, notes });
+      }
+      if (result?.data?.message) {
+        setToast({ message: result.data.message });
+        setTimeout(() => setToast(null), 6000);
       }
     } catch (err) {
       console.error(`Failed to ${action} task:`, err);
@@ -280,6 +287,21 @@ export default function GoalDetailPage() {
         onConfirm={handleModalConfirm}
         onCancel={closeModal}
       />
+
+      {toast && (
+        <div className="fixed bottom-4 right-4 z-50 max-w-sm animate-fade-in">
+          <div className="bg-primary-900 text-white rounded-2xl shadow-xl px-4 py-3 flex items-start gap-3">
+            <span className="text-lg flex-shrink-0">🤖</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm leading-relaxed">{toast.message}</p>
+              <Link to="/coach" className="text-xs text-primary-300 hover:text-white underline mt-1 inline-block">
+                Lihat di Chat →
+              </Link>
+            </div>
+            <button onClick={() => setToast(null)} className="text-primary-400 hover:text-white text-lg leading-none">×</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

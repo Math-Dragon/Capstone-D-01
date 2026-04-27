@@ -23,7 +23,11 @@ export default function LoginPage() {
           setError('Login gagal: Token tidak diterima dari server');
         }
       } catch (err) {
-        setError(err.message || 'Login gagal');
+        let msg = err.message || 'Login gagal';
+        if (msg === 'Invalid credentials') {
+          msg = 'email / password pengguna tidak valid, silahkan coba lagi';
+        }
+        setError(msg);
       }
     } else {
       setError('Email dan password harus diisi');

@@ -3,6 +3,19 @@ import coachService from '../services/coachService';
 
 const CoachContext = createContext(null);
 
+function formatSystemEvent(action, payload) {
+  switch (action) {
+    case 'COMPLETE_TASK':
+      return `Kamu menyelesaikan tugas`;
+    case 'SKIP_TASK':
+      return `Kamu melewatkan tugas${payload.reason ? ` (${payload.reason})` : ''}`;
+    case 'SUBMIT_FEEDBACK':
+      return `Kamu memberikan feedback pada tugas`;
+    default:
+      return `Aksi: ${action}`;
+  }
+}
+
 export function CoachProvider({ children }) {
   const [messages, setMessages] = useState([]);
   const [status, setStatus] = useState('idle');
@@ -59,10 +72,10 @@ export function CoachProvider({ children }) {
       const coachMsg = {
         id: `coach-${Date.now()}`,
         role: 'coach',
-        content: result?.message || 'Rencana belajarmu telah diperbarui.',
+        content: result?.data?.message || 'Rencana belajarmu telah diperbarui.',
         timestamp: new Date().toISOString(),
-        planSnapshot: result?.plan?.summary || null,
-        plan: result?.plan || null,
+        planSnapshot: result?.data?.plan?.summary || null,
+        plan: result?.data?.plan || null,
       };
 
       setMessages((prev) => [...prev, coachMsg]);
@@ -84,6 +97,40 @@ export function CoachProvider({ children }) {
     }
   }, []);
 
+  const dispatchTaskAction = useCallback(async (action, payload) => {
+    const systemMsg = {
+      id: `sys-${Date.now()}`,
+      role: 'system',
+      content: formatSystemEvent(action, payload),
+      timestamp: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, systemMsg]);
+    setStatus('loading');
+    setError(null);
+
+    try {
+      const result = await coachService.dispatchAction(action, payload);
+      setStatus('idle');
+
+      if (result?.data?.message) {
+        const coachMsg = {
+          id: `coach-${Date.now()}`,
+          role: 'coach',
+          content: result.data.message,
+          timestamp: new Date().toISOString(),
+          planSnapshot: result.data.plan?.summary || null,
+          plan: result.data.plan || null,
+        };
+        setMessages((prev) => [...prev, coachMsg]);
+      }
+      return result;
+    } catch (err) {
+      setError(err);
+      setStatus('error');
+      return null;
+    }
+  }, []);
+
   const clearError = useCallback(() => {
     setError(null);
     setStatus('idle');
@@ -94,20 +141,20 @@ export function CoachProvider({ children }) {
     setError(null);
 
     try {
-      const plan = await coachService.initialPlan();
+      const result = await coachService.initialPlan();
 
       const coachMsg = {
         id: `coach-${Date.now()}`,
         role: 'coach',
-        content: plan?.summary || `Rencana belajar berhasil dibuat! ${plan?.tasks?.length || 0} tugas telah ditambahkan ke jadwal kamu.`,
+        content: result?.data?.summary || `Rencana belajar berhasil dibuat! ${result?.data?.tasks?.length || 0} tugas telah ditambahkan ke jadwal kamu.`,
         timestamp: new Date().toISOString(),
-        planSnapshot: plan?.summary || null,
-        plan: plan || null,
+        planSnapshot: result?.data?.summary || null,
+        plan: result?.data || null,
       };
 
       setMessages((prev) => [...prev, coachMsg]);
       setStatus('idle');
-      return plan;
+      return result;
     } catch (err) {
       setError(err);
       setStatus('error');
@@ -131,6 +178,7 @@ export function CoachProvider({ children }) {
         status,
         error,
         sendMessage,
+        dispatchTaskAction,
         generatePlan,
         clearError,
         messagesEndRef,

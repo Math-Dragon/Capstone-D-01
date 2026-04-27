@@ -1,43 +1,10 @@
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
-const config = require('../config');
 const { validateAIOutput, SuggestionSchema } = require('./llm');
 const { generateMockSuggestion } = require('./llm-mock');
+const { isMock, systemPrompt, callWithRetry } = require('./llm-client');
 const repos = require('../repositories');
 const db = require('../db');
-const { withRetry } = require('../utils/retry');
 const logger = require('../utils/logger');
-
-const isMock = config.llmProvider === 'mock';
-
-let genAI;
-let SYSTEM_PROMPT;
-
-if (!isMock) {
-  const { GoogleGenerativeAI } = require('@google/generative-ai');
-  genAI = new GoogleGenerativeAI(config.geminiKey);
-  SYSTEM_PROMPT = fs.readFileSync(path.join(__dirname, '../prompts/system-v3.md'), 'utf8');
-}
-
-const AI_TIMEOUT_MS = 30000;
-const AI_MAX_RETRIES = 3;
-
-function isRetryableAIError(err) {
-  if (err.name === 'AbortError') return false;
-  if (err.code === 'AI_OUTPUT_INVALID') return false;
-  if (err.statusCode === 401 || err.statusCode === 403) return false;
-  if (err.message?.includes('API key')) return false;
-  return true;
-}
-
-function makeAIFallbackError(originalError) {
-  const err = new Error('AI service is temporarily unavailable. Please try again in a moment.');
-  err.code = 'AI_UNAVAILABLE';
-  err.statusCode = 503;
-  err.originalError = originalError.message;
-  return err;
-}
 
 class AIService {
   async suggestPlan(userId, goalId, context = {}) {
@@ -119,49 +86,25 @@ class AIService {
   }
 
   async _callGeminiWithRetry(userContext) {
+    const userMessage = systemPrompt + '\n\nCONTEXT:\n' + JSON.stringify(userContext);
     let raw;
     try {
-      raw = await withRetry(
-        () => this._callGemini(userContext),
-        {
-          maxAttempts: AI_MAX_RETRIES,
-          delayMs: 500,
-          maxDelayMs: 8000,
-          shouldRetry: isRetryableAIError,
-          label: 'ai.suggestPlan',
-        }
-      );
+      raw = await callWithRetry(userMessage, { maxRetries: 3, label: 'ai.suggestPlan' });
     } catch (err) {
-      if (err.name === 'AbortError' || err.code === 'AI_TIMEOUT') {
+      if (err.name === 'AbortError') {
         const e = new Error('AI request timed out. Please try again.');
         e.code = 'AI_TIMEOUT';
         e.statusCode = 504;
         throw e;
       }
       logger.error({ err: err.message }, 'AI service failed after retries');
-      throw makeAIFallbackError(err);
+      const fb = new Error('AI service is temporarily unavailable. Please try again in a moment.');
+      fb.code = 'AI_UNAVAILABLE';
+      fb.statusCode = 503;
+      fb.originalError = err.message;
+      throw fb;
     }
     return validateAIOutput(raw);
-  }
-
-  async _callGemini(userContext) {
-    const model = genAI.getGenerativeModel({ model: config.geminiModel });
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
-
-    try {
-      const result = await model.generateContent({
-        contents: [{
-          role: 'user',
-          parts: [{ text: SYSTEM_PROMPT + '\n\nCONTEXT:\n' + JSON.stringify(userContext) }],
-        }],
-        generationConfig: { responseMimeType: 'application/json' },
-        requestOptions: { signal: controller.signal },
-      });
-      return result.response.text();
-    } finally {
-      clearTimeout(timeout);
-    }
   }
 
   async acceptRecommendation(userId, recommendationId) {
