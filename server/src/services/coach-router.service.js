@@ -381,7 +381,7 @@ class CoachRouterService {
       metadata: { task_id: payload.taskId, streak_days: streak },
     });
 
-    return { type: 'message', data: { message, plan: null } };
+    return { type: 'message', data: { message, plan: null }, meta: { attempts: [], duration_ms: 0 } };
   }
 
   async _stageRecommendation(userId, plan, ctx) {
@@ -520,7 +520,13 @@ class CoachRouterService {
         break;
     }
 
-    if (Object.keys(updates).length > 0) {
+    if (Object.keys(updates).length > 0 || action === 'COMPLETE_TASK' || action === 'SKIP_TASK' || action === 'SUBMIT_FEEDBACK') {
+      try {
+        const rolling = await repos.studentMetrics.computeRollingMetrics(userId);
+        Object.assign(updates, rolling);
+      } catch (err) {
+        logger.warn({ err: err.message }, 'Failed to compute rolling metrics');
+      }
       await repos.studentMetrics.upsert(userId, updates);
     }
   }

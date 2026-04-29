@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useCoach } from '../features/coach/context/CoachContext';
 import TaskActionModal from '../components/TaskActionModal';
+import observabilityService from '../features/coach/services/observabilityService';
 
 const DAY_NAMES = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 const SLOT_ORDER = { morning: 0, afternoon: 1, evening: 2 };
@@ -69,6 +70,7 @@ export default function CalendarPage() {
   const [modalTask, setModalTask] = useState(null);
   const [modalMode, setModalMode] = useState(null);
   const [toast, setToast] = useState(null);
+  const [studentMetrics, setStudentMetrics] = useState(null);
 
   const openModal = (task, mode) => {
     setModalTask(task);
@@ -124,6 +126,12 @@ export default function CalendarPage() {
   }, []);
 
   useEffect(() => { loadTasks(); }, [loadTasks]);
+
+  useEffect(() => {
+    observabilityService.fetchStudentMetrics()
+      .then((data) => { if (data?.student) setStudentMetrics(data.student); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const onFocus = () => { setLoading(true); loadTasks(); };
@@ -207,6 +215,32 @@ export default function CalendarPage() {
           <div className="text-[10px] text-primary-400">{unassignedTasks > 0 ? `${unassignedTasks} belum dijadwalkan` : 'Tersisa'}</div>
         </div>
       </div>
+
+      {/* Student Metrics Mini Bar */}
+      {studentMetrics && (
+        <div className="grid grid-cols-4 gap-2 mb-6">
+          <div className="card p-2.5 text-center">
+            <div className="text-lg font-bold text-amber-600">{studentMetrics.streak_days}</div>
+            <div className="text-[9px] text-primary-400">Streak Hari</div>
+          </div>
+          <div className="card p-2.5 text-center">
+            <div className="text-lg font-bold text-primary-800">
+              {studentMetrics.completion_rate_7d > 0 ? `${Math.round(studentMetrics.completion_rate_7d * 100)}%` : '-'}
+            </div>
+            <div className="text-[9px] text-primary-400">Rasio 7h</div>
+          </div>
+          <div className="card p-2.5 text-center">
+            <div className="text-lg font-bold text-emerald-600">{studentMetrics.total_completed}</div>
+            <div className="text-[9px] text-primary-400">Tugas Selesai</div>
+          </div>
+          <div className="card p-2.5 text-center">
+            <div className="text-lg font-bold text-primary-600">
+              {studentMetrics.avg_difficulty_7d > 0 ? studentMetrics.avg_difficulty_7d.toFixed(1) : '-'}
+            </div>
+            <div className="text-[9px] text-primary-400">Kesulitan Avg</div>
+          </div>
+        </div>
+      )}
 
       {/* Week Navigation */}
       <div className="flex items-center justify-between mb-4">

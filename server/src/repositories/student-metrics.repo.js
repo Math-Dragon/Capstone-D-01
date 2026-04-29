@@ -65,4 +65,31 @@ async function upsert(userId, updates, client) {
   return result.rows[0];
 }
 
-module.exports = { findByUserId, upsert };
+async function computeRollingMetrics(userId, client) {
+  const result = await db.query(
+    `SELECT
+      COUNT(*) FILTER (WHERE status IN ('done','completed') AND completed_at >= NOW() - INTERVAL '7 days')::numeric
+        / NULLIF(COUNT(*) FILTER (WHERE planned_date >= NOW() - INTERVAL '7 days'), 0)
+        AS completion_rate_7d,
+      COUNT(*) FILTER (WHERE status IN ('done','completed') AND completed_at >= NOW() - INTERVAL '3 days')::numeric
+        / NULLIF(COUNT(*) FILTER (WHERE planned_date >= NOW() - INTERVAL '3 days'), 0)
+        AS completion_rate_3d,
+      AVG(feedback_difficulty) FILTER (
+        WHERE feedback_difficulty IS NOT NULL
+          AND feedback_submitted_at >= NOW() - INTERVAL '7 days'
+      ) AS avg_difficulty_7d
+     FROM tasks t
+     INNER JOIN goals g ON t.goal_id = g.id
+     WHERE g.user_id = $1`,
+    [userId],
+    client
+  );
+  const row = result.rows[0] || {};
+  return {
+    completion_rate_7d: Number(row.completion_rate_7d) || 0,
+    completion_rate_3d: Number(row.completion_rate_3d) || 0,
+    avg_difficulty_7d: Number(row.avg_difficulty_7d) || 0,
+  };
+}
+
+module.exports = { findByUserId, upsert, computeRollingMetrics };

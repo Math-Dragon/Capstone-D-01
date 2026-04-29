@@ -60,6 +60,42 @@ router.post('/recommendations/:recId/tasks/:taskId/decide', async (req, res, nex
   }
 });
 
+router.get('/audit', async (req, res, next) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const offset = parseInt(req.query.offset, 10) || 0;
+    const [logs, actionCounts] = await Promise.all([
+      repos.audit.findByUserId(req.user.id, { limit, offset, action: req.query.action }),
+      repos.audit.countByAction(req.user.id),
+    ]);
+    res.json({ success: true, data: { logs, actionCounts, limit, offset } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/metrics', async (req, res, next) => {
+  try {
+    const [studentMetrics, recMetrics] = await Promise.all([
+      repos.studentMetrics.findByUserId(req.user.id),
+      coachRouter.getRecommendationMetrics(),
+    ]);
+    res.json({
+      success: true,
+      data: {
+        student: studentMetrics || {
+          streak_days: 0, total_completed: 0, total_skipped: 0,
+          completion_rate_7d: 0, completion_rate_3d: 0, avg_difficulty_7d: 0,
+          consecutive_skips: 0, last_mood: null,
+        },
+        recommendations: recMetrics,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/', aiLimiter, async (req, res, next) => {
   try {
     const { action, payload } = coachActionSchema.parse(req.body);

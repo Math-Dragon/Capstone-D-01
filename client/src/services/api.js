@@ -38,7 +38,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => {
     if (response.data && response.data.success !== undefined && response.data.data !== undefined) {
-      return response.data.data;
+      const result = response.data.data;
+      if (result && typeof result === 'object' && response.data.meta && Object.keys(response.data.meta).length > 0) {
+        result._meta = response.data.meta;
+      }
+      return result;
     }
     return response.data;
   },

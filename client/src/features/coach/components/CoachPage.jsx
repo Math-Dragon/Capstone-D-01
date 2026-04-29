@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useCoach } from '../context/CoachContext';
 import { Link } from 'react-router-dom';
+import CoachObservability from './CoachObservability';
 
 function TypingIndicator() {
   return (
@@ -339,7 +340,7 @@ function ErrorView({ error, onRetry, onEditForm }) {
 }
 
 export default function CoachPage() {
-  const { messages, status, sendMessage, generatePlan, retryGeneratePlan, getLastPayload, decideTask, mode, recommendation, error } = useCoach();
+  const { messages, status, sendMessage, generatePlan, retryGeneratePlan, getLastPayload, decideTask, mode, recommendation, error, pipelineTrace, observabilityRefresh } = useCoach();
   const [input, setInput] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const messagesEndRef = useRef(null);
@@ -492,6 +493,8 @@ export default function CoachPage() {
           </button>
         </div>
       )}
+
+      <CoachObservability pipelineTrace={pipelineTrace} onRefresh={observabilityRefresh} />
     </div>
   );
 }

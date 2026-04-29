@@ -22,6 +22,8 @@ export function CoachProvider({ children }) {
   const [error, setError] = useState(null);
   const [recommendation, setRecommendation] = useState(null);
   const [mode, setMode] = useState('form');
+  const [pipelineTrace, setPipelineTrace] = useState(null);
+  const [observabilityRefresh, setObservabilityRefresh] = useState(0);
   const messagesEndRef = useRef(null);
   const isLoadedRef = useRef(false);
   const lastPayloadRef = useRef(null);
@@ -72,6 +74,11 @@ export function CoachProvider({ children }) {
     try {
       const result = await coachService.sendMessage(text);
 
+      if (result?._meta) {
+        setPipelineTrace(result._meta);
+        setObservabilityRefresh((n) => n + 1);
+      }
+
       const coachMsg = {
         id: `coach-${Date.now()}`,
         role: 'coach',
@@ -115,6 +122,11 @@ export function CoachProvider({ children }) {
       const result = await coachService.dispatchAction(action, payload);
       setStatus('idle');
 
+      if (result?._meta) {
+        setPipelineTrace(result._meta);
+      }
+      setObservabilityRefresh((n) => n + 1);
+
       if (result?.message) {
         const coachMsg = {
           id: `coach-${Date.now()}`,
@@ -151,6 +163,11 @@ export function CoachProvider({ children }) {
 
     try {
       const result = await coachService.initialPlan(lastPayloadRef.current);
+
+      if (result?._meta) {
+        setPipelineTrace(result._meta);
+        setObservabilityRefresh((n) => n + 1);
+      }
 
       if (result?.recommendation_id) {
         setRecommendation({
@@ -269,6 +286,8 @@ export function CoachProvider({ children }) {
         error,
         mode,
         recommendation,
+        pipelineTrace,
+        observabilityRefresh,
         sendMessage,
         dispatchTaskAction,
         generatePlan,

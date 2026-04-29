@@ -1,15 +1,21 @@
 import api from '../../../services/api';
 
+const APP_VERSION = '1.0.0';
+
+function enrichPayload(payload) {
+  return { ...payload, client_timestamp: Date.now(), app_version: APP_VERSION };
+}
+
 export const coachService = {
   dispatchAction: async (action, payload) => {
-    const data = await api.post('/coach', { action, payload });
+    const data = await api.post('/coach', { action, payload: enrichPayload(payload) });
     return data;
   },
 
   initialPlan: async (payload) => {
     const data = await api.post('/coach', {
       action: 'INITIAL_PLAN',
-      payload: payload || {},
+      payload: enrichPayload(payload || {}),
     });
     return data;
   },
