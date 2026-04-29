@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useCoach } from '../features/coach/context/CoachContext';
@@ -110,22 +110,26 @@ export default function CalendarPage() {
     }
   };
 
-  const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   const todayStr = new Date().toISOString().split('T')[0];
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const data = await api.get('/tasks');
-        setTasks(Array.isArray(data) ? data : []);
-      } catch {
-        setTasks([]);
-      } finally {
-        setLoading(false);
-      }
+  const loadTasks = useCallback(async () => {
+    try {
+      const data = await api.get('/tasks');
+      setTasks(Array.isArray(data) ? data : []);
+    } catch {
+      setTasks([]);
+    } finally {
+      setLoading(false);
     }
-    load();
   }, []);
+
+  useEffect(() => { loadTasks(); }, [loadTasks]);
+
+  useEffect(() => {
+    const onFocus = () => { setLoading(true); loadTasks(); };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [loadTasks]);
 
   const tasksByDate = useMemo(() => {
     const map = {};
@@ -141,6 +145,30 @@ export default function CalendarPage() {
     return map;
   }, [tasks]);
 
+  const allDateKeys = useMemo(() => Object.keys(tasksByDate).sort(), [tasksByDate]);
+
+  const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
+  const totalWeekMin = weekDates.reduce(
+    (sum, d) => sum + (tasksByDate[d] || []).reduce((s, t) => s + (t.duration_estimate || 0), 0),
+    0
+  );
+
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter((t) => t.status === 'done' || t.status === 'completed').length;
+  const unassignedTasks = tasks.filter((t) => !t.planned_date).length;
+
+  useEffect(() => {
+    if (weekOffset === 0 && totalWeekMin === 0 && allDateKeys.length > 0) {
+      const firstDate = allDateKeys[0];
+      const firstWeek = Math.floor(
+        (new Date(firstDate).getTime() - new Date(todayStr).getTime()) / (7 * 86400000)
+      );
+      if (firstWeek !== 0) setWeekOffset(firstWeek);
+    }
+  }, [totalWeekMin, weekOffset, allDateKeys, todayStr]);
+
+  const displayDate = selectedDate || todayStr;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -151,13 +179,6 @@ export default function CalendarPage() {
       </div>
     );
   }
-
-  const totalWeekMin = weekDates.reduce(
-    (sum, d) => sum + (tasksByDate[d] || []).reduce((s, t) => s + (t.duration_estimate || 0), 0),
-    0
-  );
-
-  const displayDate = selectedDate || todayStr;
   const displayTasks = (tasksByDate[displayDate] || []).filter(
     (t) => t.status === 'todo'
   );
@@ -169,6 +190,22 @@ export default function CalendarPage() {
           Jadwal Belajar
         </h2>
         <p className="text-primary-400">Lihat rencana belajarmu minggu ini.</p>
+      </div>
+
+      {/* Overall Summary */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="card p-3 text-center">
+          <div className="text-xl font-bold text-primary-900">{totalTasks}</div>
+          <div className="text-[10px] text-primary-400">Total Tugas</div>
+        </div>
+        <div className="card p-3 text-center">
+          <div className="text-xl font-bold text-green-600">{completedTasks}</div>
+          <div className="text-[10px] text-primary-400">Selesai</div>
+        </div>
+        <div className="card p-3 text-center">
+          <div className="text-xl font-bold text-primary-900">{totalTasks - completedTasks}</div>
+          <div className="text-[10px] text-primary-400">{unassignedTasks > 0 ? `${unassignedTasks} belum dijadwalkan` : 'Tersisa'}</div>
+        </div>
       </div>
 
       {/* Week Navigation */}
@@ -259,7 +296,9 @@ export default function CalendarPage() {
                   )}
                 </>
               ) : (
-                <div className="text-[10px] text-primary-300">Istirahat</div>
+                <div className="text-[10px] text-primary-300">
+                  {totalTasks === 0 ? 'Kosong' : '-'}
+                </div>
               )}
             </button>
           );

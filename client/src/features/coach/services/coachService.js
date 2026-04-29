@@ -6,11 +6,16 @@ export const coachService = {
     return data;
   },
 
-  initialPlan: async (profile) => {
+  initialPlan: async (payload) => {
     const data = await api.post('/coach', {
       action: 'INITIAL_PLAN',
-      payload: profile || {},
+      payload: payload || {},
     });
+    return data;
+  },
+
+  decideTask: async (recId, taskId, decision) => {
+    const data = await api.post(`/coach/recommendations/${recId}/tasks/${taskId}/decide`, { decision });
     return data;
   },
 

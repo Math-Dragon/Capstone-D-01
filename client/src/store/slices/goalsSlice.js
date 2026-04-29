@@ -6,13 +6,13 @@ export const fetchGoals = createAsyncThunk('goals/fetchGoals', async () => {
   return data;
 });
 
-export const createGoal = createAsyncThunk('goals/createGoal', async (title) => {
-  const data = await api.post('/goals', { title });
+export const createGoal = createAsyncThunk('goals/createGoal', async (payload) => {
+  const data = await api.post('/goals', payload);
   return data;
 });
 
 export const updateGoal = createAsyncThunk('goals/updateGoal', async ({ id, ...data }) => {
-  const result = await api.patch(`/goals/${id}`, data);
+  const result = await api.put(`/goals/${id}`, data);
   return result;
 });
 

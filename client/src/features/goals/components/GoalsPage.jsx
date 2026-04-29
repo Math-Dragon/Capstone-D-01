@@ -1,12 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import api from '../../../services/api';
+import { useGoals } from '../context/GoalsContext';
 import GoalCard from './GoalCard';
 
 export default function GoalsPage() {
-  const [goals, setGoals] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { goals, loading, error, create, refresh } = useGoals();
   const [showForm, setShowForm] = useState(false);
 
   const {
@@ -16,35 +14,16 @@ export default function GoalsPage() {
     formState: { errors },
   } = useForm();
 
-  const fetchGoals = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await api.get('/goals');
-      setGoals(Array.isArray(data) ? data : []);
-    } catch (err) {
-      setError(err.message);
-      setGoals([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchGoals();
-  }, []);
-
   const onSubmit = async (data) => {
     try {
       const payload = { title: data.title };
       if (data.description) payload.description = data.description;
       if (data.deadline) payload.deadline = data.deadline;
-      const newGoal = await api.post('/goals', payload);
-      setGoals([newGoal, ...goals]);
+      await create(payload);
       reset();
       setShowForm(false);
     } catch (err) {
-      setError(err.message);
+      // Error is handled by context/store
     }
   };
 
@@ -54,7 +33,7 @@ export default function GoalsPage() {
         <h2 className="text-2xl font-bold text-primary-900 mb-8">Target Belajar</h2>
         <div className="card p-8 text-center">
           <p className="text-red-500 mb-4">{error}</p>
-          <button onClick={fetchGoals} className="btn-secondary">Coba Lagi</button>
+          <button onClick={refresh} className="btn-secondary">Coba Lagi</button>
         </div>
       </div>
     );

@@ -1,5 +1,13 @@
 const logger = require('../utils/logger');
 
+function buildMeta(requestId, err) {
+  const meta = { request_id: requestId };
+  if (err._meta) {
+    Object.assign(meta, err._meta);
+  }
+  return meta;
+}
+
 function errorHandler(err, req, res, next) {
   const requestId = req.requestId || 'unknown';
 
@@ -7,7 +15,7 @@ function errorHandler(err, req, res, next) {
     return res.status(400).json({
       success: false,
       error: { code: 'VALIDATION_ERROR', message: err.errors[0]?.message || 'Validation failed', details: err.errors },
-      meta: { request_id: requestId },
+      meta: buildMeta(requestId, err),
     });
   }
 
@@ -15,7 +23,7 @@ function errorHandler(err, req, res, next) {
     return res.status(422).json({
       success: false,
       error: { code: 'AI_OUTPUT_INVALID', message: err.message },
-      meta: { request_id: requestId },
+      meta: buildMeta(requestId, err),
     });
   }
 
@@ -23,7 +31,7 @@ function errorHandler(err, req, res, next) {
     return res.status(504).json({
       success: false,
       error: { code: 'AI_TIMEOUT', message: err.message },
-      meta: { request_id: requestId },
+      meta: buildMeta(requestId, err),
     });
   }
 
@@ -31,7 +39,7 @@ function errorHandler(err, req, res, next) {
     return res.status(503).json({
       success: false,
       error: { code: 'AI_UNAVAILABLE', message: err.message },
-      meta: { request_id: requestId },
+      meta: buildMeta(requestId, err),
     });
   }
 
@@ -39,7 +47,7 @@ function errorHandler(err, req, res, next) {
     return res.status(409).json({
       success: false,
       error: { code: 'CONFLICT', message: 'Resource already exists' },
-      meta: { request_id: requestId },
+      meta: buildMeta(requestId, err),
     });
   }
 
@@ -47,7 +55,7 @@ function errorHandler(err, req, res, next) {
     return res.status(400).json({
       success: false,
       error: { code: 'INVALID_REFERENCE', message: 'Referenced resource not found' },
-      meta: { request_id: requestId },
+      meta: buildMeta(requestId, err),
     });
   }
 
@@ -62,7 +70,7 @@ function errorHandler(err, req, res, next) {
       code: err.code || 'INTERNAL_ERROR',
       message: process.env.NODE_ENV === 'production' ? 'Internal server error' : message,
     },
-    meta: { request_id: requestId },
+    meta: buildMeta(requestId, err),
   });
 }
 

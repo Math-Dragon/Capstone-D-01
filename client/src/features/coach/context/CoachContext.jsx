@@ -20,8 +20,11 @@ export function CoachProvider({ children }) {
   const [messages, setMessages] = useState([]);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState(null);
+  const [recommendation, setRecommendation] = useState(null);
+  const [mode, setMode] = useState('form');
   const messagesEndRef = useRef(null);
   const isLoadedRef = useRef(false);
+  const lastPayloadRef = useRef(null);
 
   const loadHistory = useCallback(async () => {
     if (isLoadedRef.current) return;
@@ -136,39 +139,126 @@ export function CoachProvider({ children }) {
     setStatus('idle');
   }, []);
 
-  const generatePlan = useCallback(async () => {
+  const generatePlan = useCallback(async (payload) => {
+    if (payload) {
+      lastPayloadRef.current = payload;
+    }
+
+    setMode('loading');
     setStatus('loading');
     setError(null);
+    setRecommendation(null);
 
     try {
-      const result = await coachService.initialPlan();
+      const result = await coachService.initialPlan(lastPayloadRef.current);
+
+      if (result?.recommendation_id) {
+        setRecommendation({
+          recommendationId: result.recommendation_id,
+          tasks: result.tasks.map((t) => ({
+            taskId: t.task_id,
+            title: t.title,
+            duration_estimate: t.duration_estimate,
+            planned_slot: t.planned_slot,
+            rationale: t.rationale,
+            status: t.status,
+          })),
+          summary: result.summary,
+        });
+        setMode('recommendation');
+        setStatus('idle');
+        return result;
+      }
 
       const coachMsg = {
         id: `coach-${Date.now()}`,
         role: 'coach',
-        content: result?.summary || `Rencana belajar berhasil dibuat! ${result?.tasks?.length || 0} tugas telah ditambahkan ke jadwal kamu.`,
+        content: result?.summary || `Rencana belajar berhasil dibuat!`,
         timestamp: new Date().toISOString(),
         planSnapshot: result?.summary || null,
         plan: result || null,
       };
-
       setMessages((prev) => [...prev, coachMsg]);
+      setMode('chat');
       setStatus('idle');
       return result;
     } catch (err) {
       setError(err);
       setStatus('error');
-
-      const errorMsg = {
-        id: `error-${Date.now()}`,
-        role: 'coach',
-        content: 'Gagal membuat rencana. Coba lagi sebentar.',
-        timestamp: new Date().toISOString(),
-        isError: true,
-      };
-      setMessages((prev) => [...prev, errorMsg]);
+      setMode('error');
       return null;
     }
+  }, []);
+
+  const retryGeneratePlan = useCallback(() => {
+    if (lastPayloadRef.current) {
+      return generatePlan(lastPayloadRef.current);
+    }
+    setMode('form');
+    setStatus('idle');
+    return null;
+  }, [generatePlan]);
+
+  const getLastPayload = useCallback(() => lastPayloadRef.current, []);
+
+  const decideTask = useCallback(async (taskId, decision) => {
+    if (!recommendation) return null;
+
+    try {
+      setRecommendation((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          tasks: prev.tasks.map((t) =>
+            t.taskId === taskId ? { ...t, status: decision } : t
+          ),
+        };
+      });
+
+      const result = await coachService.decideTask(
+        recommendation.recommendationId,
+        taskId,
+        decision
+      );
+
+      if (result?.allDecided) {
+        setRecommendation((prev) => {
+          if (!prev) return prev;
+          const acceptedCount = prev.tasks.filter((t) => t.status === 'accepted').length;
+          const coachMsg = {
+            id: `coach-${Date.now()}`,
+            role: 'coach',
+            content: `Rencana belajar telah ditetapkan! ${acceptedCount} tugas diterima dan ditambahkan ke jadwal kamu. Silakan tanya apa saja tentang rencana belajarmu.`,
+            timestamp: new Date().toISOString(),
+            planSnapshot: prev.summary,
+          };
+          setMessages((prevMsgs) => [...prevMsgs, coachMsg]);
+          setMode('chat');
+          return null;
+        });
+      }
+
+      return result;
+    } catch (err) {
+      setError(err);
+      setRecommendation((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          tasks: prev.tasks.map((t) =>
+            t.taskId === taskId ? { ...t, status: 'pending' } : t
+          ),
+        };
+      });
+      return null;
+    }
+  }, [recommendation]);
+
+  const resetToForm = useCallback(() => {
+    setRecommendation(null);
+    setMode('form');
+    setStatus('idle');
+    setError(null);
   }, []);
 
   return (
@@ -177,10 +267,16 @@ export function CoachProvider({ children }) {
         messages,
         status,
         error,
+        mode,
+        recommendation,
         sendMessage,
         dispatchTaskAction,
         generatePlan,
+        retryGeneratePlan,
+        getLastPayload,
+        decideTask,
         clearError,
+        resetToForm,
         messagesEndRef,
       }}
     >

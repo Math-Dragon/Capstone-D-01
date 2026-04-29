@@ -18,16 +18,16 @@ export function GoalsProvider({ children }) {
     dispatch(fetchGoals());
   }, [dispatch]);
 
-  const create = useCallback(async (title) => {
-    await dispatch(createGoalThunk(title)).unwrap();
+  const create = useCallback(async (payload) => {
+    return await dispatch(createGoalThunk(payload)).unwrap();
   }, [dispatch]);
 
   const update = useCallback(async (id, data) => {
-    await dispatch(updateGoalThunk({ id, ...data })).unwrap();
+    return await dispatch(updateGoalThunk({ id, ...data })).unwrap();
   }, [dispatch]);
 
   const remove = useCallback(async (id) => {
-    await dispatch(deleteGoalThunk(id)).unwrap();
+    return await dispatch(deleteGoalThunk(id)).unwrap();
   }, [dispatch]);
 
   const refresh = useCallback(() => {

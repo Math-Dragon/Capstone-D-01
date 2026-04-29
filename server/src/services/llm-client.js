@@ -5,7 +5,7 @@ const { withRetry } = require('../utils/retry');
 const { buildGeminiPayload, buildOpenRouterPayload, extractContent } = require('../utils/converter');
 const logger = require('../utils/logger');
 
-const AI_TIMEOUT_MS = 30000;
+const DEFAULT_TIMEOUT_MS = 60000;
 
 const hasFallback = !!(config.openrouterKey && config.openrouterModel);
 
@@ -42,28 +42,25 @@ function isRetryable(err) {
   return true;
 }
 
-async function callGemini(userMessage) {
+async function callGemini(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS) {
   const { modelConfig, contentConfig } = buildGeminiPayload(systemPrompt, userMessage, config.geminiModel);
   const model = genAI.getGenerativeModel(modelConfig);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const result = await model.generateContent({
-      ...contentConfig,
-      requestOptions: { signal: controller.signal },
-    });
+    const result = await model.generateContent(contentConfig, { signal: controller.signal });
     return extractContent('gemini', result);
   } finally {
     clearTimeout(timeout);
   }
 }
 
-async function callOpenRouter(userMessage) {
+async function callOpenRouter(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS) {
   initSystemPrompt();
   const { url, body } = buildOpenRouterPayload(systemPrompt, userMessage, config.openrouterModel);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const resp = await fetch(url, {
@@ -90,36 +87,57 @@ async function callOpenRouter(userMessage) {
   }
 }
 
-async function callWithRetry(userMessage, { maxRetries = 3, label = 'llm' } = {}) {
+async function callWithRetry(userMessage, { maxRetries = 3, label = 'llm', timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   if (isMock) {
     throw new Error('llm-client.callWithRetry called while LLM_PROVIDER=mock');
   }
 
-  try {
-    return await withRetry(
-      () => callGemini(userMessage),
-      {
-        maxAttempts: maxRetries,
-        delayMs: 500,
-        maxDelayMs: 8000,
-        shouldRetry: isRetryable,
-        label: `${label}:gemini`,
+  const attempts = [];
+
+  function makeTracker(source, callFn) {
+    return async (attemptNum) => {
+      const start = Date.now();
+      const meta = { attempt: attemptNum, timestamp: new Date().toISOString(), source };
+      try {
+        const content = await callFn();
+        meta.status = 'success';
+        meta.raw_output_preview = content.slice(0, 150);
+        meta.duration_ms = Date.now() - start;
+        attempts.push(meta);
+        return content;
+      } catch (err) {
+        meta.status = 'transient_error';
+        meta.error = err.message;
+        meta.duration_ms = Date.now() - start;
+        attempts.push(meta);
+        throw err;
       }
+    };
+  }
+
+  try {
+    const content = await withRetry(
+      makeTracker('gemini', () => callGemini(userMessage, timeoutMs)),
+      { maxAttempts: maxRetries, delayMs: 500, maxDelayMs: 8000, shouldRetry: isRetryable, label: `${label}:gemini` }
     );
+    return { content, attempts };
   } catch (primaryErr) {
-    if (!hasFallback) throw primaryErr;
+    if (!hasFallback) {
+      primaryErr.attempts = attempts;
+      throw primaryErr;
+    }
 
     logger.warn({ err: primaryErr.message, label }, 'Primary LLM failed, falling back to OpenRouter');
-    return withRetry(
-      () => callOpenRouter(userMessage),
-      {
-        maxAttempts: maxRetries,
-        delayMs: 500,
-        maxDelayMs: 8000,
-        shouldRetry: isRetryable,
-        label: `${label}:openrouter`,
-      }
-    );
+    try {
+      const content = await withRetry(
+        makeTracker('openrouter', () => callOpenRouter(userMessage, timeoutMs)),
+        { maxAttempts: maxRetries, delayMs: 500, maxDelayMs: 8000, shouldRetry: isRetryable, label: `${label}:openrouter` }
+      );
+      return { content, attempts };
+    } catch (fallbackErr) {
+      fallbackErr.attempts = attempts;
+      throw fallbackErr;
+    }
   }
 }
 
@@ -186,7 +204,7 @@ async function validateConnection() {
     if (hasFallback) {
       try {
         const fbResult = await validateOpenRouter();
-        logger.info({ provider: 'openrouter', model: config.openrouterModel }, 'Fallback provider active (primary failed)');
+        logger.info({ provider: 'openrouter', model: config.geminiModel }, 'Fallback provider active (primary failed)');
         return { ...fbResult, primaryFailed: true };
       } catch (fbErr) {
         logger.error({ err: fbErr.message }, 'OpenRouter fallback also failed');
@@ -204,7 +222,7 @@ module.exports = {
   setIsMock,
   get hasFallback() { return hasFallback; },
   systemPrompt,
-  AI_TIMEOUT_MS,
+  DEFAULT_TIMEOUT_MS,
   isRetryable,
   callWithRetry,
   validateConnection,

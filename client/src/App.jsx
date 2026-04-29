@@ -14,6 +14,8 @@ import CalendarPage from './pages/CalendarPage';
 import ProgressPage from './pages/ProgressPage';
 import CoachPage from './features/coach/components/CoachPage';
 
+import { GoalsProvider } from './features/goals/context/GoalsContext';
+
 function RootPage() {
   const token = localStorage.getItem('token');
   return token ? <DashboardPage /> : <HomePage />;
@@ -24,20 +26,22 @@ export default function App() {
     <ErrorBoundary>
       <Router>
         <AuthProvider>
-          <CoachProvider>
-            <Routes>
-              <Route path="/" element={<Layout />}>
-                <Route index element={<RootPage />} />
-                <Route path="login" element={<LoginPage />} />
-                <Route path="register" element={<RegisterPage />} />
-                <Route path="goals" element={<GoalsPage />} />
-                <Route path="goals/:id" element={<GoalDetailPage />} />
-                <Route path="calendar" element={<CalendarPage />} />
-                <Route path="progress" element={<ProgressPage />} />
-                <Route path="coach" element={<CoachPage />} />
-              </Route>
-            </Routes>
-          </CoachProvider>
+          <GoalsProvider>
+            <CoachProvider>
+              <Routes>
+                <Route path="/" element={<Layout />}>
+                  <Route index element={<RootPage />} />
+                  <Route path="login" element={<LoginPage />} />
+                  <Route path="register" element={<RegisterPage />} />
+                  <Route path="goals" element={<GoalsPage />} />
+                  <Route path="goals/:id" element={<GoalDetailPage />} />
+                  <Route path="calendar" element={<CalendarPage />} />
+                  <Route path="progress" element={<ProgressPage />} />
+                  <Route path="coach" element={<CoachPage />} />
+                </Route>
+              </Routes>
+            </CoachProvider>
+          </GoalsProvider>
         </AuthProvider>
       </Router>
     </ErrorBoundary>

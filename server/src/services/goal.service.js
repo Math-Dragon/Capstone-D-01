@@ -3,22 +3,7 @@ const repos = require('../repositories');
 class GoalService {
   async list(userId, filters = {}) {
     const goals = await repos.goal.list(userId, filters);
-
-    if (goals.length > 0) {
-      const goalIds = goals.map(g => g.id);
-      const allTasks = await repos.task.findByGoalIds(goalIds);
-      const tasksByGoal = {};
-      for (const t of allTasks) {
-        if (!tasksByGoal[t.goal_id]) tasksByGoal[t.goal_id] = [];
-        tasksByGoal[t.goal_id].push(t);
-      }
-      for (const g of goals) {
-        g.tasks = tasksByGoal[g.id] || [];
-      }
-    } else {
-      for (const g of goals) g.tasks = [];
-    }
-
+    for (const g of goals) g.tasks = [];
     return goals;
   }
 
