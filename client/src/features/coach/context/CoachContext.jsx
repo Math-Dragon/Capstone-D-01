@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import { useDispatch } from 'react-redux';
+import { setPipelineTrace as setPipelineTraceRedux } from '../../../store/slices/observabilitySlice';
 import coachService from '../services/coachService';
 
 const CoachContext = createContext(null);
@@ -16,17 +18,52 @@ function formatSystemEvent(action, payload) {
   }
 }
 
+const SESSION_KEY = 'coach_session_id';
+const SESSION_MAX_AGE_MS = 30 * 60 * 1000;
+
+function getOrCreateSessionId() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (raw) {
+      const stored = JSON.parse(raw);
+      if (stored.id && Date.now() - stored.created < SESSION_MAX_AGE_MS) {
+        return stored.id;
+      }
+    }
+  } catch (e) {
+    // localStorage unavailable
+  }
+  const id = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ id, created: Date.now() }));
+  } catch (e) {
+    // localStorage unavailable
+  }
+  return id;
+}
+
 export function CoachProvider({ children }) {
+  const dispatch = useDispatch();
+  const sessionIdRef = useRef(getOrCreateSessionId());
+  useEffect(() => {
+    window.__coachSessionId = sessionIdRef.current;
+    return () => { window.__coachSessionId = null; };
+  }, []);
   const [messages, setMessages] = useState([]);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState(null);
   const [recommendation, setRecommendation] = useState(null);
   const [mode, setMode] = useState('form');
-  const [pipelineTrace, setPipelineTrace] = useState(null);
+  const [pipelineTrace, setPipelineTraceLocal] = useState(null);
   const [observabilityRefresh, setObservabilityRefresh] = useState(0);
   const messagesEndRef = useRef(null);
   const isLoadedRef = useRef(false);
   const lastPayloadRef = useRef(null);
+
+  const setPipelineTrace = useCallback((trace) => {
+    setPipelineTraceLocal(trace);
+    dispatch(setPipelineTraceRedux(trace));
+  }, [dispatch]);
 
   const loadHistory = useCallback(async () => {
     if (isLoadedRef.current) return;
@@ -43,6 +80,7 @@ export function CoachProvider({ children }) {
           planSnapshot: m.plan_snapshot_summary,
         }));
         setMessages(formatted);
+        setMode('chat');
       }
     } catch (err) {
       console.error('Failed to load chat history:', err);

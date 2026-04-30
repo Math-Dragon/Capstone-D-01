@@ -42,6 +42,13 @@ export default function PipelineTrace({ trace }) {
             {a.raw_output_preview && (
               <p className="text-[10px] font-mono text-primary-500 truncate">{a.raw_output_preview}</p>
             )}
+            {a.usage && (
+              <div className="flex gap-2 mt-1 text-[9px] font-mono text-primary-400">
+                {a.usage.prompt_tokens != null && <span>↑{a.usage.prompt_tokens}</span>}
+                {a.usage.completion_tokens != null && <span>↓{a.usage.completion_tokens}</span>}
+                {a.usage.total_tokens != null && <span className="font-semibold text-primary-500">∑{a.usage.total_tokens}</span>}
+              </div>
+            )}
             {a.error && (
               <details className="mt-1.5">
                 <summary className="text-[10px] cursor-pointer text-red-600 font-medium">Error detail</summary>

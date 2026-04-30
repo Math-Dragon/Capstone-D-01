@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchStudentMetrics } from '../store/slices/observabilitySlice';
 import api from '../services/api';
 import { useCoach } from '../features/coach/context/CoachContext';
 import TaskActionModal from '../components/TaskActionModal';
-import observabilityService from '../features/coach/services/observabilityService';
 
 const DAY_NAMES = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 const SLOT_ORDER = { morning: 0, afternoon: 1, evening: 2 };
@@ -62,6 +63,8 @@ function formatSlotLabel(slot) {
 
 export default function CalendarPage() {
   const coachCtx = useCoach();
+  const dispatch = useDispatch();
+  const studentMetrics = useSelector((s) => s.observability.studentMetrics);
   const [weekOffset, setWeekOffset] = useState(0);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +73,6 @@ export default function CalendarPage() {
   const [modalTask, setModalTask] = useState(null);
   const [modalMode, setModalMode] = useState(null);
   const [toast, setToast] = useState(null);
-  const [studentMetrics, setStudentMetrics] = useState(null);
 
   const openModal = (task, mode) => {
     setModalTask(task);
@@ -128,10 +130,8 @@ export default function CalendarPage() {
   useEffect(() => { loadTasks(); }, [loadTasks]);
 
   useEffect(() => {
-    observabilityService.fetchStudentMetrics()
-      .then((data) => { if (data?.student) setStudentMetrics(data.student); })
-      .catch(() => {});
-  }, []);
+    dispatch(fetchStudentMetrics());
+  }, [dispatch]);
 
   useEffect(() => {
     const onFocus = () => { setLoading(true); loadTasks(); };

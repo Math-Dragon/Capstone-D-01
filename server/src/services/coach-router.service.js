@@ -2,6 +2,7 @@ const repos = require('../repositories');
 const { validateAIOutput, validateChatOutput } = require('./llm');
 const { generateMockSuggestion, generateMockChat } = require('./llm-mock');
 const { isMock, callWithRetry } = require('./llm-client');
+const { scheduleTasks } = require('./scheduler.service');
 const logger = require('../utils/logger');
 const adaptationTrigger = require('./adaptation-trigger.service');
 const { aiRequestCount } = require('../utils/metrics');
@@ -15,6 +16,7 @@ const TEMPLATES = {
     `Current level per subject: ${ctx.profile.current_level}\n` +
     `Weekly available hours: ${ctx.profile.weekly_available_hours}\n` +
     `Preferred study slots: ${ctx.profile.preferred_slots}\n` +
+    `Available days: ${(ctx.profile.available_days || ['mon', 'tue', 'wed', 'thu', 'fri']).join(', ')}\n` +
     `Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
     'Generate a personalized study plan for this student. Follow the output structure exactly.',
 
@@ -38,6 +40,10 @@ const TEMPLATES = {
     `- Completion rate (7d): ${Math.round((ctx.metrics.completion_rate_7d || 0) * 100)}%\n` +
     `- Consecutive skips: ${ctx.metrics.consecutive_skips}\n` +
     `- Streak: ${ctx.metrics.streak_days} days\n\n` +
+    `Available days: ${(ctx.profile.available_days || ['mon', 'tue', 'wed', 'thu', 'fri']).join(', ')}\n` +
+    `Weekly target hours: ${ctx.profile.weekly_available_hours}\n` +
+    `Preferred slots: ${ctx.profile.preferred_slots}\n` +
+    `Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
     'Adjust the plan to accommodate this change. Only modify tasks that are affected. Explain changes in adaptation_notes.',
 
   chat: (ctx) => {
@@ -61,6 +67,9 @@ const TEMPLATES = {
       `- Streak: ${ctx.metrics.streak_days} days\n` +
       `- Completion rate (7d): ${Math.round((ctx.metrics.completion_rate_7d || 0) * 100)}%\n` +
       `- Mood: ${ctx.metrics.last_mood || 'unknown'}\n\n` +
+      `Available days: ${(ctx.profile.available_days || ['mon', 'tue', 'wed', 'thu', 'fri']).join(', ')}\n` +
+      `Weekly target hours: ${ctx.profile.weekly_available_hours}\n` +
+      `Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
       'Respond conversationally. If the student needs a plan change, adjust the plan and explain why. Otherwise just answer. Keep response under 150 words.';
     return body;
   },
@@ -72,6 +81,9 @@ const TEMPLATES = {
     `- Consecutive skips: ${ctx.metrics.consecutive_skips}\n` +
     `- Completion rate (3d): ${Math.round((ctx.metrics.completion_rate_3d || 0) * 100)}%\n\n` +
     `Current plan:\n${ctx.remainingTasksJson}\n\n` +
+    `Available days: ${(ctx.profile.available_days || ['mon', 'tue', 'wed', 'thu', 'fri']).join(', ')}\n` +
+    `Weekly target hours: ${ctx.profile.weekly_available_hours}\n` +
+    `Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
     'This student may be overwhelmed. Reduce the plan. Focus on highest-impact tasks only. Be empathetic.',
 
   milestone: (ctx) =>
@@ -81,7 +93,9 @@ const TEMPLATES = {
     `Streak: ${ctx.metrics.streak_days} days\n\n` +
     'Student profile:\n' +
     `- Goal: ${ctx.profile.goal}\n` +
-    `- Weekly hours: ${ctx.profile.weekly_available_hours}\n\n` +
+    `- Weekly hours: ${ctx.profile.weekly_available_hours}\n` +
+    `- Available days: ${(ctx.profile.available_days || ['mon', 'tue', 'wed', 'thu', 'fri']).join(', ')}\n` +
+    `- Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
     'Generate the next phase. Increase difficulty by 10-15%. Acknowledge the achievement.',
 };
 
@@ -117,11 +131,12 @@ const recommendationMetrics = {
 class CoachRouterService {
   async dispatch(userId, action, payload) {
     const { sessionType, shouldCallLLM } = this._resolveAction(action);
+    const sessionId = payload?.session_id || null;
 
-    await this._updateState(userId, action, payload);
+    await this._updateState(userId, action, payload, sessionId);
 
     if (action === 'COMPLETE_TASK') {
-      return this._respondTaskCompleted(userId, payload);
+      return this._respondTaskCompleted(userId, payload, sessionId);
     }
 
     if ((action === 'SKIP_TASK' || action === 'SUBMIT_FEEDBACK') && payload && payload.taskId) {
@@ -164,6 +179,23 @@ class CoachRouterService {
       await repos.studentMetrics.upsert(userId, { trigger_cooldowns: updatedCooldowns });
     }
 
+    if (validated) {
+      const tasksToSchedule = isChat ? validated.plan?.tasks : validated.tasks;
+      if (tasksToSchedule && tasksToSchedule.length > 0) {
+        const scheduled = scheduleTasks(tasksToSchedule, {
+          availableDays: ctx.profile.available_days,
+          weeklyTargetHours: ctx.profile.weekly_available_hours,
+          deadline: ctx.profile.deadline,
+          preferredSlot: ctx.profile.preferred_slots?.[0],
+        });
+        if (isChat) {
+          validated.plan.tasks = scheduled;
+        } else {
+          validated.tasks = scheduled;
+        }
+      }
+    }
+
     aiRequestCount.inc({ type: `coach.${effectiveSessionType}`, status: 'success' });
 
     if (isChat) {
@@ -174,6 +206,7 @@ class CoachRouterService {
         content: message,
         plan_snapshot_summary: validated.plan ? validated.plan.summary : null,
         session_type: effectiveSessionType,
+        session_id: sessionId,
       });
 
       await repos.audit.create({
@@ -184,6 +217,7 @@ class CoachRouterService {
           message_preview: message.slice(0, 120),
           has_plan_adjustment: !!validated.plan,
         },
+        session_id: sessionId,
       });
 
       if (validated.plan) {
@@ -230,13 +264,14 @@ class CoachRouterService {
           task_count: validated.tasks.length,
           summary: validated.summary,
         },
+        session_id: sessionId,
       });
     }
 
     return { type: 'plan', data: validated, meta: llmMeta };
   }
 
-  async decideTask(userId, recId, taskId, decision) {
+  async decideTask(userId, recId, taskId, decision, sessionId) {
     const rec = await repos.aiRec.findByIdAndUserId(recId, userId);
     if (!rec) {
       const err = new Error('Recommendation not found');
@@ -277,23 +312,21 @@ class CoachRouterService {
     recommendationMetrics.trackDecided(decision);
 
     if (decision === 'accepted') {
-      const goalId = rec.goal_id;
-      let goals = await repos.goal.list(userId);
-      let activeGoal = goalId ? await repos.goal.findById(goalId) : goals[0];
-
-      if (!activeGoal) {
+      let targetGoalId = rec.goal_id;
+      if (!targetGoalId) {
         const ctxGoal = rec.input_context?.goal || {};
-        activeGoal = await repos.goal.create({
+        const fallbackGoal = await repos.goal.create({
           user_id: userId,
           title: ctxGoal.title || 'Rencana Belajar',
           description: ctxGoal.description || '',
           deadline: ctxGoal.deadline || null,
           status: 'active',
         });
+        targetGoalId = fallbackGoal.id;
       }
 
       await repos.task.create({
-        goal_id: activeGoal.id,
+        goal_id: targetGoalId,
         title: task.title,
         description: task.description || null,
         duration_estimate: task.duration_estimate,
@@ -309,12 +342,14 @@ class CoachRouterService {
         user_id: userId,
         action: 'COACH_TASK_ACCEPTED',
         metadata: { recommendation_id: recId, task_id: taskId },
+        session_id: sessionId,
       });
     } else {
       await repos.audit.create({
         user_id: userId,
         action: 'COACH_TASK_REJECTED',
         metadata: { recommendation_id: recId, task_id: taskId },
+        session_id: sessionId,
       });
     }
 
@@ -352,7 +387,7 @@ class CoachRouterService {
     return map[action] || { sessionType: 'chat', shouldCallLLM: true };
   }
 
-  async _respondTaskCompleted(userId, payload) {
+  async _respondTaskCompleted(userId, payload, sessionId) {
     const metrics = (await repos.studentMetrics.findByUserId(userId)) || {};
     const task = await repos.task.findById(payload.taskId);
     const streak = metrics.streak_days || 0;
@@ -373,20 +408,28 @@ class CoachRouterService {
       content: message,
       plan_snapshot_summary: null,
       session_type: 'task_complete',
+      session_id: sessionId,
     });
 
     await repos.audit.create({
       user_id: userId,
       action: 'COACH_TASK_COMPLETED_RESPONSE',
       metadata: { task_id: payload.taskId, streak_days: streak },
+      session_id: sessionId,
     });
 
     return { type: 'message', data: { message, plan: null }, meta: { attempts: [], duration_ms: 0 } };
   }
 
   async _stageRecommendation(userId, plan, ctx) {
-    const goals = await repos.goal.list(userId);
-    const activeGoal = goals[0];
+    const goalData = ctx.payload?.goal || {};
+    const newGoal = await repos.goal.create({
+      user_id: userId,
+      title: goalData.title || 'Rencana Belajar',
+      description: goalData.description || '',
+      deadline: goalData.deadline || null,
+      status: 'active',
+    });
 
     const recId = `rec_${Date.now()}`;
     const tasksWithIds = plan.tasks.map((t, i) => ({
@@ -398,10 +441,10 @@ class CoachRouterService {
 
     const rec = await repos.aiRec.create({
       user_id: userId,
-      goal_id: activeGoal?.id || null,
+      goal_id: newGoal.id,
       type: 'coach_plan',
       input_context: {
-        goal: ctx.payload?.goal || {},
+        goal: goalData,
         profile: ctx.payload?.profile || {},
       },
       output: {
@@ -411,23 +454,27 @@ class CoachRouterService {
       status: 'pending',
     });
 
-    logger.info({ userId, recId: rec.id, taskCount: tasksWithIds.length }, 'Recommendation staged');
+    logger.info({ userId, recId: rec.id, goalId: newGoal.id, taskCount: tasksWithIds.length }, 'Recommendation staged with new goal');
 
     return rec;
   }
 
-  async _persistPlan(userId, plan) {
+  async _persistPlan(userId, plan, goalId) {
     if (!plan || !plan.tasks || plan.tasks.length === 0) return;
 
-    const goals = await repos.goal.list(userId);
-    const activeGoal = goals[0];
-    if (!activeGoal) {
-      logger.warn({ userId }, 'No active goal found for plan persistence');
-      return;
+    let targetGoalId = goalId;
+    if (!targetGoalId) {
+      const goals = await repos.goal.list(userId);
+      const activeGoal = goals[0];
+      if (!activeGoal) {
+        logger.warn({ userId }, 'No active goal found for plan persistence');
+        return;
+      }
+      targetGoalId = activeGoal.id;
     }
 
     const tasksToCreate = plan.tasks.map(t => ({
-      goal_id: activeGoal.id,
+      goal_id: targetGoalId,
       title: t.title,
       description: t.description || null,
       duration_estimate: t.duration_estimate,
@@ -443,7 +490,7 @@ class CoachRouterService {
     logger.info({ userId, taskCount: tasksToCreate.length }, 'Plan tasks persisted');
   }
 
-  async _updateState(userId, action, payload) {
+  async _updateState(userId, action, payload, sessionId) {
     const metrics = (await repos.studentMetrics.findByUserId(userId)) || {};
     const updates = {};
 
@@ -459,6 +506,7 @@ class CoachRouterService {
             user_id: userId,
             action: 'COACH_TASK_COMPLETED',
             metadata: { task_id: payload.taskId, task_title: task.title },
+            session_id: sessionId,
           });
         }
         updates.streak_days = (metrics.streak_days || 0) + 1;
@@ -477,6 +525,7 @@ class CoachRouterService {
             user_id: userId,
             action: 'COACH_TASK_SKIPPED',
             metadata: { task_id: payload.taskId, task_title: task.title, reason: payload.reason || 'unspecified' },
+            session_id: sessionId,
           });
         }
         updates.total_skipped = (metrics.total_skipped || 0) + 1;
@@ -495,6 +544,7 @@ class CoachRouterService {
           user_id: userId,
           action: 'COACH_FEEDBACK_SUBMITTED',
           metadata: { task_id: payload.taskId, difficulty: payload.difficulty, focus: payload.focus },
+          session_id: sessionId,
         });
         break;
       }
@@ -508,11 +558,13 @@ class CoachRouterService {
           user_id: userId,
           role: 'student',
           content: payload.message,
+          session_id: sessionId,
         });
         await repos.audit.create({
           user_id: userId,
           action: 'COACH_CHAT_MESSAGE',
           metadata: { message_preview: (payload.message || '').slice(0, 120) },
+          session_id: sessionId,
         });
         break;
       }
@@ -578,6 +630,7 @@ class CoachRouterService {
     let profileDeadline = activeGoal.deadline || null;
     let profileWeeklyHours = profile?.weekly_target_hours || 5;
     let profilePreferredSlots = [profile?.preferred_time || 'morning'];
+    let profileAvailableDays = profile?.availability || ['mon', 'tue', 'wed', 'thu', 'fri'];
 
     if (payload && payload.goal) {
       profileGoal = payload.goal.title || profileGoal;
@@ -589,6 +642,17 @@ class CoachRouterService {
       profilePreferredSlots = payload.profile.preferred_time
         ? [payload.profile.preferred_time]
         : profilePreferredSlots;
+      if (payload.profile.availability && Array.isArray(payload.profile.availability) && payload.profile.availability.length > 0) {
+        profileAvailableDays = payload.profile.availability;
+      }
+    }
+
+    if (typeof profileAvailableDays === 'object' && !Array.isArray(profileAvailableDays)) {
+      profileAvailableDays = ['mon', 'tue', 'wed', 'thu', 'fri'];
+    }
+
+    if (!Array.isArray(profileAvailableDays) || profileAvailableDays.length === 0) {
+      profileAvailableDays = ['mon', 'tue', 'wed', 'thu', 'fri'];
     }
 
     return {
@@ -599,6 +663,7 @@ class CoachRouterService {
         current_level: currentLevel,
         weekly_available_hours: profileWeeklyHours,
         preferred_slots: profilePreferredSlots,
+        available_days: profileAvailableDays,
         deadline: profileDeadline,
       },
       metrics: {

@@ -3,7 +3,8 @@ import api from '../../../services/api';
 const APP_VERSION = '1.0.0';
 
 function enrichPayload(payload) {
-  return { ...payload, client_timestamp: Date.now(), app_version: APP_VERSION };
+  const sessionId = typeof window !== 'undefined' ? window.__coachSessionId : null;
+  return { ...payload, client_timestamp: Date.now(), app_version: APP_VERSION, session_id: sessionId };
 }
 
 export const coachService = {
@@ -21,7 +22,8 @@ export const coachService = {
   },
 
   decideTask: async (recId, taskId, decision) => {
-    const data = await api.post(`/coach/recommendations/${recId}/tasks/${taskId}/decide`, { decision });
+    const sessionId = typeof window !== 'undefined' ? window.__coachSessionId : null;
+    const data = await api.post(`/coach/recommendations/${recId}/tasks/${taskId}/decide`, { decision, session_id: sessionId });
     return data;
   },
 

@@ -18,6 +18,7 @@ You will receive student context as structured input. If any required field is a
 - `current_level` — Per-subject proficiency: `beginner | intermediate | advanced`
 - `weekly_available_hours` — Total study hours available per week
 - `preferred_slots` — Time preferences: array of `morning | afternoon | evening`
+- `available_days` — Days of the week the student can study: array of `mon | tue | wed | thu | fri | sat | sun`. Only generate `planned_date` on these days.
 
 ## Optional Fields (use defaults if absent)
 - `deadline` — Target completion date (YYYY-MM-DD), null if open-ended

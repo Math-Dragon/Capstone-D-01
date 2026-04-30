@@ -31,13 +31,15 @@ router.post('/recommendations/:recId/tasks/:taskId/decide', async (req, res, nex
   try {
     const decideSchema = z.object({
       decision: z.enum(['accepted', 'rejected']),
+      session_id: z.string().optional(),
     });
-    const { decision } = decideSchema.parse(req.body);
+    const { decision, session_id } = decideSchema.parse(req.body);
     const result = await coachRouter.decideTask(
       req.user.id,
       req.params.recId,
       req.params.taskId,
-      decision
+      decision,
+      session_id
     );
     res.json({ success: true, data: result });
   } catch (err) {

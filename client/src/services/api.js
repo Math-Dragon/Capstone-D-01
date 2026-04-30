@@ -2,6 +2,8 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
+let lastRequestId = localStorage.getItem('lastRequestId') || null;
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
@@ -26,9 +28,13 @@ const processQueue = (error, token = null) => {
 
 api.interceptors.request.use(
   (config) => {
+    config.metadata = { startTime: performance.now() };
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    if (lastRequestId) {
+      config.headers['X-Request-Id'] = lastRequestId;
     }
     return config;
   },
@@ -37,12 +43,27 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => {
+    const durationMs = response.config.metadata
+      ? Math.round(performance.now() - response.config.metadata.startTime)
+      : null;
+
     if (response.data && response.data.success !== undefined && response.data.data !== undefined) {
       const result = response.data.data;
       if (result && typeof result === 'object' && response.data.meta && Object.keys(response.data.meta).length > 0) {
         result._meta = response.data.meta;
+        if (response.data.meta.request_id) {
+          lastRequestId = response.data.meta.request_id;
+          localStorage.setItem('lastRequestId', lastRequestId);
+        }
+      }
+      if (result && typeof result === 'object' && durationMs != null) {
+        result._clientDurationMs = durationMs;
       }
       return result;
+    }
+    if (response.data && response.data.meta?.request_id) {
+      lastRequestId = response.data.meta.request_id;
+      localStorage.setItem('lastRequestId', lastRequestId);
     }
     return response.data;
   },

@@ -50,7 +50,13 @@ async function callGemini(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS) {
 
   try {
     const result = await model.generateContent(contentConfig, { signal: controller.signal });
-    return extractContent('gemini', result);
+    const content = extractContent('gemini', result);
+    const usage = result.response.usageMetadata ? {
+      prompt_tokens: result.response.usageMetadata.promptTokenCount,
+      completion_tokens: result.response.usageMetadata.candidatesTokenCount,
+      total_tokens: result.response.usageMetadata.totalTokenCount,
+    } : null;
+    return { content, usage };
   } finally {
     clearTimeout(timeout);
   }
@@ -81,7 +87,12 @@ async function callOpenRouter(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS) {
     const raw = await resp.json();
     const content = extractContent('openrouter', raw);
     if (!content) throw new Error('OpenRouter returned empty content');
-    return content;
+    const usage = raw.usage ? {
+      prompt_tokens: raw.usage.prompt_tokens,
+      completion_tokens: raw.usage.completion_tokens,
+      total_tokens: raw.usage.total_tokens,
+    } : null;
+    return { content, usage };
   } finally {
     clearTimeout(timeout);
   }
@@ -99,12 +110,15 @@ async function callWithRetry(userMessage, { maxRetries = 3, label = 'llm', timeo
       const start = Date.now();
       const meta = { attempt: attemptNum, timestamp: new Date().toISOString(), source };
       try {
-        const content = await callFn();
+        const result = await callFn();
         meta.status = 'success';
-        meta.raw_output_preview = content.slice(0, 150);
+        meta.raw_output_preview = result.content.slice(0, 150);
         meta.duration_ms = Date.now() - start;
+        if (result.usage) {
+          meta.usage = result.usage;
+        }
         attempts.push(meta);
-        return content;
+        return result.content;
       } catch (err) {
         meta.status = 'transient_error';
         meta.error = err.message;

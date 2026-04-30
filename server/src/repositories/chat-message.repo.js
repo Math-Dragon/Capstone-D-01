@@ -1,10 +1,10 @@
 const db = require('../db');
 
-async function create({ user_id, role, content, plan_snapshot_summary, session_type }, client) {
+async function create({ user_id, role, content, plan_snapshot_summary, session_type, session_id }, client) {
   const result = await db.query(
-    `INSERT INTO chat_messages (user_id, role, content, plan_snapshot_summary, session_type)
-     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [user_id, role, content, plan_snapshot_summary || null, session_type || null],
+    `INSERT INTO chat_messages (user_id, role, content, plan_snapshot_summary, session_type, session_id)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    [user_id, role, content, plan_snapshot_summary || null, session_type || null, session_id || null],
     client
   );
   return result.rows[0];

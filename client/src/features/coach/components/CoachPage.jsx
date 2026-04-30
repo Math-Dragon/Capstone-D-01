@@ -71,12 +71,37 @@ function MessageBubble({ msg }) {
   );
 }
 
+const DAY_LABELS = {
+  mon: 'Sen', tue: 'Sel', wed: 'Rab', thu: 'Kam',
+  fri: 'Jum', sat: 'Sab', sun: 'Min',
+};
+
+const ALL_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri'];
+const WEEKENDS = ['sat', 'sun'];
+
 function PlanFormModal({ onSubmit, onCancel, disabled, initialPayload }) {
   const [title, setTitle] = useState(initialPayload?.goal?.title || '');
   const [description, setDescription] = useState(initialPayload?.goal?.description || '');
   const [deadline, setDeadline] = useState(initialPayload?.goal?.deadline || '');
   const [weeklyHours, setWeeklyHours] = useState(initialPayload?.profile?.weekly_target_hours || 5);
   const [preferredTime, setPreferredTime] = useState(initialPayload?.profile?.preferred_time || 'morning');
+
+  const [availMode, setAvailMode] = useState('weekdays');
+  const [availDays, setAvailDays] = useState(WEEKDAYS);
+
+  const handleModeChange = (mode) => {
+    setAvailMode(mode);
+    if (mode === 'weekdays') setAvailDays(WEEKDAYS);
+    else if (mode === 'weekend') setAvailDays(WEEKENDS);
+  };
+
+  const toggleDay = (day) => {
+    if (availMode !== 'custom') return;
+    setAvailDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -86,7 +111,7 @@ function PlanFormModal({ onSubmit, onCancel, disabled, initialPayload }) {
       profile: {
         weekly_target_hours: weeklyHours,
         preferred_time: preferredTime,
-        availability: ['mon', 'tue', 'wed', 'thu', 'fri'],
+        availability: availDays,
       },
     });
   };
@@ -189,9 +214,57 @@ function PlanFormModal({ onSubmit, onCancel, disabled, initialPayload }) {
             </div>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-primary-700 mb-1">
+              Hari Belajar
+            </label>
+            <div className="flex gap-2 mb-3">
+              {Object.entries({ weekdays: 'Weekdays (Sen–Jum)', weekend: 'Weekend (Sab–Min)', custom: 'Custom' }).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => handleModeChange(key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    availMode === key
+                      ? 'bg-primary-900 text-white'
+                      : 'bg-primary-100 text-primary-600 hover:bg-primary-200'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              {ALL_DAYS.map((day) => {
+                const checked = availDays.includes(day);
+                const locked = availMode !== 'custom';
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => toggleDay(day)}
+                    disabled={locked}
+                    className={`w-10 h-10 rounded-xl text-xs font-semibold transition-all ${
+                      checked
+                        ? locked
+                          ? 'bg-primary-200 text-primary-800 cursor-not-allowed'
+                          : 'bg-primary-900 text-white'
+                        : 'bg-primary-50 text-primary-400 hover:bg-primary-100'
+                    } disabled:opacity-70`}
+                  >
+                    {DAY_LABELS[day]}
+                  </button>
+                );
+              })}
+            </div>
+            {availMode === 'custom' && availDays.length === 0 && (
+              <p className="text-[11px] text-red-500 mt-1">Pilih minimal 1 hari</p>
+            )}
+          </div>
+
           <button
             type="submit"
-            disabled={!title.trim() || disabled}
+            disabled={!title.trim() || disabled || (availMode === 'custom' && availDays.length === 0)}
             className="btn-primary w-full !py-2.5 !rounded-xl text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Buat Rencana
@@ -392,7 +465,7 @@ export default function CoachPage() {
               : 'Tanya apa saja tentang rencana belajarmu.'}
           </p>
         </div>
-      {mode === 'chat' && (
+      {(mode === 'chat' || mode === 'form') && (
           <button
             onClick={() => setFormOpen(true)}
             className="btn-primary !px-4 !py-2 !rounded-xl text-sm shrink-0 ml-4"
