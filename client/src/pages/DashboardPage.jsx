@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
-import coachService from '../features/coach/services/coachService';
 
 export default function DashboardPage() {
   const [tasks, setTasks] = useState([]);
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
 
   const loadData = async () => {
     try {
@@ -27,18 +25,6 @@ export default function DashboardPage() {
   useEffect(() => {
     loadData();
   }, []);
-
-  const handleGeneratePlan = async () => {
-    setGenerating(true);
-    try {
-      await coachService.initialPlan();
-      await loadData();
-    } catch (err) {
-      console.error('Failed to generate plan:', err);
-    } finally {
-      setGenerating(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -124,20 +110,16 @@ export default function DashboardPage() {
                 <div className="text-4xl mb-4">✨</div>
                 <h4 className="text-lg font-semibold text-primary-900 mb-2">Belum ada tugas</h4>
                 <p className="text-primary-400 mb-6">Minta AI untuk menyusun rencana belajar berdasarkan targetmu.</p>
-                <button
-                  onClick={handleGeneratePlan}
-                  disabled={generating}
-                  className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {generating ? 'Menyusun Rencana...' : 'Sarankan Rencana Belajar'}
-                </button>
+                <Link to="/coach?create=true" className="btn-primary">
+                  Sarankan Rencana Belajar
+                </Link>
               </div>
             ) : (
               <div className="card p-8 text-center">
                 <div className="text-4xl mb-4">🎯</div>
                 <h4 className="text-lg font-semibold text-primary-900 mb-2">Belum ada target belajar</h4>
                 <p className="text-primary-400 mb-6">Mulai dengan membuat target belajar agar AI bisa memberikan rekomendasi.</p>
-                <Link to="/goals" className="btn-primary">
+                <Link to="/coach?create=true" className="btn-primary">
                   Buat Target Sekarang
                 </Link>
               </div>
@@ -191,7 +173,7 @@ export default function DashboardPage() {
             {goals.length === 0 ? (
               <div className="card p-5 text-center">
                 <p className="text-sm text-primary-400 mb-3">Belum ada target</p>
-                <Link to="/goals" className="btn-secondary text-sm">
+                <Link to="/coach?create=true" className="btn-secondary text-sm">
                   + Buat Target
                 </Link>
               </div>
