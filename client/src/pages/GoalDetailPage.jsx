@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import { useCoach } from '../features/coach/context/CoachContext';
-import { useGoals } from '../features/goals/context/GoalsContext';
+import { useCoach } from '../features/coach/hooks/useCoach';
+import { useGoals } from '../features/goals/hooks/useGoals';
 import TaskActionModal from '../components/TaskActionModal';
+import { useToast } from '../components/ui/Toast';
 
 const TASK_TYPE_COLORS = {
   acquire: '#818CF8',
@@ -41,7 +42,7 @@ export default function GoalDetailPage() {
   const [actionLoading, setActionLoading] = useState(null);
   const [modalTask, setModalTask] = useState(null);
   const [modalMode, setModalMode] = useState(null);
-  const [toast, setToast] = useState(null);
+  const { addToast } = useToast();
 
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
@@ -86,8 +87,7 @@ export default function GoalDetailPage() {
         result = await coachCtx.dispatchTaskAction('SUBMIT_FEEDBACK', { taskId: modalTask.id, difficulty, focus, notes });
       }
       if (result?.data?.message) {
-        setToast({ message: result.data.message });
-        setTimeout(() => setToast(null), 6000);
+        addToast(result.data.message, 'success');
       }
     } catch (err) {
       console.error(`Failed to ${action} task:`, err);
@@ -409,20 +409,6 @@ export default function GoalDetailPage() {
         onCancel={closeModal}
       />
 
-      {toast && (
-        <div className="fixed bottom-4 right-4 z-50 max-w-sm animate-fade-in">
-          <div className="bg-primary-900 text-white rounded-2xl shadow-xl px-4 py-3 flex items-start gap-3">
-            <span className="text-lg flex-shrink-0">🤖</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm leading-relaxed">{toast.message}</p>
-              <Link to="/coach" className="text-xs text-primary-300 hover:text-white underline mt-1 inline-block">
-                Lihat di Chat →
-              </Link>
-            </div>
-            <button onClick={() => setToast(null)} className="text-primary-400 hover:text-white text-lg leading-none">×</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

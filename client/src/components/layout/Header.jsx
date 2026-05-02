@@ -11,7 +11,7 @@ export function Header() {
   const navLinks = isAuthenticated
     ? [
         { path: '/', label: 'Dashboard' },
-        { path: '/goals', label: 'Goals' },
+        { path: '/goals', label: 'Targetku' },
         { path: '/calendar', label: 'Kalender' },
         { path: '/progress', label: 'Progress' },
         { path: '/coach', label: 'Coach' },

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { useCoach } from '../context/CoachContext';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useCoach } from '../hooks/useCoach';
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import CoachObservability from './CoachObservability';
 
 function TypingIndicator() {
@@ -418,11 +418,13 @@ export default function CoachPage() {
   const [formOpen, setFormOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
     if (searchParams.get('create') === 'true' && (mode === 'form' || mode === 'chat')) {
       setFormOpen(true);
+      navigate(location.pathname, { replace: true });
     }
   }, [searchParams, mode]);
 

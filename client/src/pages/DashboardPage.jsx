@@ -180,7 +180,7 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-3">
                 {goals.slice(0, 3).map((goal) => (
-                  <Link key={goal.id} to="/goals" className="card p-4 block hover:-translate-y-0.5 transition-all duration-200">
+                  <Link key={goal.id} to={`/goals/${goal.id}`} className="card p-4 block hover:-translate-y-0.5 transition-all duration-200">
                     <h4 className="font-medium text-primary-900 text-sm">{goal.title}</h4>
                     {goal.deadline && (
                       <p className="text-xs text-primary-400 mt-1">

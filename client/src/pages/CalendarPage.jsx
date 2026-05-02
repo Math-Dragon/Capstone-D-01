@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchStudentMetrics } from '../store/slices/observabilitySlice';
 import api from '../services/api';
-import { useCoach } from '../features/coach/context/CoachContext';
+import { useCoach } from '../features/coach/hooks/useCoach';
 import TaskActionModal from '../components/TaskActionModal';
+import { useToast } from '../components/ui/Toast';
+import { Modal } from '../components/ui/Modal';
 
 const DAY_NAMES = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 const SLOT_ORDER = { morning: 0, afternoon: 1, evening: 2 };
@@ -72,7 +73,10 @@ export default function CalendarPage() {
   const [actionLoading, setActionLoading] = useState(null);
   const [modalTask, setModalTask] = useState(null);
   const [modalMode, setModalMode] = useState(null);
-  const [toast, setToast] = useState(null);
+  const { addToast } = useToast();
+  const [rescheduleTask, setRescheduleTask] = useState(null);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleSlot, setRescheduleSlot] = useState('morning');
 
   const openModal = (task, mode) => {
     setModalTask(task);
@@ -103,8 +107,7 @@ export default function CalendarPage() {
         result = await coachCtx.dispatchTaskAction('SUBMIT_FEEDBACK', { taskId: modalTask.id, difficulty, focus, notes });
       }
       if (result?.data?.message) {
-        setToast({ message: result.data.message });
-        setTimeout(() => setToast(null), 6000);
+        addToast(result.data.message, 'success');
       }
     } catch (err) {
       console.error(`Failed to ${action} task:`, err);
@@ -188,7 +191,7 @@ export default function CalendarPage() {
     );
   }
   const displayTasks = (tasksByDate[displayDate] || []).filter(
-    (t) => t.status === 'todo'
+    (t) => t.status === 'todo' || t.status === 'in_progress'
   );
 
   return (
@@ -212,7 +215,11 @@ export default function CalendarPage() {
         </div>
         <div className="card p-3 text-center">
           <div className="text-xl font-bold text-primary-900">{totalTasks - completedTasks}</div>
-          <div className="text-[10px] text-primary-400">{unassignedTasks > 0 ? `${unassignedTasks} belum dijadwalkan` : 'Tersisa'}</div>
+          <div className="text-[10px] text-primary-400">
+            {unassignedTasks > 0
+              ? `${unassignedTasks} belum dijadwalkan`
+              : `${tasks.filter(t => t.status === 'todo').length} sisa`}
+          </div>
         </div>
       </div>
 
@@ -438,6 +445,16 @@ export default function CalendarPage() {
                           >
                             💬 Feedback
                           </button>
+                          <button
+                            onClick={() => {
+                              setRescheduleTask(task);
+                              setRescheduleDate(task.planned_date?.slice(0, 10) || displayDate);
+                              setRescheduleSlot(task.planned_slot || 'morning');
+                            }}
+                            className="text-[10px] px-2 py-1 rounded bg-purple-500/20 text-purple-600 hover:bg-purple-500/30 transition-colors font-medium"
+                          >
+                            📅 Jadwal Ulang
+                          </button>
                         </div>
                       )}
                     </div>
@@ -456,21 +473,64 @@ export default function CalendarPage() {
         onCancel={closeModal}
       />
 
-      {/* Coach Toast */}
-      {toast && (
-        <div className="fixed bottom-4 right-4 z-50 max-w-sm animate-fade-in">
-          <div className="bg-primary-900 text-white rounded-2xl shadow-xl px-4 py-3 flex items-start gap-3">
-            <span className="text-lg flex-shrink-0">🤖</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm leading-relaxed">{toast.message}</p>
-              <Link to="/coach" className="text-xs text-primary-300 hover:text-white underline mt-1 inline-block">
-                Lihat di Chat →
-              </Link>
-            </div>
-            <button onClick={() => setToast(null)} className="text-primary-400 hover:text-white text-lg leading-none">×</button>
+      {/* Reschedule Modal */}
+      <Modal isOpen={!!rescheduleTask} onClose={() => setRescheduleTask(null)} title="Jadwal Ulang Tugas" size="sm">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-primary-700 mb-2">Tanggal</label>
+            <input
+              type="date"
+              value={rescheduleDate}
+              onChange={(e) => setRescheduleDate(e.target.value)}
+              className="w-full px-4 py-3 bg-white border border-primary-200 rounded-xl text-primary-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-primary-700 mb-2">Sesi</label>
+            <select
+              value={rescheduleSlot}
+              onChange={(e) => setRescheduleSlot(e.target.value)}
+              className="w-full px-4 py-3 bg-white border border-primary-200 rounded-xl text-primary-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+            >
+              <option value="morning">☀️ Pagi</option>
+              <option value="afternoon">⛅ Siang</option>
+              <option value="evening">🌙 Malam</option>
+            </select>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={() => setRescheduleTask(null)}
+              className="px-5 py-2.5 rounded-xl font-medium text-sm text-primary-700 border border-primary-200 hover:bg-primary-50"
+            >
+              Batal
+            </button>
+            <button
+              onClick={async () => {
+                if (!rescheduleTask) return;
+                try {
+                  await api.patch(`/tasks/${rescheduleTask.id}`, {
+                    planned_date: rescheduleDate,
+                    planned_slot: rescheduleSlot,
+                  });
+                  setTasks((prev) =>
+                    prev.map((t) =>
+                      t.id === rescheduleTask.id
+                        ? { ...t, planned_date: rescheduleDate, planned_slot: rescheduleSlot }
+                        : t
+                    )
+                  );
+                  setRescheduleTask(null);
+                } catch (err) {
+                  console.error('Failed to reschedule task:', err);
+                }
+              }}
+              className="px-5 py-2.5 rounded-xl font-medium text-sm bg-primary-900 text-white hover:bg-primary-800"
+            >
+              Simpan
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }
