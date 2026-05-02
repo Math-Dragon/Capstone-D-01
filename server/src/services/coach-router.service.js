@@ -173,17 +173,23 @@ class CoachRouterService {
       payload = { ...payload, action, taskTitle: task?.title || 'Unknown' };
     }
 
+    let triggerFired = null;
+
     if (action === 'COMPLETE_TASK') {
       const metrics = (await repos.studentMetrics.findByUserId(userId)) || {};
-      const triggerFired = adaptationTrigger.evaluate(metrics);
-      if (!triggerFired) {
+      const ctTrigger = adaptationTrigger.evaluate(metrics);
+      if (!ctTrigger) {
         return this._respondTaskCompleted(userId, payload, sessionId);
       }
+      triggerFired = ctTrigger;
     }
 
     const ctx = await this._buildContext(userId, sessionType, payload);
 
-    let triggerFired = triggerFired || adaptationTrigger.evaluate(ctx.metrics);
+    // Only evaluate trigger override for task actions (not for CHAT_MESSAGE or other session types)
+    if (!triggerFired && taskActions.includes(action)) {
+      triggerFired = adaptationTrigger.evaluate(ctx.metrics);
+    }
 
     const effectiveSessionType = triggerFired ? triggerFired.sessionType : sessionType;
     ctx.sessionType = effectiveSessionType;
