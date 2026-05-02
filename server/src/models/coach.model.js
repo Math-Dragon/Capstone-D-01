@@ -3,7 +3,7 @@ const { z } = require('zod');
 const coachActionEnum = z.enum([
   'INITIAL_PLAN', 'CHECK_IN', 'COMPLETE_TASK', 'SKIP_TASK',
   'MODIFY_TASK', 'SUBMIT_FEEDBACK', 'REQUEST_ADJUSTMENT',
-  'CHAT_MESSAGE', 'CRISIS_SIGNAL',
+  'CHAT_MESSAGE', 'CRISIS_SIGNAL', 'ACCEPT_PROPOSAL',
 ]);
 
 const coachActionSchema = z.object({

@@ -6,6 +6,7 @@ import { useCoach } from '../features/coach/hooks/useCoach';
 import TaskActionModal from '../components/TaskActionModal';
 import { useToast } from '../components/ui/Toast';
 import { Modal } from '../components/ui/Modal';
+import coachService from '../features/coach/services/coachService';
 
 const DAY_NAMES = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 const SLOT_ORDER = { morning: 0, afternoon: 1, evening: 2 };
@@ -73,6 +74,8 @@ export default function CalendarPage() {
   const [actionLoading, setActionLoading] = useState(null);
   const [modalTask, setModalTask] = useState(null);
   const [modalMode, setModalMode] = useState(null);
+  const [proposal, setProposal] = useState(null);
+  const [proposalAccepting, setProposalAccepting] = useState(false);
   const { addToast } = useToast();
   const [rescheduleTask, setRescheduleTask] = useState(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
@@ -106,14 +109,34 @@ export default function CalendarPage() {
       } else if (action === 'feedback') {
         result = await coachCtx.dispatchTaskAction('SUBMIT_FEEDBACK', { taskId: modalTask.id, difficulty, focus, notes });
       }
-      if (result?.data?.message) {
-        addToast(result.data.message, 'success');
+      if (result?.message) {
+        addToast(result.message, 'success');
+      }
+      if (result?.plan?.tasks?.length > 0) {
+        setProposal(result.plan);
       }
     } catch (err) {
       console.error(`Failed to ${action} task:`, err);
     } finally {
       setActionLoading(null);
       closeModal();
+    }
+  };
+
+  const handleAcceptProposal = async () => {
+    if (!proposal) return;
+    setProposalAccepting(true);
+    try {
+      await coachService.acceptProposal(proposal);
+      addToast('Rencana baru berhasil disimpan!', 'success');
+      setProposal(null);
+      // Refresh task list from server
+      const data = await api.get('/tasks');
+      setTasks(Array.isArray(data) ? data : []);
+    } catch (err) {
+      addToast('Gagal menyimpan rencana. Coba lagi.', 'error');
+    } finally {
+      setProposalAccepting(false);
     }
   };
 
@@ -141,6 +164,16 @@ export default function CalendarPage() {
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [loadTasks]);
+
+  useEffect(() => {
+    if (!proposal) return;
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [proposal]);
 
   const tasksByDate = useMemo(() => {
     const map = {};
@@ -531,6 +564,48 @@ export default function CalendarPage() {
           </div>
         </div>
       </Modal>
+
+      {proposal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setProposal(null)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-primary-900 mb-2">Coach Menyesuaikan Rencana</h3>
+            <p className="text-sm text-primary-500 mb-4">{proposal.summary}</p>
+
+            {proposal.tasks?.length > 0 && (
+              <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
+                {proposal.tasks.map((task, i) => (
+                  <div key={task.id || i} className="p-3 bg-primary-50 rounded-xl">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">
+                        {task.task_type || 'task'}
+                      </span>
+                      <span className="text-xs text-primary-400">{task.duration_estimate}m</span>
+                    </div>
+                    <p className="text-sm font-medium text-primary-900 mt-1">{task.title}</p>
+                    <p className="text-xs text-primary-400 mt-0.5">{task.rationale}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setProposal(null)}
+                className="btn-secondary text-sm"
+              >
+                Tolak
+              </button>
+              <button
+                onClick={handleAcceptProposal}
+                disabled={proposalAccepting}
+                className="px-4 py-2 rounded-xl text-sm font-semibold bg-primary-900 text-white hover:bg-primary-800 transition-colors disabled:opacity-50"
+              >
+                {proposalAccepting ? 'Menyimpan...' : 'Setuju'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

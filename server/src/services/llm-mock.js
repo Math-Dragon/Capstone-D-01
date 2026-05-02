@@ -69,7 +69,56 @@ function generateMockSuggestion(ctx) {
   };
 }
 
-module.exports = { generateMockSuggestion };
+function generateMockTaskAction(ctx) {
+  const payload = ctx.payload || {};
+
+  if (payload.action === 'COMPLETE_TASK') {
+    const title = payload.taskTitle || 'tugas tersebut';
+    const streak = ctx.metrics?.streak_days || 0;
+    let message;
+    if (streak >= 7) {
+      message = `🎉 Luar biasa! "${title}" selesai. Streak belajarmu ${streak} hari — konsistensimu menginspirasi!`;
+    } else if (streak >= 3) {
+      message = `🔥 Kerja bagus! "${title}" selesai. Streak-mu sekarang ${streak} hari. Pertahankan momentum!`;
+    } else {
+      message = `✅ "${title}" selesai. Total tugas selesai: ${payload.total_completed || 1}. Lanjutkan!`;
+    }
+    return { message, plan: null };
+  }
+
+  if (payload.reason !== undefined) {
+    const title = payload.taskTitle || 'tugas tersebut';
+    const reasonMap = {
+      too_hard: 'terlalu sulit',
+      no_time: 'tidak ada waktu',
+      not_interested: 'kurang menarik',
+      not_relevant: 'tidak relevan',
+      low_energy: 'energi rendah',
+      other: 'alasan lain',
+    };
+    const reasonText = reasonMap[payload.reason] || payload.reason;
+    const message = `Saya mengerti kamu melewatkan "${title}" karena ${reasonText}. Tidak apa-apa, kita bisa menyesuaikan rencana. Apakah kamu ingin tugas ini dijadwalkan ulang atau diganti?`;
+    return { message, plan: null };
+  }
+
+  if (payload.difficulty !== undefined) {
+    const title = payload.taskTitle || 'tugas tersebut';
+    let message = `Terima kasih atas feedback untuk "${title}"! Tingkat kesulitan: ${payload.difficulty}/5, Fokus: ${payload.focus}/5.`;
+    if (payload.notes) message += ` Catatan: "${payload.notes}".`;
+    if (payload.difficulty >= 4) {
+      message += ' Tampaknya cukup menantang — saya akan menyesuaikan tugas berikutnya agar lebih manageable.';
+    } else if (payload.difficulty <= 2) {
+      message += ' Sepertinya sudah cukup mudah — saya akan tingkatkan tingkat kesulitan berikutnya.';
+    } else {
+      message += ' Pertahankan momentum belajarmu!';
+    }
+    return { message, plan: null };
+  }
+
+  return { message: 'Tindakan dicatat.', plan: null };
+}
+
+module.exports = { generateMockSuggestion, generateMockChat, generateMockTaskAction };
 
 function generateMockChat(ctx) {
   const payload = ctx.payload || {};
@@ -118,5 +167,3 @@ function generateMockChat(ctx) {
 
   return { message, plan: null };
 }
-
-module.exports = { generateMockSuggestion, generateMockChat };

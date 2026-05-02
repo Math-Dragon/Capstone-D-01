@@ -1,6 +1,6 @@
 const repos = require('../repositories');
 const { validateAIOutput, validateChatOutput } = require('./llm');
-const { generateMockSuggestion, generateMockChat } = require('./llm-mock');
+const { generateMockSuggestion, generateMockChat, generateMockTaskAction } = require('./llm-mock');
 const { isMock, callWithRetry } = require('./llm-client');
 const { scheduleTasks } = require('./scheduler.service');
 const logger = require('../utils/logger');
@@ -19,6 +19,34 @@ const TEMPLATES = {
     `Available days: ${(ctx.profile.available_days || ['mon', 'tue', 'wed', 'thu', 'fri']).join(', ')}\n` +
     `Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
     'Generate a personalized study plan for this student. Follow the output structure exactly.',
+
+  task_action: (ctx) => {
+    let body = '[session_type: task_action]\n\n';
+    if (ctx.payload.action === 'COMPLETE_TASK') {
+      body += `Student completed task "${ctx.payload.taskTitle || 'unknown'}"\n`;
+      body += 'This completion may signal progress worth acknowledging or adjusting for.\n\n';
+    } else if (ctx.payload.reason !== undefined) {
+      body += `Student skipped task "${ctx.payload.taskTitle || 'unknown'}" with reason: ${ctx.payload.reason}`;
+      if (ctx.payload.note) body += `\nNote: ${ctx.payload.note}`;
+      body += '\n\n';
+    } else if (ctx.payload.difficulty !== undefined) {
+      body += `Student submitted feedback on task "${ctx.payload.taskTitle || 'unknown'}"` +
+        `\n- Difficulty: ${ctx.payload.difficulty}/5` +
+        `\n- Focus: ${ctx.payload.focus}/5`;
+      if (ctx.payload.notes) body += `\n- Notes: ${ctx.payload.notes}`;
+      body += '\n\n';
+    }
+    body += `Current plan:\n${ctx.remainingTasksJson}\n\n` +
+      'Student metrics:\n' +
+      `- Streak: ${ctx.metrics.streak_days} days\n` +
+      `- Completion rate (7d): ${Math.round((ctx.metrics.completion_rate_7d || 0) * 100)}%\n` +
+      `- Consecutive skips: ${ctx.metrics.consecutive_skips}\n\n` +
+      `Available days: ${(ctx.profile.available_days || ['mon', 'tue', 'wed', 'thu', 'fri']).join(', ')}\n` +
+      `Weekly target hours: ${ctx.profile.weekly_available_hours}\n` +
+      `Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
+      'Respond with a brief acknowledgment (1-2 sentences) in the "message" field. If the plan needs adjustment based on this student action, provide the updated plan in the "plan" field. If no adjustment is needed, set "plan" to null. Keep the message concise and actionable. Do NOT include chat history.';
+    return body;
+  },
 
   check_in: (ctx) =>
     '[session_type: check_in]\n\n' +
@@ -130,43 +158,51 @@ const recommendationMetrics = {
 
 class CoachRouterService {
   async dispatch(userId, action, payload) {
-    const { sessionType, shouldCallLLM } = this._resolveAction(action);
+    const { sessionType } = this._resolveAction(action);
     const sessionId = payload?.session_id || null;
 
     await this._updateState(userId, action, payload, sessionId);
 
-    if (action === 'COMPLETE_TASK') {
-      return this._respondTaskCompleted(userId, payload, sessionId);
+    if (action === 'ACCEPT_PROPOSAL') {
+      return this._acceptProposal(userId, payload, sessionId);
     }
 
-    if ((action === 'SKIP_TASK' || action === 'SUBMIT_FEEDBACK') && payload && payload.taskId) {
+    const taskActions = ['COMPLETE_TASK', 'SKIP_TASK', 'SUBMIT_FEEDBACK'];
+    if (taskActions.includes(action) && payload?.taskId) {
       const task = await repos.task.findById(payload.taskId);
-      payload = { ...payload, taskTitle: task?.title || 'Unknown' };
+      payload = { ...payload, action, taskTitle: task?.title || 'Unknown' };
+    }
+
+    if (action === 'COMPLETE_TASK') {
+      const metrics = (await repos.studentMetrics.findByUserId(userId)) || {};
+      const triggerFired = adaptationTrigger.evaluate(metrics);
+      if (!triggerFired) {
+        return this._respondTaskCompleted(userId, payload, sessionId);
+      }
     }
 
     const ctx = await this._buildContext(userId, sessionType, payload);
 
-    let triggerFired = null;
-    if (!shouldCallLLM) {
-      triggerFired = adaptationTrigger.evaluate(ctx.metrics);
-      if (!triggerFired) {
-        return { type: 'state_only', data: null };
-      }
-    }
+    let triggerFired = triggerFired || adaptationTrigger.evaluate(ctx.metrics);
 
     const effectiveSessionType = triggerFired ? triggerFired.sessionType : sessionType;
     ctx.sessionType = effectiveSessionType;
 
-    const isChat = effectiveSessionType === 'chat';
+    const usesChatSchema = effectiveSessionType === 'chat' || effectiveSessionType === 'task_action';
+    const isTaskAction = effectiveSessionType === 'task_action';
     let validated, llmMeta;
 
     if (isMock) {
-      validated = isChat
-        ? generateMockChat(ctx)
-        : generateMockSuggestion(ctx);
+      if (isTaskAction) {
+        validated = generateMockTaskAction(ctx);
+      } else if (usesChatSchema) {
+        validated = generateMockChat(ctx);
+      } else {
+        validated = generateMockSuggestion(ctx);
+      }
       llmMeta = { attempts: [], duration_ms: 0 };
     } else {
-      validated = await this._callLLMWithRetry(ctx, isChat);
+      validated = await this._callLLMWithRetry(ctx, usesChatSchema);
       llmMeta = validated._meta || { attempts: [], duration_ms: 0 };
       delete validated._meta;
     }
@@ -180,7 +216,7 @@ class CoachRouterService {
     }
 
     if (validated) {
-      const tasksToSchedule = isChat ? validated.plan?.tasks : validated.tasks;
+      const tasksToSchedule = usesChatSchema ? validated.plan?.tasks : validated.tasks;
       if (tasksToSchedule && tasksToSchedule.length > 0) {
         const scheduled = scheduleTasks(tasksToSchedule, {
           availableDays: ctx.profile.available_days,
@@ -188,7 +224,7 @@ class CoachRouterService {
           deadline: ctx.profile.deadline,
           preferredSlot: ctx.profile.preferred_slots?.[0],
         });
-        if (isChat) {
+        if (usesChatSchema) {
           validated.plan.tasks = scheduled;
         } else {
           validated.tasks = scheduled;
@@ -198,7 +234,37 @@ class CoachRouterService {
 
     aiRequestCount.inc({ type: `coach.${effectiveSessionType}`, status: 'success' });
 
-    if (isChat) {
+    if (effectiveSessionType === 'task_action') {
+      const message = validated.message || 'Tindakan dicatat.';
+      await repos.chatMessage.create({
+        user_id: userId,
+        role: 'coach',
+        content: message,
+        plan_snapshot_summary: validated.plan ? validated.plan.summary : null,
+        session_type: effectiveSessionType,
+        session_id: sessionId,
+      });
+
+      await repos.audit.create({
+        user_id: userId,
+        action: 'COACH_TASK_ACTION_RESPONDED',
+        metadata: {
+          session_type: effectiveSessionType,
+          action: payload.action,
+          message_preview: message.slice(0, 120),
+          has_plan_adjustment: !!validated.plan,
+        },
+        session_id: sessionId,
+      });
+
+      return {
+        type: 'task_action',
+        data: { message, plan: validated.plan || null },
+        meta: llmMeta,
+      };
+    }
+
+    if (effectiveSessionType === 'chat') {
       const message = validated.message || 'Rencana belajarmu telah diperbarui.';
       await repos.chatMessage.create({
         user_id: userId,
@@ -374,17 +440,18 @@ class CoachRouterService {
 
   _resolveAction(action) {
     const map = {
-      INITIAL_PLAN: { sessionType: 'initial_plan', shouldCallLLM: true },
-      CHECK_IN: { sessionType: 'check_in', shouldCallLLM: true },
-      COMPLETE_TASK: { sessionType: null, shouldCallLLM: false },
-      SKIP_TASK: { sessionType: 'chat', shouldCallLLM: true },
-      MODIFY_TASK: { sessionType: 'adjustment', shouldCallLLM: true },
-      SUBMIT_FEEDBACK: { sessionType: 'chat', shouldCallLLM: true },
-      REQUEST_ADJUSTMENT: { sessionType: 'adjustment', shouldCallLLM: true },
-      CHAT_MESSAGE: { sessionType: 'chat', shouldCallLLM: true },
-      CRISIS_SIGNAL: { sessionType: 'crisis', shouldCallLLM: true },
+      INITIAL_PLAN: { sessionType: 'initial_plan' },
+      CHECK_IN: { sessionType: 'check_in' },
+      COMPLETE_TASK: { sessionType: 'task_action' },
+      SKIP_TASK: { sessionType: 'task_action' },
+      MODIFY_TASK: { sessionType: 'adjustment' },
+      SUBMIT_FEEDBACK: { sessionType: 'task_action' },
+      REQUEST_ADJUSTMENT: { sessionType: 'adjustment' },
+      CHAT_MESSAGE: { sessionType: 'chat' },
+      CRISIS_SIGNAL: { sessionType: 'crisis' },
+      ACCEPT_PROPOSAL: { sessionType: null },
     };
-    return map[action] || { sessionType: 'chat', shouldCallLLM: true };
+    return map[action] || { sessionType: 'chat' };
   }
 
   async _respondTaskCompleted(userId, payload, sessionId) {
@@ -488,6 +555,27 @@ class CoachRouterService {
 
     await repos.task.createMany(tasksToCreate);
     logger.info({ userId, taskCount: tasksToCreate.length }, 'Plan tasks persisted');
+  }
+
+  async _acceptProposal(userId, payload, sessionId) {
+    const plan = payload?.plan;
+    if (!plan || !plan.tasks || plan.tasks.length === 0) {
+      return { type: 'message', data: { message: 'Tidak ada rencana untuk disimpan.', plan: null }, meta: { attempts: [], duration_ms: 0 } };
+    }
+
+    await this._persistPlan(userId, plan);
+
+    await repos.audit.create({
+      user_id: userId,
+      action: 'COACH_PROPOSAL_ACCEPTED',
+      metadata: {
+        task_count: plan.tasks.length,
+        summary: plan.summary,
+      },
+      session_id: sessionId,
+    });
+
+    return { type: 'accepted', data: { message: 'Rencana berhasil disimpan!', plan }, meta: { attempts: [], duration_ms: 0 } };
   }
 
   async _updateState(userId, action, payload, sessionId) {

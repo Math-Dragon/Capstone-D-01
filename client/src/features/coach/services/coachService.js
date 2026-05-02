@@ -79,6 +79,14 @@ export const coachService = {
     const data = await api.get('/coach/history').catch(() => []);
     return data;
   },
+
+  acceptProposal: async (plan) => {
+    const data = await api.post('/coach', {
+      action: 'ACCEPT_PROPOSAL',
+      payload: { plan },
+    });
+    return data;
+  },
 };
 
 export default coachService;

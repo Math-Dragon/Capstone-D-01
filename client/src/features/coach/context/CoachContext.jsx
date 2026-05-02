@@ -72,13 +72,16 @@ export function CoachProvider({ children }) {
       setStatus('loading');
       const history = await coachService.getHistory();
       if (history && history.length > 0) {
-        const formatted = history.map((m) => ({
-          id: m.id,
-          role: m.role,
-          content: m.content,
-          timestamp: m.created_at,
-          planSnapshot: m.plan_snapshot_summary,
-        }));
+        const formatted = history
+          .filter((m) => m.session_type !== 'task_complete')
+          .map((m) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            timestamp: m.created_at,
+            planSnapshot: m.plan_snapshot_summary,
+            sessionType: m.session_type,
+          }));
         setMessages(formatted);
         setMode('chat');
       }
@@ -146,13 +149,6 @@ export function CoachProvider({ children }) {
   }, []);
 
   const dispatchTaskAction = useCallback(async (action, payload) => {
-    const systemMsg = {
-      id: `sys-${Date.now()}`,
-      role: 'system',
-      content: formatSystemEvent(action, payload),
-      timestamp: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, systemMsg]);
     setStatus('loading');
     setError(null);
 
@@ -166,6 +162,20 @@ export function CoachProvider({ children }) {
       setObservabilityRefresh((n) => n + 1);
 
       if (result?.message) {
+        if (action === 'COMPLETE_TASK' && !result?.plan) {
+          // Static COMPLETE_TASK: exclude from chat history (noise)
+          // Result message shown via toast in caller page
+          return result;
+        }
+
+        const systemMsg = {
+          id: `sys-${Date.now()}`,
+          role: 'system',
+          content: formatSystemEvent(action, payload),
+          timestamp: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, systemMsg]);
+
         const coachMsg = {
           id: `coach-${Date.now()}`,
           role: 'coach',
