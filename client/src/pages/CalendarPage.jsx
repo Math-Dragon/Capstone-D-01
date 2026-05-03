@@ -2,11 +2,10 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchStudentMetrics } from '../store/slices/observabilitySlice';
 import api from '../services/api';
-import { useCoach } from '../features/coach/hooks/useCoach';
 import TaskActionModal from '../components/TaskActionModal';
-import { useToast } from '../components/ui/Toast';
 import { Modal } from '../components/ui/Modal';
-import coachService from '../features/coach/services/coachService';
+import useTaskActions from '../hooks/useTaskActions';
+import TaskDetailModal from '../components/TaskDetailModal';
 
 const DAY_NAMES = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 const SLOT_ORDER = { morning: 0, afternoon: 1, evening: 2 };
@@ -64,81 +63,33 @@ function formatSlotLabel(slot) {
 }
 
 export default function CalendarPage() {
-  const coachCtx = useCoach();
   const dispatch = useDispatch();
   const studentMetrics = useSelector((s) => s.observability.studentMetrics);
   const [weekOffset, setWeekOffset] = useState(0);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [actionLoading, setActionLoading] = useState(null);
-  const [modalTask, setModalTask] = useState(null);
-  const [modalMode, setModalMode] = useState(null);
-  const [proposal, setProposal] = useState(null);
-  const [proposalAccepting, setProposalAccepting] = useState(false);
-  const { addToast } = useToast();
   const [rescheduleTask, setRescheduleTask] = useState(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleSlot, setRescheduleSlot] = useState('morning');
+  const [detailTask, setDetailTask] = useState(null);
 
-  const openModal = (task, mode) => {
-    setModalTask(task);
-    setModalMode(mode);
+  const openTaskDetail = (task) => setDetailTask(task);
+  const closeDetail = () => setDetailTask(null);
+  const saveNotes = async (taskId, notes) => {
+    await api.patch(`/tasks/${taskId}`, { personal_notes: notes });
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, personal_notes: notes } : t));
   };
 
-  const closeModal = () => {
-    setModalTask(null);
-    setModalMode(null);
-  };
-
-  const handleModalConfirm = async ({ action, reason, note, difficulty, focus, notes }) => {
-    if (!modalTask) return;
-    setActionLoading(modalTask.id);
-    try {
-      let result;
-      if (action === 'complete') {
-        result = await coachCtx.dispatchTaskAction('COMPLETE_TASK', { taskId: modalTask.id });
-        setTasks((prev) =>
-          prev.map((t) => (t.id === modalTask.id ? { ...t, status: 'done' } : t))
-        );
-      } else if (action === 'skip') {
-        result = await coachCtx.dispatchTaskAction('SKIP_TASK', { taskId: modalTask.id, reason: reason || 'unspecified', note });
-        setTasks((prev) =>
-          prev.map((t) => (t.id === modalTask.id ? { ...t, status: 'skipped' } : t))
-        );
-      } else if (action === 'feedback') {
-        result = await coachCtx.dispatchTaskAction('SUBMIT_FEEDBACK', { taskId: modalTask.id, difficulty, focus, notes });
-      }
-      if (result?.message) {
-        addToast(result.message, 'success');
-      }
-      if (result?.plan?.tasks?.length > 0) {
-        setProposal(result.plan);
-      }
-    } catch (err) {
-      console.error(`Failed to ${action} task:`, err);
-    } finally {
-      setActionLoading(null);
-      closeModal();
-    }
-  };
-
-  const handleAcceptProposal = async () => {
-    if (!proposal) return;
-    setProposalAccepting(true);
-    try {
-      await coachService.acceptProposal(proposal);
-      addToast('Rencana baru berhasil disimpan!', 'success');
-      setProposal(null);
-      // Refresh task list from server
+  const { proposal, activeModal, activeTask, actionLoading, proposalAccepting,
+          handleComplete, handleSkip, handleFeedback,
+          acceptProposal, rejectProposal, closeModal, handleModalConfirm } = useTaskActions({
+    onUpdateTasks: (updater) => setTasks(prev => updater(prev)),
+    refreshData: async () => {
       const data = await api.get('/tasks');
       setTasks(Array.isArray(data) ? data : []);
-    } catch (err) {
-      addToast('Gagal menyimpan rencana. Coba lagi.', 'error');
-    } finally {
-      setProposalAccepting(false);
-    }
-  };
+    },
+  });
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -164,16 +115,6 @@ export default function CalendarPage() {
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [loadTasks]);
-
-  useEffect(() => {
-    if (!proposal) return;
-    const handler = (e) => {
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [proposal]);
 
   const tasksByDate = useMemo(() => {
     const map = {};
@@ -437,7 +378,7 @@ export default function CalendarPage() {
                           {task.duration_estimate}m
                         </span>
                       </div>
-                      <h4 className="font-medium text-sm text-primary-900">
+                      <h4 className="font-medium text-sm text-primary-900 cursor-pointer hover:underline" onClick={() => openTaskDetail(task)}>
                         {task.title}
                       </h4>
                       {task.description && (
@@ -459,21 +400,21 @@ export default function CalendarPage() {
                       {task.status !== 'done' && task.status !== 'completed' && task.status !== 'skipped' && (
                         <div className="flex gap-1 mt-1">
                           <button
-                            onClick={() => openModal(task, 'complete')}
+                            onClick={() => handleComplete(task)}
                             disabled={actionLoading === task.id}
                             className="text-[10px] px-2 py-1 rounded bg-green-500/20 text-green-700 hover:bg-green-500/30 transition-colors disabled:opacity-50 font-medium"
                           >
                             ✓ Selesai
                           </button>
                           <button
-                            onClick={() => openModal(task, 'skip')}
+                            onClick={() => handleSkip(task)}
                             disabled={actionLoading === task.id}
                             className="text-[10px] px-2 py-1 rounded bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors disabled:opacity-50 font-medium"
                           >
                             ⏭ Lewati
                           </button>
                           <button
-                            onClick={() => openModal(task, 'feedback')}
+                            onClick={() => handleFeedback(task)}
                             className="text-[10px] px-2 py-1 rounded bg-blue-500/20 text-blue-600 hover:bg-blue-500/30 transition-colors font-medium"
                           >
                             💬 Feedback
@@ -500,10 +441,17 @@ export default function CalendarPage() {
       </div>
 
       <TaskActionModal
-        task={modalTask}
-        mode={modalMode}
+        task={activeTask}
+        mode={activeModal}
         onConfirm={handleModalConfirm}
         onCancel={closeModal}
+      />
+
+      <TaskDetailModal
+        task={detailTask}
+        isOpen={!!detailTask}
+        onClose={closeDetail}
+        onSaveNotes={saveNotes}
       />
 
       {/* Reschedule Modal */}
@@ -566,7 +514,7 @@ export default function CalendarPage() {
       </Modal>
 
       {proposal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setProposal(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={rejectProposal}>
           <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-primary-900 mb-2">Coach Menyesuaikan Rencana</h3>
             <p className="text-sm text-primary-500 mb-4">{proposal.summary}</p>
@@ -590,13 +538,13 @@ export default function CalendarPage() {
 
             <div className="flex gap-3 justify-end">
               <button
-                onClick={() => setProposal(null)}
+                onClick={rejectProposal}
                 className="btn-secondary text-sm"
               >
                 Tolak
               </button>
               <button
-                onClick={handleAcceptProposal}
+                onClick={acceptProposal}
                 disabled={proposalAccepting}
                 className="px-4 py-2 rounded-xl text-sm font-semibold bg-primary-900 text-white hover:bg-primary-800 transition-colors disabled:opacity-50"
               >

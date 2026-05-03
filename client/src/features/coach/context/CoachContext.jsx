@@ -56,6 +56,7 @@ export function CoachProvider({ children }) {
   const [mode, setMode] = useState('form');
   const [pipelineTrace, setPipelineTraceLocal] = useState(null);
   const [observabilityRefresh, setObservabilityRefresh] = useState(0);
+  const [banner, setBanner] = useState(null);
   const messagesEndRef = useRef(null);
   const isLoadedRef = useRef(false);
   const lastPayloadRef = useRef(null);
@@ -161,6 +162,26 @@ export function CoachProvider({ children }) {
       }
       setObservabilityRefresh((n) => n + 1);
 
+      if (result?.adaptationType) {
+        if (result.adaptationType === 'crisis' || result.adaptationType === 'milestone') {
+          setBanner({
+            type: result.adaptationType,
+            triggerId: result.triggerId,
+            message: result.adaptation_notes || result.summary || null,
+          });
+          return result;
+        }
+        if (result.adaptationType === 'adjustment') {
+          const adjMsg = {
+            id: `adj-${Date.now()}`,
+            role: 'system',
+            content: `Rencana telah disesuaikan: ${result.adaptation_notes || ''}`,
+            timestamp: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, adjMsg]);
+        }
+      }
+
       if (result?.message) {
         if (action === 'COMPLETE_TASK' && !result?.plan) {
           // Static COMPLETE_TASK: exclude from chat history (noise)
@@ -192,6 +213,10 @@ export function CoachProvider({ children }) {
       setStatus('error');
       return null;
     }
+  }, []);
+
+  const dismissBanner = useCallback(() => {
+    setBanner(null);
   }, []);
 
   const clearError = useCallback(() => {
@@ -333,6 +358,7 @@ export function CoachProvider({ children }) {
         status,
         error,
         mode,
+        banner,
         recommendation,
         pipelineTrace,
         observabilityRefresh,
@@ -343,6 +369,7 @@ export function CoachProvider({ children }) {
         getLastPayload,
         decideTask,
         clearError,
+        dismissBanner,
         resetToForm,
         messagesEndRef,
       }}

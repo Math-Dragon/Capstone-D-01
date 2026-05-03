@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useCoach } from '../hooks/useCoach';
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import CoachObservability from './CoachObservability';
+import AdaptationBanner from '../../../components/AdaptationBanner';
 
 function TypingIndicator() {
   return (
@@ -57,6 +58,9 @@ function MessageBubble({ msg }) {
             <div className="text-[10px] font-semibold uppercase tracking-wide text-accent-700 mb-1">
               Rencana Diperbarui
             </div>
+            {msg.plan?.adaptation_notes && (
+              <p className="text-xs text-accent-700 mb-2 italic">{msg.plan.adaptation_notes}</p>
+            )}
             <p className="text-xs text-primary-600">{msg.planSnapshot}</p>
             <Link
               to="/calendar"
@@ -413,7 +417,7 @@ function ErrorView({ error, onRetry, onEditForm }) {
 }
 
 export default function CoachPage() {
-  const { messages, status, sendMessage, generatePlan, retryGeneratePlan, getLastPayload, decideTask, mode, recommendation, error, pipelineTrace, observabilityRefresh } = useCoach();
+  const { messages, status, sendMessage, generatePlan, retryGeneratePlan, getLastPayload, decideTask, mode, recommendation, error, banner, pipelineTrace, observabilityRefresh } = useCoach();
   const [input, setInput] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const messagesEndRef = useRef(null);
@@ -492,6 +496,8 @@ export default function CoachPage() {
           initialPayload={getLastPayload()}
         />
       )}
+
+      {banner && <div className="mb-4"><AdaptationBanner /></div>}
 
       {mode === 'loading' && (
         <div className="flex-1 overflow-y-auto min-h-0">

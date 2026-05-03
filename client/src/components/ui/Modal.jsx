@@ -37,16 +37,20 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }) {
         <div
           className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
           onClick={onClose}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={title ? 'modal-title' : undefined}
         />
         <div
           className={`relative bg-white rounded-lg shadow-xl w-full ${sizes[size]}`}
         >
           {title && (
             <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="text-lg font-semibold">{title}</h3>
+              <h3 id="modal-title" className="text-lg font-semibold">{title}</h3>
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-gray-600"
+                aria-label="Tutup"
               >
                 ✕
               </button>

@@ -75,6 +75,11 @@ export const coachService = {
     return data;
   },
 
+  undoPlan: async () => {
+    const data = await api.post('/coach/undo');
+    return data;
+  },
+
   getHistory: async () => {
     const data = await api.get('/coach/history').catch(() => []);
     return data;

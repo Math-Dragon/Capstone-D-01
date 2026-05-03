@@ -24,6 +24,7 @@ const TaskEntity = z.object({
   feedback_focus: z.number().int().nullable(),
   feedback_notes: z.string().nullable(),
   feedback_submitted_at: z.string().datetime().nullable(),
+  personal_notes: z.string().nullable(),
   created_at: z.string().datetime(),
   updated_at: z.string().datetime().nullable(),
 });
@@ -45,6 +46,7 @@ const updateTaskSchema = z.object({
   planned_slot: plannedSlotEnum.optional(),
   status: taskStatusEnum.optional(),
   actual_duration: z.number().int().nullable().optional(),
+  personal_notes: z.string().nullable().optional(),
 });
 
 const LLMTaskSchema = z.object({

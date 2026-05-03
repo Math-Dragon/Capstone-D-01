@@ -77,7 +77,7 @@ export default function DashboardPage() {
             <h3 className="font-semibold text-primary-900">Progres Keseluruhan</h3>
             <span className="text-sm text-primary-400">{completedCount}/{totalCount} tugas</span>
           </div>
-          <div className="w-full bg-primary-100 rounded-full h-3">
+          <div className="w-full bg-primary-100 rounded-full h-3" role="progressbar" aria-valuenow={progressPercent} aria-valuemin={0} aria-valuemax={100}>
             <div
               className="bg-primary-900 h-3 rounded-full transition-all duration-500"
               style={{ width: `${progressPercent}%` }}

@@ -167,6 +167,10 @@ class CoachRouterService {
       return this._acceptProposal(userId, payload, sessionId);
     }
 
+    if (action === 'UNDO_PLAN') {
+      return this._undoPlan(userId, sessionId);
+    }
+
     const taskActions = ['COMPLETE_TASK', 'SKIP_TASK', 'SUBMIT_FEEDBACK'];
     if (taskActions.includes(action) && payload?.taskId) {
       const task = await repos.task.findById(payload.taskId);
@@ -242,6 +246,11 @@ class CoachRouterService {
 
     if (effectiveSessionType === 'task_action') {
       const message = validated.message || 'Tindakan dicatat.';
+
+      if (validated.plan) {
+        await this._persistPlan(userId, validated.plan);
+      }
+
       await repos.chatMessage.create({
         user_id: userId,
         role: 'coach',
@@ -266,6 +275,8 @@ class CoachRouterService {
       return {
         type: 'task_action',
         data: { message, plan: validated.plan || null },
+        adaptationType: triggerFired ? triggerFired.sessionType : null,
+        triggerId: triggerFired ? triggerFired.id : null,
         meta: llmMeta,
       };
     }
@@ -297,6 +308,8 @@ class CoachRouterService {
         return {
           type: 'combined',
           data: { message, plan: validated.plan },
+          adaptationType: triggerFired ? triggerFired.sessionType : null,
+          triggerId: triggerFired ? triggerFired.id : null,
           meta: llmMeta,
         };
       }
@@ -325,6 +338,31 @@ class CoachRouterService {
       };
     }
 
+    if (['crisis', 'milestone', 'adjustment'].includes(effectiveSessionType)) {
+      const synthesizedMessage = validated.adaptation_notes || validated.summary || 'Rencana telah disesuaikan.';
+      await repos.chatMessage.create({
+        user_id: userId,
+        role: 'coach',
+        content: synthesizedMessage,
+        plan_snapshot_summary: validated.summary || null,
+        session_type: effectiveSessionType,
+        session_id: sessionId,
+      });
+    }
+
+    if (triggerFired && ['milestone', 'adjustment'].includes(effectiveSessionType)) {
+      const activeTasks = await repos.task.findActiveByUser(userId);
+      if (activeTasks.length > 0) {
+        await repos.planSnapshot.create({
+          user_id: userId,
+          trigger_id: triggerFired.id,
+          adaptation_type: effectiveSessionType,
+          tasks_snapshot: activeTasks,
+          plan_summary: validated.summary || null,
+        });
+      }
+    }
+
     await this._persistPlan(userId, validated);
 
     if (validated && validated.tasks) {
@@ -340,7 +378,13 @@ class CoachRouterService {
       });
     }
 
-    return { type: 'plan', data: validated, meta: llmMeta };
+    return {
+      type: 'plan',
+      data: validated,
+      adaptationType: triggerFired ? triggerFired.sessionType : null,
+      triggerId: triggerFired ? triggerFired.id : null,
+      meta: llmMeta,
+    };
   }
 
   async decideTask(userId, recId, taskId, decision, sessionId) {
@@ -456,6 +500,7 @@ class CoachRouterService {
       CHAT_MESSAGE: { sessionType: 'chat' },
       CRISIS_SIGNAL: { sessionType: 'crisis' },
       ACCEPT_PROPOSAL: { sessionType: null },
+      UNDO_PLAN: { sessionType: null },
     };
     return map[action] || { sessionType: 'chat' };
   }
@@ -582,6 +627,43 @@ class CoachRouterService {
     });
 
     return { type: 'accepted', data: { message: 'Rencana berhasil disimpan!', plan }, meta: { attempts: [], duration_ms: 0 } };
+  }
+
+  async _undoPlan(userId, sessionId) {
+    const snapshot = await repos.planSnapshot.findLatest(userId);
+    if (!snapshot) {
+      return { type: 'message', data: { message: 'Tidak ada rencana yang bisa dikembalikan.', plan: null }, meta: { attempts: [], duration_ms: 0 } };
+    }
+
+    const restoredTaskIds = snapshot.tasks_snapshot.map(t => t.id).filter(Boolean);
+
+    const currentTasks = await repos.task.findActiveByUser(userId);
+    for (const task of currentTasks) {
+      if (!restoredTaskIds.includes(task.id)) {
+        await repos.task.remove(task.id);
+      }
+    }
+
+    for (const task of snapshot.tasks_snapshot) {
+      if (task.id) {
+        await repos.task.update(task.id, { status: 'todo' });
+      }
+    }
+
+    await repos.planSnapshot.remove(snapshot.id);
+
+    await repos.audit.create({
+      user_id: userId,
+      action: 'COACH_PLAN_UNDONE',
+      metadata: {
+        trigger_id: snapshot.trigger_id,
+        adaptation_type: snapshot.adaptation_type,
+        restored_task_count: snapshot.tasks_snapshot.length,
+      },
+      session_id: sessionId,
+    });
+
+    return { type: 'message', data: { message: 'Rencana sebelumnya telah dikembalikan.', plan: null }, meta: { attempts: [], duration_ms: 0 } };
   }
 
   async _updateState(userId, action, payload, sessionId) {

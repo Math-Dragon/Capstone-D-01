@@ -9,6 +9,7 @@ const refreshTokenRepo = require('./refresh-token.repo');
 const chatMessageRepo = require('./chat-message.repo');
 const studentMetricsRepo = require('./student-metrics.repo');
 const cacheRepo = require('./cache.repo');
+const planSnapshotRepo = require('./plan-snapshot.repo');
 
 module.exports = {
   user: userRepo,
@@ -22,4 +23,5 @@ module.exports = {
   chatMessage: chatMessageRepo,
   studentMetrics: studentMetricsRepo,
   cache: cacheRepo,
+  planSnapshot: planSnapshotRepo,
 };

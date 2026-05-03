@@ -8,7 +8,11 @@ export function Skeleton({ className = '', variant = 'text' }) {
   return (
     <div
       className={`animate-pulse bg-gray-200 ${variants[variant]} ${className}`}
-    />
+      role="status"
+      aria-busy="true"
+    >
+      <span className="sr-only">Memuat...</span>
+    </div>
   );
 }
 

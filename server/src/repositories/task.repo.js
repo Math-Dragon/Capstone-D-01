@@ -56,8 +56,8 @@ async function findByIdAndUser(taskId, userId, client) {
 async function create(data, client) {
   const result = await db.query(
     `INSERT INTO tasks (goal_id, title, description, duration_estimate, planned_date,
-       planned_slot, status, source, actual_duration, completed_at, rationale, task_type)
-     VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, 'todo'), COALESCE($8, 'manual'), $9, $10, $11, $12)
+       planned_slot, status, source, actual_duration, completed_at, rationale, task_type, personal_notes)
+     VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, 'todo'), COALESCE($8, 'manual'), $9, $10, $11, $12, $13)
      RETURNING *`,
     [
       data.goal_id,
@@ -72,6 +72,7 @@ async function create(data, client) {
       data.completed_at || null,
       data.rationale || null,
       data.task_type || null,
+      data.personal_notes || null,
     ],
     client
   );
@@ -84,7 +85,7 @@ async function createMany(tasksArray, client) {
   const cols = [
     'goal_id', 'title', 'description', 'duration_estimate',
     'planned_date', 'planned_slot', 'status', 'source',
-    'actual_duration', 'completed_at', 'rationale', 'task_type',
+    'actual_duration', 'completed_at', 'rationale', 'task_type', 'personal_notes',
   ];
   const values = [];
   const placeholders = [];
@@ -95,7 +96,7 @@ async function createMany(tasksArray, client) {
       t.goal_id, t.title, t.description || null, t.duration_estimate,
       t.planned_date || null, t.planned_slot || null, t.status || 'todo',
       t.source || 'manual', t.actual_duration || null, t.completed_at || null,
-      t.rationale || null, t.task_type || null,
+      t.rationale || null, t.task_type || null, t.personal_notes || null,
     ];
     placeholders.push(`(${cols.map(() => `$${i++}`).join(', ')})`);
     values.push(...row);
@@ -111,7 +112,7 @@ async function update(taskId, data, client) {
     'title', 'description', 'duration_estimate', 'planned_date',
     'planned_slot', 'status', 'source', 'actual_duration', 'completed_at', 'rationale',
     'task_type', 'skip_reason', 'feedback_difficulty', 'feedback_focus',
-    'feedback_notes', 'feedback_submitted_at'
+    'feedback_notes', 'feedback_submitted_at', 'personal_notes'
   ];
   const sets = [];
   const vals = [];
@@ -151,7 +152,20 @@ async function findByUserAndWeek(userId, week, client) {
   return result.rows;
 }
 
+async function findActiveByUser(userId, client) {
+  const result = await db.query(
+    `SELECT t.* FROM tasks t
+     INNER JOIN goals g ON t.goal_id = g.id
+     WHERE g.user_id = $1 AND t.status IN ('todo', 'in_progress')
+     ORDER BY t.planned_date ASC`,
+    [userId],
+    client
+  );
+  return result.rows;
+}
+
 module.exports = {
   listByUser, findByGoalIds, findByGoalId, findById,
   findByIdAndUser, create, createMany, update, remove, findByUserAndWeek,
+  findActiveByUser,
 };

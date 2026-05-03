@@ -98,6 +98,26 @@ router.get('/metrics', async (req, res, next) => {
   }
 });
 
+router.post('/undo', async (req, res, next) => {
+  try {
+    const result = await coachRouter.dispatch(req.user.id, 'UNDO_PLAN', { session_id: req.body?.session_id });
+    res.json({
+      success: true,
+      status: 'ok',
+      type: result.type,
+      data: {
+        ...result.data,
+        adaptationType: null,
+        triggerId: null,
+      },
+      meta: result.meta || {},
+      server_timestamp: Date.now(),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/', aiLimiter, async (req, res, next) => {
   try {
     const { action, payload } = coachActionSchema.parse(req.body);
@@ -107,7 +127,11 @@ router.post('/', aiLimiter, async (req, res, next) => {
       success: true,
       status: 'ok',
       type: result.type,
-      data: result.data,
+      data: {
+        ...result.data,
+        adaptationType: result.adaptationType || null,
+        triggerId: result.triggerId || null,
+      },
       meta: result.meta || {},
       server_timestamp: Date.now(),
     });
