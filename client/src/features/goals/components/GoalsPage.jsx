@@ -12,6 +12,10 @@ export default function GoalsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(timer);
   }, [search]);

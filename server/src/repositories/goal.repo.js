@@ -68,6 +68,12 @@ async function update(goalId, userId, data, client) {
 }
 
 async function remove(goalId, userId, client) {
+  await db.query(
+    'UPDATE ai_recommendations SET goal_id = NULL WHERE goal_id = $1 AND user_id = $2',
+    [goalId, userId],
+    client
+  );
+
   const result = await db.query(
     'DELETE FROM goals WHERE id = $1 AND user_id = $2 RETURNING id',
     [goalId, userId],

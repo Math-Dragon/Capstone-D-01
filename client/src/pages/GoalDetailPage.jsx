@@ -106,9 +106,10 @@ export default function GoalDetailPage() {
       try {
         const data = await api.get(`/goals/${id}`, { signal });
         setGoal(data);
+        setLoading(false);
       } catch (err) {
+        if (err.name === 'CanceledError' || err.message === 'canceled') return;
         setError(err.message);
-      } finally {
         setLoading(false);
       }
     }
