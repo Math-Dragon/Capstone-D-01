@@ -1,8 +1,38 @@
 const { PlanSchema, SuggestionSchema, ChatResponseSchema } = require('../models/llm.model');
 
+function _sanitize(parsed) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return parsed;
+  const clean = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    if (key === '') continue;
+    clean[key] = value;
+  }
+  if (!('plan' in clean) && 'message' in clean) {
+    clean.plan = null;
+  }
+  if (clean.plan !== null && typeof clean.plan === 'object') {
+    if (!('tasks' in clean.plan)) {
+      clean.plan = null;
+    } else if (Array.isArray(clean.plan.tasks) && clean.plan.tasks.length === 0) {
+      clean.plan = null;
+    }
+  }
+  return clean;
+}
+
+function _stripMarkdown(raw) {
+  let s = typeof raw === 'string' ? raw.trim() : raw;
+  if (typeof s === 'string' && s.startsWith('```')) {
+    s = s.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+  }
+  return s;
+}
+
 function _parse(raw) {
   try {
-    return JSON.parse(raw);
+    const stripped = _stripMarkdown(raw);
+    const parsed = JSON.parse(stripped);
+    return _sanitize(parsed);
   } catch (error) {
     const err = new Error('AI output is not valid JSON: ' + error.message);
     err.code = 'AI_OUTPUT_INVALID';

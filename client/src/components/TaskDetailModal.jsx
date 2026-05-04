@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import useFocusTrap from '../hooks/useFocusTrap';
 
 const SLOT_LABELS = { morning: 'Pagi', afternoon: 'Siang', evening: 'Malam' };
 const TYPE_COLORS = {
@@ -37,6 +38,8 @@ function CollapsibleSection({ label, children }) {
 export default function TaskDetailModal({ task, isOpen, onClose, onSaveNotes }) {
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const modalRef = useRef(null);
+  useFocusTrap(modalRef, isOpen);
 
   useEffect(() => {
     if (isOpen && task) {
@@ -79,7 +82,7 @@ export default function TaskDetailModal({ task, isOpen, onClose, onSaveNotes }) 
     <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="task-detail-title">
       <div className="flex min-h-screen items-center justify-center p-4">
         <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onClose} />
-        <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-auto animate-fade-in">
+        <div ref={modalRef} className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-auto animate-fade-in">
           <div className="flex items-center justify-between p-4 border-b border-primary-100">
             <h2 id="task-detail-title" className="text-lg font-semibold text-primary-900">{task.title}</h2>
             <button onClick={onClose} className="text-primary-400 hover:text-primary-600 p-1" aria-label="Tutup">

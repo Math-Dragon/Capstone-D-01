@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import StepUpLogo from '../../../components/ui/StepUpLogo';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const { register: registerUser, loading, error } = useAuth();
+  const { register: registerUser, loginWithGoogle, loading, error } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -15,14 +16,19 @@ export default function RegisterPage() {
     formState: { errors },
   } = useForm();
 
+  const handleGoogleLogin = async () => {
+    try {
+      await loginWithGoogle();
+      navigate('/');
+    } catch {}
+  };
+
   const onSubmit = async (data) => {
     try {
       const { confirmPassword, ...userData } = data;
       await registerUser(userData);
-      navigate('/login');
-    } catch {
-      // Error handled by context
-    }
+      navigate('/');
+    } catch {}
   };
 
   return (
@@ -30,6 +36,9 @@ export default function RegisterPage() {
       <div className="w-full max-w-md">
         <div className="card p-8">
           <div className="text-center mb-8">
+            <div className="flex justify-center mb-4">
+              <StepUpLogo showTagline size="md" />
+            </div>
             <h1 className="text-2xl font-bold text-primary-900 mb-2">
               Buat Akun
             </h1>
@@ -78,8 +87,8 @@ export default function RegisterPage() {
                   {...register('password', {
                     required: 'Password harus diisi',
                     minLength: {
-                      value: 6,
-                      message: 'Password minimal 6 karakter',
+                      value: 8,
+                      message: 'Password minimal 8 karakter',
                     },
                   })}
                 />
@@ -172,7 +181,9 @@ export default function RegisterPage() {
             <div className="grid grid-cols-2 gap-4">
               <button
                 type="button"
-                className="flex items-center justify-center gap-2 py-2.5 px-4 border border-primary-200 rounded-xl hover:bg-primary-50 transition-colors duration-200"
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                className="flex items-center justify-center gap-2 py-2.5 px-4 border border-primary-200 rounded-xl hover:bg-primary-50 transition-colors duration-200 disabled:opacity-50"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path fill="#EA4335" d="M12 5.04c1.74 0 3.3.6 4.53 1.78l3.39-3.39C17.84 1.54 15.13.5 12 .5 7.4.5 3.52 3.12 1.63 6.94l3.91 3.04C6.44 7.27 8.98 5.04 12 5.04z" />

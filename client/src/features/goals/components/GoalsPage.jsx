@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGoals } from '../context/GoalsContext';
 import GoalCard from './GoalCard';
+import { SkeletonList } from '../../../components/ui/Skeleton';
 
 export default function GoalsPage() {
   const { goals, loading, error, refresh } = useGoals();
@@ -72,7 +73,7 @@ export default function GoalsPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-primary-500">Memuat goals...</div>
+        <SkeletonList count={6} />
       ) : filteredGoals.length === 0 && goals.length > 0 ? (
         <div className="card p-12 text-center">
           <div className="text-5xl mb-4">🔍</div>

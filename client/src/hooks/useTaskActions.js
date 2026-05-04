@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react';
 import { useCoach } from '../features/coach/hooks/useCoach';
 import { useToast } from '../components/ui/Toast';
 import coachService from '../features/coach/services/coachService';
+import api from '../services/api';
+import { notifyMutation } from '../utils/invalidation';
 
 function loadPendingProposal() {
   try {
@@ -52,6 +54,7 @@ export default function useTaskActions({ onUpdateTasks, refreshData }) {
         )
       );
       addToast('Tugas selesai!', 'success');
+      notifyMutation();
       if (result?.plan?.tasks?.length > 0) {
         setProposal(result.plan);
         persistProposal(result.plan);
@@ -95,6 +98,7 @@ export default function useTaskActions({ onUpdateTasks, refreshData }) {
         )
       );
       addToast('Tugas dilewati. Coach akan menyesuaikan.', 'warning');
+      notifyMutation();
       if (result?.plan?.tasks?.length > 0) {
         setProposal(result.plan);
         persistProposal(result.plan);
@@ -111,20 +115,25 @@ export default function useTaskActions({ onUpdateTasks, refreshData }) {
     if (!activeTask) return;
     setActionLoading(activeTask.id);
     try {
-      await dispatchTaskAction('MODIFY_TASK', { taskId: activeTask.id, ...changes });
+      await api.patch(`/tasks/${activeTask.id}`, {
+        title: changes.title,
+        duration_estimate: changes.duration_estimate,
+        planned_slot: changes.planned_slot,
+      });
       onUpdateTasks((prev) =>
         (Array.isArray(prev) ? prev : []).map((t) =>
           t.id === activeTask.id ? { ...t, ...changes } : t
         )
       );
       addToast('Tugas diperbarui!', 'info');
+      notifyMutation();
       closeModal();
     } catch (err) {
       addToast('Gagal memperbarui tugas.', 'error');
     } finally {
       setActionLoading(null);
     }
-  }, [activeTask, dispatchTaskAction, onUpdateTasks, addToast, closeModal]);
+  }, [activeTask, onUpdateTasks, addToast, closeModal]);
 
   const submitFeedback = useCallback(async (difficulty, focus, notes) => {
     if (!activeTask) return;
@@ -137,6 +146,7 @@ export default function useTaskActions({ onUpdateTasks, refreshData }) {
         notes,
       });
       addToast('Feedback tercatat!', 'success');
+      notifyMutation();
       if (result?.plan?.tasks?.length > 0) {
         setProposal(result.plan);
         persistProposal(result.plan);
@@ -158,6 +168,7 @@ export default function useTaskActions({ onUpdateTasks, refreshData }) {
       setProposal(null);
       await refreshData();
       addToast('Rencana baru disimpan!', 'success');
+      notifyMutation();
     } catch (err) {
       addToast('Gagal menyimpan rencana. Coba lagi.', 'error');
     } finally {

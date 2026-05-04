@@ -26,6 +26,25 @@ router.post('/login', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.post('/google', async (req, res, next) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) {
+      const err = new Error('idToken is required');
+      err.statusCode = 400;
+      throw err;
+    }
+    const result = await authService.googleLogin(idToken);
+    res.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+    res.json({ success: true, data: { accessToken: result.accessToken, user: result.user } });
+  } catch (err) { next(err); }
+});
+
 router.post('/refresh', async (req, res, next) => {
   try {
     const refreshToken = req.cookies.refreshToken;

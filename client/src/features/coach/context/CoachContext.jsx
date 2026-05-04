@@ -177,6 +177,8 @@ export function CoachProvider({ children }) {
             role: 'system',
             content: `Rencana telah disesuaikan: ${result.adaptation_notes || ''}`,
             timestamp: new Date().toISOString(),
+            adaptationType: 'adjustment',
+            adaptationNotes: result.adaptation_notes || null,
           };
           setMessages((prev) => [...prev, adjMsg]);
         }

@@ -5,9 +5,12 @@ export function Skeleton({ className = '', variant = 'text' }) {
     rectangular: 'rounded',
   };
 
+  const prefersReducedMotion = typeof window !== 'undefined'
+    && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
   return (
     <div
-      className={`animate-pulse bg-gray-200 ${variants[variant]} ${className}`}
+      className={`${prefersReducedMotion ? 'bg-gray-200' : 'animate-pulse bg-gray-200'} ${variants[variant]} ${className}`}
       role="status"
       aria-busy="true"
     >

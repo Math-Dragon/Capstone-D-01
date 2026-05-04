@@ -1,10 +1,12 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
+import { useSelector } from 'react-redux';
 import { AuthProvider } from './features/auth/context/AuthContext';
 import { CoachProvider } from './features/coach/context/CoachContext';
 import Layout from './layouts/MainLayout';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
+import CheckInGateway from './components/CheckInGateway';
 import { SkeletonList } from './components/ui/Skeleton';
 import { GoalsProvider } from './features/goals/context/GoalsContext';
 import { ToastProvider } from './components/ui/Toast';
@@ -20,8 +22,8 @@ const ProgressPage = lazy(() => import('./pages/ProgressPage'));
 const CoachPage = lazy(() => import('./features/coach/components/CoachPage'));
 
 function RootPage() {
-  const token = localStorage.getItem('token');
-  return token ? <DashboardPage /> : <HomePage />;
+  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+  return isAuthenticated ? <CheckInGateway><DashboardPage /></CheckInGateway> : <HomePage />;
 }
 
 export default function App() {
@@ -38,11 +40,11 @@ export default function App() {
                       <Route index element={<RootPage />} />
                       <Route path="login" element={<LoginPage />} />
                       <Route path="register" element={<RegisterPage />} />
-                      <Route path="goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
-                      <Route path="goals/:id" element={<ProtectedRoute><GoalDetailPage /></ProtectedRoute>} />
-                      <Route path="calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
-                      <Route path="progress" element={<ProtectedRoute><ProgressPage /></ProtectedRoute>} />
-                      <Route path="coach" element={<ProtectedRoute><CoachPage /></ProtectedRoute>} />
+                      <Route path="goals" element={<ProtectedRoute><CheckInGateway><GoalsPage /></CheckInGateway></ProtectedRoute>} />
+                      <Route path="goals/:id" element={<ProtectedRoute><CheckInGateway><GoalDetailPage /></CheckInGateway></ProtectedRoute>} />
+                      <Route path="calendar" element={<ProtectedRoute><CheckInGateway><CalendarPage /></CheckInGateway></ProtectedRoute>} />
+                      <Route path="progress" element={<ProtectedRoute><CheckInGateway><ProgressPage /></CheckInGateway></ProtectedRoute>} />
+                      <Route path="coach" element={<ProtectedRoute><CheckInGateway><CoachPage /></CheckInGateway></ProtectedRoute>} />
                     </Route>
                   </Routes>
                 </CoachProvider>

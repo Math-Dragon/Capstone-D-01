@@ -59,6 +59,22 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const loginWithGoogle = async () => {
+    dispatch(setLoading(true));
+    dispatch(setError(null));
+    try {
+      const data = await authService.loginWithGoogle();
+      localStorage.setItem('token', data.accessToken);
+      dispatch(setUser(data.user));
+      return data;
+    } catch (err) {
+      dispatch(setError(err.message));
+      throw err;
+    } finally {
+      dispatch(setLoading(false));
+    }
+  };
+
   const register = async (userData) => {
     dispatch(setLoading(true));
     dispatch(setError(null));
@@ -84,7 +100,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, loading, error, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, isInitialized, loading, error, login, loginWithGoogle, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,6 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import useFocusTrap from '../../hooks/useFocusTrap';
 
-export function Modal({ isOpen, onClose, title, children, size = 'md' }) {
+export function Modal({ isOpen, onClose, title, description, children, size = 'md' }) {
+  const modalRef = useRef(null);
+  useFocusTrap(modalRef, isOpen);
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -37,12 +41,14 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }) {
         <div
           className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
           onClick={onClose}
+        />
+        <div
+          ref={modalRef}
+          className={`relative bg-white rounded-lg shadow-xl w-full ${sizes[size]}`}
           role="dialog"
           aria-modal="true"
           aria-labelledby={title ? 'modal-title' : undefined}
-        />
-        <div
-          className={`relative bg-white rounded-lg shadow-xl w-full ${sizes[size]}`}
+          aria-describedby={description ? 'modal-description' : undefined}
         >
           {title && (
             <div className="flex items-center justify-between p-4 border-b">
@@ -55,6 +61,9 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }) {
                 ✕
               </button>
             </div>
+          )}
+          {description && (
+            <p id="modal-description" className="sr-only">{description}</p>
           )}
           <div className="p-4">{children}</div>
         </div>

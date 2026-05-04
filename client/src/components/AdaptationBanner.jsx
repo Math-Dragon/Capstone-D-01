@@ -1,8 +1,10 @@
+import { useNavigate } from 'react-router-dom';
 import { useCoach } from '../features/coach/hooks/useCoach';
 import coachService from '../features/coach/services/coachService';
 
 export default function AdaptationBanner() {
   const { banner, dismissBanner } = useCoach();
+  const navigate = useNavigate();
 
   if (!banner) return null;
 
@@ -16,6 +18,11 @@ export default function AdaptationBanner() {
     } catch {
       // undo failed silently
     }
+  };
+
+  const handleViewChanges = () => {
+    dismissBanner();
+    navigate('/calendar');
   };
 
   return (
@@ -34,11 +41,21 @@ export default function AdaptationBanner() {
         </p>
         <p>{banner.message || (isCrisis ? 'Kami perhatikan kamu sedang kesulitan. Rencana telah disesuaikan.' : 'Kamu mencapai milestone! Rencana baru telah dibuat.')}</p>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2 shrink-0 flex-wrap">
+        <button
+          onClick={handleViewChanges}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            isCrisis
+              ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              : 'bg-green-100 text-green-700 hover:bg-green-200'
+          }`}
+        >
+          Lihat perubahan →
+        </button>
         {isMilestone && (
           <button
             onClick={handleUndo}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors"
           >
             Urungkan
           </button>
@@ -48,10 +65,10 @@ export default function AdaptationBanner() {
           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
             isCrisis
               ? 'bg-blue-600 text-white hover:bg-blue-700'
-              : 'bg-green-200 text-green-700 hover:bg-green-300'
+              : 'bg-green-600 text-white hover:bg-green-700'
           }`}
         >
-          {isCrisis ? 'Mengerti' : 'Tutup'}
+          Mengerti
         </button>
       </div>
     </div>

@@ -3,6 +3,7 @@ import { useCoach } from '../hooks/useCoach';
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import CoachObservability from './CoachObservability';
 import AdaptationBanner from '../../../components/AdaptationBanner';
+import AdjustmentPanel from '../../../components/AdjustmentPanel';
 
 function TypingIndicator() {
   return (
@@ -14,6 +15,21 @@ function TypingIndicator() {
           <span className="w-2 h-2 bg-primary-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
         </div>
       </div>
+    </div>
+  );
+}
+
+function RoutineAdjustmentCard({ notes }) {
+  return (
+    <div
+      className="mt-2 bg-amber-50 border border-amber-200 rounded-xl p-3"
+      role="complementary"
+      aria-label="Penyesuaian rencana"
+    >
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 mb-1">
+        ⚡ Penyesuaian Rencana
+      </div>
+      <p className="text-xs text-amber-800">{notes || 'Rencana telah disesuaikan secara otomatis.'}</p>
     </div>
   );
 }
@@ -49,6 +65,9 @@ function MessageBubble({ msg }) {
           }`}
         >
           {msg.content}
+          {msg.adaptationType === 'adjustment' && (
+            <RoutineAdjustmentCard notes={msg.adaptationNotes} />
+          )}
         </div>
         <div className={`mt-1 flex items-center gap-2 ${isStudent ? 'justify-end' : 'justify-start'}`}>
           <span className="text-[10px] text-primary-300">{time}</span>
@@ -160,9 +179,7 @@ function PlanFormModal({ onSubmit, onCancel, disabled, initialPayload }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-primary-700 mb-1">
-              Deskripsi
-            </label>
+            <label className="block text-sm font-medium text-primary-700 mb-1">Deskripsi</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -174,9 +191,7 @@ function PlanFormModal({ onSubmit, onCancel, disabled, initialPayload }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-primary-700 mb-1">
-              Deadline
-            </label>
+            <label className="block text-sm font-medium text-primary-700 mb-1">Deadline</label>
             <input
               type="date"
               value={deadline}
@@ -188,9 +203,7 @@ function PlanFormModal({ onSubmit, onCancel, disabled, initialPayload }) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-primary-700 mb-1">
-                Jam Belajar / Minggu
-              </label>
+              <label className="block text-sm font-medium text-primary-700 mb-1">Jam Belajar / Minggu</label>
               <input
                 type="number"
                 value={weeklyHours}
@@ -202,9 +215,7 @@ function PlanFormModal({ onSubmit, onCancel, disabled, initialPayload }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-primary-700 mb-1">
-                Waktu Preferensi
-              </label>
+              <label className="block text-sm font-medium text-primary-700 mb-1">Waktu Preferensi</label>
               <select
                 value={preferredTime}
                 onChange={(e) => setPreferredTime(e.target.value)}
@@ -219,9 +230,7 @@ function PlanFormModal({ onSubmit, onCancel, disabled, initialPayload }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-primary-700 mb-1">
-              Hari Belajar
-            </label>
+            <label className="block text-sm font-medium text-primary-700 mb-1">Hari Belajar</label>
             <div className="flex gap-2 mb-3">
               {Object.entries({ weekdays: 'Weekdays (Sen–Jum)', weekend: 'Weekend (Sab–Min)', custom: 'Custom' }).map(([key, label]) => (
                 <button
@@ -229,9 +238,7 @@ function PlanFormModal({ onSubmit, onCancel, disabled, initialPayload }) {
                   type="button"
                   onClick={() => handleModeChange(key)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    availMode === key
-                      ? 'bg-primary-900 text-white'
-                      : 'bg-primary-100 text-primary-600 hover:bg-primary-200'
+                    availMode === key ? 'bg-primary-900 text-white' : 'bg-primary-100 text-primary-600 hover:bg-primary-200'
                   }`}
                 >
                   {label}
@@ -250,9 +257,7 @@ function PlanFormModal({ onSubmit, onCancel, disabled, initialPayload }) {
                     disabled={locked}
                     className={`w-10 h-10 rounded-xl text-xs font-semibold transition-all ${
                       checked
-                        ? locked
-                          ? 'bg-primary-200 text-primary-800 cursor-not-allowed'
-                          : 'bg-primary-900 text-white'
+                        ? locked ? 'bg-primary-200 text-primary-800 cursor-not-allowed' : 'bg-primary-900 text-white'
                         : 'bg-primary-50 text-primary-400 hover:bg-primary-100'
                     } disabled:opacity-70`}
                   >
@@ -288,9 +293,7 @@ function TaskCard({ task, onDecide }) {
         <h4 className="text-sm font-semibold text-primary-900 flex-1">{task.title}</h4>
         <div className="flex gap-1.5 ml-2 shrink-0">
           {task.duration_estimate && (
-            <span className="text-[10px] px-2 py-0.5 bg-primary-100 text-primary-600 rounded-full">
-              {task.duration_estimate}m
-            </span>
+            <span className="text-[10px] px-2 py-0.5 bg-primary-100 text-primary-600 rounded-full">{task.duration_estimate}m</span>
           )}
           {task.planned_slot && (
             <span className="text-[10px] px-2 py-0.5 bg-accent-100 text-accent-600 rounded-full">
@@ -299,31 +302,27 @@ function TaskCard({ task, onDecide }) {
           )}
         </div>
       </div>
-      {task.rationale && (
-        <p className="text-xs text-primary-400 italic mb-3">{task.rationale}</p>
-      )}
+      {task.rationale && <p className="text-xs text-primary-400 italic mb-3">{task.rationale}</p>}
       <div className="flex gap-2 justify-end">
         {task.status === 'pending' ? (
           <>
             <button
               onClick={() => onDecide(task.taskId, 'rejected')}
               className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+              aria-label={`Tolak tugas: ${task.title}`}
             >
               ✕ Tolak
             </button>
             <button
               onClick={() => onDecide(task.taskId, 'accepted')}
               className="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
+              aria-label={`Terima tugas: ${task.title}`}
             >
               ✓ Terima
             </button>
           </>
         ) : (
-          <span
-            className={`text-xs px-2 py-1 rounded-full ${
-              task.status === 'accepted' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-            }`}
-          >
+          <span className={`text-xs px-2 py-1 rounded-full ${task.status === 'accepted' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
             {task.status === 'accepted' ? 'Diterima' : 'Ditolak'}
           </span>
         )}
@@ -343,17 +342,11 @@ function RecommendationPanel({ recommendation, onDecide }) {
         <p className="text-xs text-primary-600">{recommendation.summary}</p>
         <div className="mt-2 flex items-center gap-2">
           <div className="flex-1 bg-primary-200 rounded-full h-1.5">
-            <div
-              className="bg-primary-900 h-1.5 rounded-full transition-all"
-              style={{ width: `${(decidedCount / totalTasks) * 100}%` }}
-            />
+            <div className="bg-primary-900 h-1.5 rounded-full transition-all" style={{ width: `${(decidedCount / totalTasks) * 100}%` }} />
           </div>
-          <span className="text-[10px] text-primary-500">
-            {decidedCount} dari {totalTasks} diputuskan
-          </span>
+          <span className="text-[10px] text-primary-500">{decidedCount} dari {totalTasks} diputuskan</span>
         </div>
       </div>
-
       <div className="space-y-3">
         {recommendation.tasks.map((task) => (
           <TaskCard key={task.taskId} task={task} onDecide={onDecide} />
@@ -369,9 +362,7 @@ function LoadingSkeleton() {
       <div className="w-14 h-14 rounded-2xl bg-primary-100 flex items-center justify-center mb-4 animate-pulse">
         <span className="text-2xl">🎓</span>
       </div>
-      <h3 className="text-base font-semibold text-primary-900 mb-2">
-        Membuat rencana belajar...
-      </h3>
+      <h3 className="text-base font-semibold text-primary-900 mb-2">Membuat rencana belajar...</h3>
       <p className="text-sm text-primary-400 mb-4">Coach sedang menyiapkan rekomendasi untukmu</p>
       <div className="w-48 bg-primary-100 rounded-full h-1.5">
         <div className="bg-primary-900 h-1.5 rounded-full animate-pulse" style={{ width: '60%' }} />
@@ -392,25 +383,11 @@ function ErrorView({ error, onRetry, onEditForm }) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
         </svg>
       </div>
-      <h3 className="text-base font-semibold text-primary-900 mb-2">
-        Gagal Membuat Rencana
-      </h3>
-      <p className="text-sm text-primary-400 max-w-xs text-center leading-relaxed mb-6">
-        {message}
-      </p>
+      <h3 className="text-base font-semibold text-primary-900 mb-2">Gagal Membuat Rencana</h3>
+      <p className="text-sm text-primary-400 max-w-xs text-center leading-relaxed mb-6">{message}</p>
       <div className="flex gap-3">
-        <button
-          onClick={onEditForm}
-          className="btn-secondary !px-5 !py-2.5 !rounded-xl text-sm"
-        >
-          Ubah Formulir
-        </button>
-        <button
-          onClick={onRetry}
-          className="btn-primary !px-5 !py-2.5 !rounded-xl text-sm"
-        >
-          Coba Lagi
-        </button>
+        <button onClick={onEditForm} className="btn-secondary !px-5 !py-2.5 !rounded-xl text-sm">Ubah Formulir</button>
+        <button onClick={onRetry} className="btn-primary !px-5 !py-2.5 !rounded-xl text-sm">Coba Lagi</button>
       </div>
     </div>
   );
@@ -420,10 +397,12 @@ export default function CoachPage() {
   const { messages, status, sendMessage, generatePlan, retryGeneratePlan, getLastPayload, decideTask, mode, recommendation, error, banner, pipelineTrace, observabilityRefresh } = useCoach();
   const [input, setInput] = useState('');
   const [formOpen, setFormOpen] = useState(false);
+  const [adjustmentExpanded, setAdjustmentExpanded] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
 
   useEffect(() => {
     if (searchParams.get('create') === 'true' && (mode === 'form' || mode === 'chat')) {
@@ -455,21 +434,14 @@ export default function CoachPage() {
     generatePlan(payload);
   };
 
-  const handleRetry = () => {
-    retryGeneratePlan();
-  };
-
-  const handleEditForm = () => {
-    setFormOpen(true);
-  };
+  const handleRetry = () => retryGeneratePlan();
+  const handleEditForm = () => setFormOpen(true);
 
   return (
     <div className="flex flex-col h-[calc(100vh-10rem)]">
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-primary-900 mb-2">
-            AI Learning Coach
-          </h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-primary-900 mb-2">AI Learning Coach</h2>
           <p className="text-primary-400">
             {mode === 'recommendation'
               ? 'Tinjau rekomendasi rencana belajar di bawah.'
@@ -478,7 +450,7 @@ export default function CoachPage() {
               : 'Tanya apa saja tentang rencana belajarmu.'}
           </p>
         </div>
-      {(mode === 'chat' || mode === 'form') && (
+        {(mode === 'chat' || mode === 'form') && (
           <button
             onClick={() => setFormOpen(true)}
             className="btn-primary !px-4 !py-2 !rounded-xl text-sm shrink-0 ml-4"
@@ -507,20 +479,13 @@ export default function CoachPage() {
 
       {mode === 'error' && (
         <div className="flex-1 overflow-y-auto min-h-0">
-          <ErrorView
-            error={error}
-            onRetry={handleRetry}
-            onEditForm={handleEditForm}
-          />
+          <ErrorView error={error} onRetry={handleRetry} onEditForm={handleEditForm} />
         </div>
       )}
 
       {mode === 'recommendation' && recommendation && (
         <div className="flex-1 overflow-y-auto min-h-0 pr-1">
-          <RecommendationPanel
-            recommendation={recommendation}
-            onDecide={decideTask}
-          />
+          <RecommendationPanel recommendation={recommendation} onDecide={decideTask} />
         </div>
       )}
 
@@ -531,17 +496,12 @@ export default function CoachPage() {
               <div className="w-14 h-14 rounded-2xl bg-primary-100 flex items-center justify-center mb-4">
                 <span className="text-2xl">🎓</span>
               </div>
-              <h3 className="text-base font-semibold text-primary-900 mb-2">
-                Coach Belajar Kamu
-              </h3>
+              <h3 className="text-base font-semibold text-primary-900 mb-2">Coach Belajar Kamu</h3>
               <p className="text-sm text-primary-400 max-w-xs leading-relaxed mb-4">
                 Mulai dengan membuat rencana belajar yang dipersonalisasi, atau tanya apa saja.
               </p>
               {mode === 'form' && (
-                <button
-                  onClick={() => setFormOpen(true)}
-                  className="btn-primary !px-6 !py-2.5 !rounded-xl text-sm"
-                >
+                <button onClick={() => setFormOpen(true)} className="btn-primary !px-6 !py-2.5 !rounded-xl text-sm">
                   Buat Rencana Belajar
                 </button>
               )}
@@ -552,6 +512,24 @@ export default function CoachPage() {
                 <MessageBubble key={msg.id} msg={msg} />
               ))}
               {status === 'loading' && <TypingIndicator />}
+
+              {/* Adjustment Panel in chat area */}
+              {mode === 'chat' && messages.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-primary-100">
+                  <button
+                    type="button"
+                    onClick={() => setAdjustmentExpanded(!adjustmentExpanded)}
+                    className="text-xs font-semibold text-primary-500 hover:text-primary-700 transition-colors flex items-center gap-1"
+                  >
+                    <svg className={`w-3.5 h-3.5 transition-transform ${adjustmentExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    Pengaturan Cepat {adjustmentExpanded ? '▲' : '▶'}
+                  </button>
+                  {adjustmentExpanded && <AdjustmentPanel />}
+                </div>
+              )}
+
               <div ref={messagesEndRef} />
             </>
           )}
@@ -569,11 +547,13 @@ export default function CoachPage() {
             placeholder="Tulis pesan untuk coach..."
             disabled={status === 'loading'}
             className="input flex-1 !py-2.5 !text-sm !rounded-xl disabled:opacity-50"
+            aria-label="Tulis pesan untuk coach"
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || status === 'loading'}
             className="btn-primary !px-4 !py-2.5 !rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Kirim pesan"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

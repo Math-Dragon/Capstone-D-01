@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../features/auth/hooks/useAuth';
+import StepUpLogo from '../ui/StepUpLogo';
 
 export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-
-  const isAuthenticated = !!localStorage.getItem('token');
+  const { isAuthenticated, logout } = useAuth();
 
   const navLinks = isAuthenticated
     ? [
@@ -25,22 +26,21 @@ export function Header() {
     return location.pathname.startsWith(path);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } finally {
+      localStorage.removeItem('token');
+      navigate('/login');
+    }
   };
 
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-primary-100">
       <div className="container">
         <div className="flex items-center justify-between h-16 sm:h-20">
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-9 h-9 rounded-xl bg-primary-900 flex items-center justify-center text-white font-bold text-lg transition-transform group-hover:scale-105">
-              AI
-            </div>
-            <span className="font-semibold text-lg text-primary-900 hidden sm:block">
-              AI Learning Plan
-            </span>
+          <Link to="/" className="group">
+            <StepUpLogo size="md" />
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">

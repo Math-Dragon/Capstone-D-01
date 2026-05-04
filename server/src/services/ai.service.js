@@ -86,7 +86,7 @@ class AIService {
   }
 
   async _callGeminiWithRetry(userContext) {
-    const userMessage = systemPrompt + '\n\nCONTEXT:\n' + JSON.stringify(userContext);
+    const userMessage = 'CONTEXT:\n' + JSON.stringify(userContext);
     let raw;
     try {
       raw = await callWithRetry(userMessage, { maxRetries: 3, label: 'ai.suggestPlan' });

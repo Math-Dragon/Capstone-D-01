@@ -83,6 +83,71 @@ class AuthService {
     };
   }
 
+  async googleLogin(idToken) {
+    // 1. Verify Firebase ID token
+    const admin = require('../config/firebase');
+    if (!admin.apps || !admin.apps.length) {
+      const err = new Error('Firebase not configured');
+      err.statusCode = 500;
+      throw err;
+    }
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    const { uid, email } = decoded;
+
+    // 2. Find or create user
+    let user = await repos.user.findByGoogleId(uid);
+    if (!user && email) {
+      user = await repos.user.findByEmail(email);
+      if (user) {
+        // Link existing email account to Google
+        await repos.user.updateGoogleId(user.id, uid);
+        user.google_id = uid;
+      }
+    }
+    if (!user) {
+      user = await db.withTransaction(async (client) => {
+        const u = await repos.user.create({
+          email: email || `google_${uid}@placeholder.com`,
+          password_hash: null,
+          google_id: uid,
+        }, client);
+        await repos.profile.create({
+          user_id: u.id,
+          timezone: 'Asia/Jakarta',
+          preferred_time: 'morning',
+          weekly_target_hours: 5.0,
+          availability: {},
+        }, client);
+        return u;
+      });
+    }
+
+    // 3. Generate JWT
+    const profile = await repos.profile.findByUserId(user.id);
+    const accessToken = jwt.sign(
+      { id: user.id, email: user.email },
+      config.jwtSecret,
+      { expiresIn: config.jwtAccessExpiry }
+    );
+    const refreshToken = jwt.sign(
+      { id: user.id, jti: crypto.randomUUID() },
+      config.jwtRefreshSecret,
+      { expiresIn: config.jwtRefreshExpiry }
+    );
+
+    await repos.refreshToken.create({
+      user_id: user.id,
+      token_hash: hashToken(refreshToken),
+      expires_at: refreshExpiryDate(),
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+      user: { id: user.id, email: user.email, profile },
+    };
+  }
+
   async refresh(refreshToken) {
     try {
       jwt.verify(refreshToken, config.jwtRefreshSecret);

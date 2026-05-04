@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import StepUpLogo from '../ui/StepUpLogo';
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -8,11 +9,8 @@ export function Footer() {
       <div className="container py-8 sm:py-12">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           <div className="sm:col-span-2 lg:col-span-1">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary-900 flex items-center justify-center text-white font-bold text-sm">
-                AI
-              </div>
-              <span className="font-semibold text-primary-900">AI Learning Plan</span>
+            <Link to="/" className="inline-block">
+              <StepUpLogo size="sm" />
             </Link>
             <p className="mt-3 text-sm text-primary-500 leading-relaxed">
               Aplikasi web yang membantu peserta bootcamp merencanakan belajar secara konsisten, dengan bantuan AI.
@@ -50,7 +48,7 @@ export function Footer() {
 
         <div className="mt-10 pt-8 border-t border-primary-100 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-sm text-primary-500">
-            &copy; {currentYear} AI Learning Plan. All rights reserved.
+            &copy; {currentYear} StepUp. All rights reserved.
           </p>
           <div className="flex items-center gap-6">
             <a href="#" className="text-sm text-primary-500 hover:text-primary-900 transition-colors">Kebijakan Privasi</a>

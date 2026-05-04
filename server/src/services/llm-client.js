@@ -39,6 +39,8 @@ function isRetryable(err) {
   if (err.code === 'AI_OUTPUT_INVALID') return false;
   if (err.statusCode === 401 || err.statusCode === 403) return false;
   if (err.message?.includes('API key')) return false;
+  if (err.statusCode === 429 || err.status === 429) return false;
+  if (err.message?.includes('429 Too Many Requests')) return false;
   return true;
 }
 
@@ -141,11 +143,12 @@ async function callWithRetry(userMessage, { maxRetries = 3, label = 'llm', timeo
       throw primaryErr;
     }
 
-    logger.warn({ err: primaryErr.message, label }, 'Primary LLM failed, falling back to OpenRouter');
+    const isQuota = primaryErr.statusCode === 429 || primaryErr.message?.includes('429');
+    logger.warn({ err: primaryErr.message, label, isQuota }, 'Primary LLM failed, falling back to OpenRouter');
     try {
       const content = await withRetry(
         makeTracker('openrouter', () => callOpenRouter(userMessage, timeoutMs)),
-        { maxAttempts: maxRetries, delayMs: 500, maxDelayMs: 8000, shouldRetry: isRetryable, label: `${label}:openrouter` }
+        { maxAttempts: maxRetries, delayMs: isQuota ? 10000 : 500, maxDelayMs: 30000, shouldRetry: () => true, label: `${label}:openrouter` }
       );
       return { content, attempts };
     } catch (fallbackErr) {

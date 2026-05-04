@@ -3,7 +3,15 @@ const repos = require('../repositories');
 class GoalService {
   async list(userId, filters = {}) {
     const goals = await repos.goal.list(userId, filters);
-    for (const g of goals) g.tasks = [];
+    if (goals.length > 0) {
+      const goalIds = goals.map(g => g.id);
+      const stats = await repos.task.countByGoalIds(goalIds);
+      for (const g of goals) {
+        const s = stats[g.id] || { total: 0, completed: 0 };
+        g.task_total = s.total;
+        g.task_completed = s.completed;
+      }
+    }
     return goals;
   }
 

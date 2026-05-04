@@ -164,8 +164,27 @@ async function findActiveByUser(userId, client) {
   return result.rows;
 }
 
+async function countByGoalIds(goalIds, client) {
+  if (goalIds.length === 0) return {};
+  const result = await db.query(
+    `SELECT goal_id,
+            COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE status IN ('done', 'completed'))::int AS completed
+     FROM tasks
+     WHERE goal_id = ANY($1)
+     GROUP BY goal_id`,
+    [goalIds],
+    client
+  );
+  const map = {};
+  for (const row of result.rows) {
+    map[row.goal_id] = { total: row.total, completed: row.completed };
+  }
+  return map;
+}
+
 module.exports = {
   listByUser, findByGoalIds, findByGoalId, findById,
   findByIdAndUser, create, createMany, update, remove, findByUserAndWeek,
-  findActiveByUser,
+  findActiveByUser, countByGoalIds,
 };

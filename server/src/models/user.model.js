@@ -3,7 +3,9 @@ const { z } = require('zod');
 const UserEntity = z.object({
   id: z.string().uuid(),
   email: z.string().email(),
-  password_hash: z.string(),
+  password_hash: z.string().nullable(),
+  google_id: z.string().nullable().optional(),
+  github_id: z.string().nullable().optional(),
   created_at: z.string().datetime(),
 });
 
