@@ -1,3 +1,5 @@
+export const isDone = (status) => status === 'done' || status === 'completed';
+
 export const formatDate = (date) => {
   return new Intl.DateTimeFormat('id-ID', {
     year: 'numeric',

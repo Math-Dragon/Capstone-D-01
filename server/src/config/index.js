@@ -34,7 +34,7 @@ module.exports = {
   jwtAccessExpiry: '15m',
   jwtRefreshExpiry: '7d',
   llmProvider,
-  llmProvider2: process.env.LLM_PROVIDER_v2 || null,
+  llmProvider2: process.env.LLM_PROVIDER_V2 || null,
   geminiKey: (process.env.GEMINI_API_KEY || '').trim(),
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite',
   openrouterKey: (process.env.OPENROUTER_API_KEY || '').trim() || null,

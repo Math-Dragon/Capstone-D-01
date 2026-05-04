@@ -1,6 +1,6 @@
 const { z } = require('zod');
 
-const messageRoleEnum = z.enum(['user', 'assistant', 'system']);
+const messageRoleEnum = z.enum(['user', 'assistant', 'system', 'coach', 'student']);
 
 const ChatMessageEntity = z.object({
   id: z.string().uuid(),

@@ -29,6 +29,7 @@ async function update(userId, data, client) {
   }
   if (sets.length === 0) return findByUserId(userId, client);
 
+  sets.push('updated_at = NOW()');
   vals.push(userId);
   const result = await db.query(
     `UPDATE profiles SET ${sets.join(', ')} WHERE user_id = $${i} RETURNING *`,

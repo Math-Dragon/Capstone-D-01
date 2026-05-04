@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import api from '../services/api';
@@ -15,7 +15,7 @@ function CircularGauge({ pct }) {
   const offset = circumference - (pct / 100) * circumference;
 
   return (
-    <svg width={100} height={100} viewBox="0 0 64 64" className="shrink-0 drop-shadow-lg">
+    <svg width={100} height={100} viewBox="0 0 64 64" className="shrink-0 drop-shadow-lg" role="img" aria-label={`Progres belajar ${pct} persen`}>
       <circle cx="32" cy="32" r={r} fill="none" stroke="#e2e8f0" strokeWidth="4" />
       <circle
         cx="32" cy="32" r={r}
@@ -66,25 +66,33 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState([]);
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const today = new Date().toISOString().split('T')[0];
 
-  const loadData = async () => {
+  const loadData = useCallback(async (signal) => {
     try {
       const [fetchedTasks, fetchedGoals] = await Promise.all([
-        api.get('/tasks').catch(() => []),
-        api.get('/goals').catch(() => []),
+        api.get('/tasks', { signal }),
+        api.get('/goals', { signal }),
       ]);
       setTasks(Array.isArray(fetchedTasks) ? fetchedTasks : []);
       setGoals(Array.isArray(fetchedGoals) ? fetchedGoals : []);
+      setError(null);
     } catch (err) {
-      console.error(err);
+      if (err.name !== 'AbortError') {
+        setError('Gagal memuat data dashboard.');
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    const controller = new AbortController();
+    loadData(controller.signal);
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     return onDataChanged(() => loadData());
@@ -174,6 +182,18 @@ export default function DashboardPage() {
           </svg>
           <p className="text-sm text-primary-400 font-medium">Memuat dashboard...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <div className="text-4xl mb-4">⚠️</div>
+        <p className="text-primary-500 mb-4 text-center">{error}</p>
+        <button onClick={() => { setError(null); setLoading(true); loadData(); }} className="btn-primary">
+          Coba Lagi
+        </button>
       </div>
     );
   }
@@ -285,6 +305,7 @@ export default function DashboardPage() {
                     innerRadius={65}
                     outerRadius={90}
                     dataKey="value"
+                    nameKey="name"
                     paddingAngle={3}
                   >
                     {priorityData.map((entry, i) => {

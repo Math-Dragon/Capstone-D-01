@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useCallback } from 'react';
+import { createContext, useContext, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   fetchGoals,
@@ -13,10 +13,6 @@ const GoalsContext = createContext(null);
 export function GoalsProvider({ children }) {
   const dispatch = useDispatch();
   const { items: goals, loading, error } = useSelector((state) => state.goals);
-
-  useEffect(() => {
-    dispatch(fetchGoals());
-  }, [dispatch]);
 
   const create = useCallback(async (payload) => {
     return await dispatch(createGoalThunk(payload)).unwrap();

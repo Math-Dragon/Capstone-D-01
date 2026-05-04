@@ -12,8 +12,7 @@ import ModifyTaskModal from '../components/ModifyTaskModal';
 import SkipTaskModal from '../components/SkipTaskModal';
 import FeedbackModal from '../components/FeedbackModal';
 import { onDataChanged } from '../utils/invalidation';
-
-const SLOT_ORDER = { morning: 0, afternoon: 1, evening: 2 };
+import { SLOT_ORDER } from '../utils/constants';
 
 export default function GoalDetailPage() {
   const navigate = useNavigate();
@@ -35,11 +34,15 @@ export default function GoalDetailPage() {
   const openTaskDetail = (task) => setDetailTask(task);
   const closeDetail = () => setDetailTask(null);
   const saveNotes = async (taskId, notes) => {
-    await api.patch(`/tasks/${taskId}`, { personal_notes: notes });
-    setGoal(prev => ({
-      ...prev,
-      tasks: (prev.tasks || []).map(t => t.id === taskId ? { ...t, personal_notes: notes } : t),
-    }));
+    try {
+      await api.patch(`/tasks/${taskId}`, { personal_notes: notes });
+      setGoal(prev => ({
+        ...prev,
+        tasks: (prev.tasks || []).map(t => t.id === taskId ? { ...t, personal_notes: notes } : t),
+      }));
+    } catch (err) {
+      console.error('Failed to save notes:', err);
+    }
   };
 
   const {
@@ -97,9 +100,11 @@ export default function GoalDetailPage() {
   };
 
   useEffect(() => {
+    const controller = new AbortController();
+    const { signal } = controller;
     async function load() {
       try {
-        const data = await api.get(`/goals/${id}`);
+        const data = await api.get(`/goals/${id}`, { signal });
         setGoal(data);
       } catch (err) {
         setError(err.message);
@@ -108,6 +113,7 @@ export default function GoalDetailPage() {
       }
     }
     load();
+    return () => controller.abort();
   }, [id]);
 
   useEffect(() => {

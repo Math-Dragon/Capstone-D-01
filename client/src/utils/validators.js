@@ -4,11 +4,11 @@ export const validateEmail = (email) => {
 };
 
 export const validatePassword = (password) => {
-  return password.length >= 6;
+  return password.length >= 8;
 };
 
 export const validateRequired = (value) => {
-  return value !== null && value !== undefined && value !== '';
+  return value !== null && value !== undefined && value !== '' && value.trim() !== '';
 };
 
 export const validateMinLength = (value, min) => {

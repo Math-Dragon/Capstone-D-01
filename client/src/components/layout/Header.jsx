@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../features/auth/hooks/useAuth';
 import StepUpLogo from '../ui/StepUpLogo';
@@ -7,7 +7,12 @@ export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
+
+  const avatarInitial = useMemo(() => {
+    if (user?.email) return user.email[0].toUpperCase();
+    return 'U';
+  }, [user]);
 
   const navLinks = isAuthenticated
     ? [
@@ -62,8 +67,8 @@ export function Header() {
           <div className="hidden md:flex items-center gap-3">
             {isAuthenticated ? (
               <>
-                <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold text-sm">
-                  U
+                <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold text-sm" title={user?.email || 'User'}>
+                  {avatarInitial}
                 </div>
                 <button
                   onClick={handleLogout}

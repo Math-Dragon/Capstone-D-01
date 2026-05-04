@@ -38,7 +38,7 @@ class GoalService {
 
   async delete(userId, goalId) {
     await this.getById(userId, goalId);
-    await repos.goal.remove(goalId);
+    await repos.goal.remove(goalId, userId);
     return true;
   }
 }

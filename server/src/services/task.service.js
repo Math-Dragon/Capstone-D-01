@@ -55,7 +55,7 @@ class TaskService {
 
   async delete(userId, taskId) {
     await this.getById(userId, taskId);
-    await repos.task.remove(taskId);
+    await repos.task.remove(taskId, userId);
     return true;
   }
 
@@ -68,7 +68,7 @@ class TaskService {
     const planned = tasks.reduce((s, t) => s + (t.duration_estimate || 0), 0);
     const completed = tasks
       .filter(t => t.status === 'done')
-      .reduce((s, t) => s + (t.actual_duration || t.duration_estimate || 0), 0);
+      .reduce((s, t) => s + (t.actual_duration != null ? t.actual_duration : t.duration_estimate || 0), 0);
 
     const rate = planned > 0 ? parseFloat((completed / planned).toFixed(2)) : 0;
 

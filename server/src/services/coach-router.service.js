@@ -1,3 +1,4 @@
+const db = require('../db');
 const repos = require('../repositories');
 const { validateAIOutput, validateChatOutput } = require('./llm');
 const { generateMockSuggestion, generateMockChat, generateMockTaskAction } = require('./llm-mock');
@@ -127,41 +128,20 @@ const TEMPLATES = {
     'Generate the next phase. Increase difficulty by 10-15%. Acknowledge the achievement.',
 };
 
-const recommendationMetrics = {
-  ai_tasks_suggested_total: 0,
-  ai_tasks_accepted_total: 0,
-  ai_tasks_rejected_total: 0,
-  ai_tasks_pending_total: 0,
 
-  trackSuggested(count) {
-    this.ai_tasks_suggested_total += count;
-    this.ai_tasks_pending_total += count;
-  },
-
-  trackDecided(decision) {
-    this.ai_tasks_pending_total -= 1;
-    if (decision === 'accepted') this.ai_tasks_accepted_total += 1;
-    else this.ai_tasks_rejected_total += 1;
-  },
-
-  snapshot() {
-    const total = this.ai_tasks_accepted_total + this.ai_tasks_rejected_total;
-    return {
-      ai_tasks_suggested_total: this.ai_tasks_suggested_total,
-      ai_tasks_accepted_total: this.ai_tasks_accepted_total,
-      ai_tasks_rejected_total: this.ai_tasks_rejected_total,
-      ai_tasks_pending_total: this.ai_tasks_pending_total,
-      accept_rate: total > 0 ? (this.ai_tasks_accepted_total / total).toFixed(2) : '0.00',
-    };
-  },
-};
 
 class CoachRouterService {
   async dispatch(userId, action, payload) {
     const { sessionType } = this._resolveAction(action);
     const sessionId = payload?.session_id || null;
 
-    await this._updateState(userId, action, payload, sessionId);
+    const taskActions = ['COMPLETE_TASK', 'SKIP_TASK', 'SUBMIT_FEEDBACK'];
+    const isTaskAction = taskActions.includes(action);
+
+    // Non-destructive state updates (CHECK_IN, CHAT_MESSAGE) run before LLM
+    if (!isTaskAction) {
+      await this._updateState(userId, action, payload, sessionId);
+    }
 
     if (action === 'ACCEPT_PROPOSAL') {
       return this._acceptProposal(userId, payload, sessionId);
@@ -171,9 +151,8 @@ class CoachRouterService {
       return this._undoPlan(userId, sessionId);
     }
 
-    const taskActions = ['COMPLETE_TASK', 'SKIP_TASK', 'SUBMIT_FEEDBACK'];
-    if (taskActions.includes(action) && payload?.taskId) {
-      const task = await repos.task.findById(payload.taskId);
+    if (isTaskAction && payload?.taskId) {
+      const task = await repos.task.findByIdAndUser(payload.taskId, userId);
       payload = { ...payload, action, taskTitle: task?.title || 'Unknown' };
     }
 
@@ -183,6 +162,8 @@ class CoachRouterService {
       const metrics = (await repos.studentMetrics.findByUserId(userId)) || {};
       const ctTrigger = adaptationTrigger.evaluate(metrics);
       if (!ctTrigger) {
+        // No LLM in this path — safe to mutate state before responding
+        await this._updateState(userId, action, payload, sessionId);
         return this._respondTaskCompleted(userId, payload, sessionId);
       }
       triggerFired = ctTrigger;
@@ -191,7 +172,7 @@ class CoachRouterService {
     const ctx = await this._buildContext(userId, sessionType, payload);
 
     // Only evaluate trigger override for task actions (not for CHAT_MESSAGE or other session types)
-    if (!triggerFired && taskActions.includes(action)) {
+    if (!triggerFired && isTaskAction) {
       triggerFired = adaptationTrigger.evaluate(ctx.metrics);
     }
 
@@ -199,11 +180,11 @@ class CoachRouterService {
     ctx.sessionType = effectiveSessionType;
 
     const usesChatSchema = effectiveSessionType === 'chat' || effectiveSessionType === 'task_action';
-    const isTaskAction = effectiveSessionType === 'task_action';
+    const isTaskActionSession = effectiveSessionType === 'task_action';
     let validated, llmMeta;
 
     if (isMock) {
-      if (isTaskAction) {
+      if (isTaskActionSession) {
         validated = generateMockTaskAction(ctx);
       } else if (usesChatSchema) {
         validated = generateMockChat(ctx);
@@ -223,6 +204,11 @@ class CoachRouterService {
         triggerFired.id
       );
       await repos.studentMetrics.upsert(userId, { trigger_cooldowns: updatedCooldowns });
+    }
+
+    // Deferred state mutation: run AFTER LLM success to avoid S-C5 (task done before LLM validation)
+    if (isTaskAction) {
+      await this._updateState(userId, action, payload, sessionId);
     }
 
     if (validated) {
@@ -318,7 +304,6 @@ class CoachRouterService {
 
     if (effectiveSessionType === 'initial_plan' && action === 'INITIAL_PLAN') {
       const rec = await this._stageRecommendation(userId, validated, ctx);
-      recommendationMetrics.trackSuggested(rec.output.tasks.length);
 
       return {
         type: 'recommendation',
@@ -388,104 +373,111 @@ class CoachRouterService {
   }
 
   async decideTask(userId, recId, taskId, decision, sessionId) {
-    const rec = await repos.aiRec.findByIdAndUserId(recId, userId);
-    if (!rec) {
-      const err = new Error('Recommendation not found');
-      err.status = 404;
-      throw err;
-    }
-    if (rec.status !== 'pending') {
-      const err = new Error('Recommendation already decided');
-      err.status = 400;
-      throw err;
-    }
-
-    const tasks = rec.output.tasks;
-    const task = tasks.find((t) => t.task_id === taskId);
-    if (!task) {
-      const err = new Error('Task not found in recommendation');
-      err.status = 404;
-      throw err;
-    }
-    if (task.status !== 'pending') {
-      const err = new Error('Task already decided');
-      err.status = 400;
-      throw err;
-    }
-
-    task.status = decision;
-    task.decided_at = new Date().toISOString();
-
-    const allDecided = tasks.every((t) => t.status !== 'pending');
-
-    await repos.aiRec.updateOutput(recId, rec.output);
-
-    if (allDecided) {
-      const newStatus = tasks.some((t) => t.status === 'accepted') ? 'accepted' : 'rejected';
-      await repos.aiRec.updateStatus(recId, newStatus);
-    }
-
-    recommendationMetrics.trackDecided(decision);
-
-    if (decision === 'accepted') {
-      let targetGoalId = rec.goal_id;
-      if (!targetGoalId) {
-        const ctxGoal = rec.input_context?.goal || {};
-        const fallbackGoal = await repos.goal.create({
-          user_id: userId,
-          title: ctxGoal.title || 'Rencana Belajar',
-          description: ctxGoal.description || '',
-          deadline: ctxGoal.deadline || null,
-          status: 'active',
-        });
-        targetGoalId = fallbackGoal.id;
+    return db.withTransaction(async (client) => {
+      const rec = await repos.aiRec.findByIdAndUserId(recId, userId, client);
+      if (!rec) {
+        const err = new Error('Recommendation not found');
+        err.status = 404;
+        throw err;
+      }
+      if (rec.status !== 'pending') {
+        const err = new Error('Recommendation already decided');
+        err.status = 400;
+        throw err;
       }
 
-      await repos.task.create({
-        goal_id: targetGoalId,
-        title: task.title,
-        description: task.description || null,
-        duration_estimate: task.duration_estimate,
-        planned_date: task.planned_date || null,
-        planned_slot: task.planned_slot || null,
-        task_type: task.task_type || null,
-        rationale: task.rationale || null,
-        source: 'coach',
-        status: 'todo',
-      });
+      const tasks = rec.output.tasks;
+      const task = tasks.find((t) => t.task_id === taskId);
+      if (!task) {
+        const err = new Error('Task not found in recommendation');
+        err.status = 404;
+        throw err;
+      }
+      if (task.status !== 'pending') {
+        const err = new Error('Task already decided');
+        err.status = 400;
+        throw err;
+      }
 
-      await repos.audit.create({
-        user_id: userId,
-        action: 'COACH_TASK_ACCEPTED',
-        metadata: { recommendation_id: recId, task_id: taskId },
-        session_id: sessionId,
-      });
-    } else {
-      await repos.audit.create({
-        user_id: userId,
-        action: 'COACH_TASK_REJECTED',
-        metadata: { recommendation_id: recId, task_id: taskId },
-        session_id: sessionId,
-      });
-    }
+      task.status = decision;
+      task.decided_at = new Date().toISOString();
 
-    return { task_id: taskId, status: decision, allDecided };
+      const allDecided = tasks.every((t) => t.status !== 'pending');
+
+      await repos.aiRec.updateOutput(recId, rec.output, client);
+
+      if (allDecided) {
+        const newStatus = tasks.some((t) => t.status === 'accepted') ? 'accepted' : 'rejected';
+        await repos.aiRec.updateStatus(recId, newStatus, client);
+      }
+
+      if (decision === 'accepted') {
+        let targetGoalId = rec.goal_id;
+        if (!targetGoalId) {
+          const ctxGoal = rec.input_context?.goal || {};
+          const fallbackGoal = await repos.goal.create({
+            user_id: userId,
+            title: ctxGoal.title || 'Rencana Belajar',
+            description: ctxGoal.description || '',
+            deadline: ctxGoal.deadline || null,
+            status: 'active',
+          }, client);
+          targetGoalId = fallbackGoal.id;
+        }
+
+        await repos.task.create({
+          goal_id: targetGoalId,
+          title: task.title,
+          description: task.description || null,
+          duration_estimate: task.duration_estimate,
+          planned_date: task.planned_date || null,
+          planned_slot: task.planned_slot || null,
+          task_type: task.task_type || null,
+          rationale: task.rationale || null,
+          source: 'coach',
+          status: 'todo',
+        }, client);
+
+        await repos.audit.create({
+          user_id: userId,
+          action: 'COACH_TASK_ACCEPTED',
+          metadata: { recommendation_id: recId, task_id: taskId },
+          session_id: sessionId,
+        }, client);
+      } else {
+        await repos.audit.create({
+          user_id: userId,
+          action: 'COACH_TASK_REJECTED',
+          metadata: { recommendation_id: recId, task_id: taskId },
+          session_id: sessionId,
+        }, client);
+      }
+
+      return { task_id: taskId, status: decision, allDecided };
+    });
   }
 
   async getRecommendationMetrics() {
-    if (!this._metricsSeeded) {
-      this._metricsSeeded = true;
-      try {
-        const dbMetrics = await repos.aiRec.computeAllMetrics();
-        recommendationMetrics.ai_tasks_suggested_total = dbMetrics.suggested;
-        recommendationMetrics.ai_tasks_accepted_total = dbMetrics.accepted;
-        recommendationMetrics.ai_tasks_rejected_total = dbMetrics.rejected;
-        recommendationMetrics.ai_tasks_pending_total = dbMetrics.pending;
-      } catch (err) {
-        logger.warn({ err: err.message }, 'Failed to seed recommendation metrics from DB');
-      }
+    try {
+      const m = await repos.aiRec.computeAllMetrics();
+      const total = m.accepted + m.rejected;
+      return {
+        ai_tasks_suggested_total: m.suggested,
+        ai_tasks_accepted_total: m.accepted,
+        ai_tasks_rejected_total: m.rejected,
+        ai_tasks_pending_total: m.pending,
+        accept_rate: total > 0 ? (m.accepted / total).toFixed(2) : '0.00',
+      };
+    } catch (err) {
+      logger.warn({ err: err.message }, 'Failed to compute recommendation metrics');
+      return {
+        ai_tasks_suggested_total: 0,
+        ai_tasks_accepted_total: 0,
+        ai_tasks_rejected_total: 0,
+        ai_tasks_pending_total: 0,
+        accept_rate: '0.00',
+      };
     }
-    return recommendationMetrics.snapshot();
   }
 
   _resolveAction(action) {
@@ -507,7 +499,7 @@ class CoachRouterService {
 
   async _respondTaskCompleted(userId, payload, sessionId) {
     const metrics = (await repos.studentMetrics.findByUserId(userId)) || {};
-    const task = await repos.task.findById(payload.taskId);
+    const task = await repos.task.findByIdAndUser(payload.taskId, userId);
     const streak = metrics.streak_days || 0;
     const totalCompleted = metrics.total_completed || 0;
 
@@ -580,32 +572,34 @@ class CoachRouterService {
   async _persistPlan(userId, plan, goalId) {
     if (!plan || !plan.tasks || plan.tasks.length === 0) return;
 
-    let targetGoalId = goalId;
-    if (!targetGoalId) {
-      const goals = await repos.goal.list(userId);
-      const activeGoal = goals[0];
-      if (!activeGoal) {
-        logger.warn({ userId }, 'No active goal found for plan persistence');
-        return;
+    await db.withTransaction(async (client) => {
+      let targetGoalId = goalId;
+      if (!targetGoalId) {
+        const goals = await repos.goal.list(userId, {}, client);
+        const activeGoal = goals[0];
+        if (!activeGoal) {
+          logger.warn({ userId }, 'No active goal found for plan persistence');
+          return;
+        }
+        targetGoalId = activeGoal.id;
       }
-      targetGoalId = activeGoal.id;
-    }
 
-    const tasksToCreate = plan.tasks.map(t => ({
-      goal_id: targetGoalId,
-      title: t.title,
-      description: t.description || null,
-      duration_estimate: t.duration_estimate,
-      planned_date: t.planned_date || null,
-      planned_slot: t.planned_slot || null,
-      task_type: t.task_type || null,
-      rationale: t.rationale || null,
-      source: 'coach',
-      status: 'todo',
-    }));
+      const tasksToCreate = plan.tasks.map(t => ({
+        goal_id: targetGoalId,
+        title: t.title,
+        description: t.description || null,
+        duration_estimate: t.duration_estimate,
+        planned_date: t.planned_date || null,
+        planned_slot: t.planned_slot || null,
+        task_type: t.task_type || null,
+        rationale: t.rationale || null,
+        source: 'coach',
+        status: 'todo',
+      }));
 
-    await repos.task.createMany(tasksToCreate);
-    logger.info({ userId, taskCount: tasksToCreate.length }, 'Plan tasks persisted');
+      await repos.task.createMany(tasksToCreate, client);
+    });
+    logger.info({ userId, taskCount: plan.tasks.length }, 'Plan tasks persisted');
   }
 
   async _acceptProposal(userId, payload, sessionId) {
@@ -637,30 +631,32 @@ class CoachRouterService {
 
     const restoredTaskIds = snapshot.tasks_snapshot.map(t => t.id).filter(Boolean);
 
-    const currentTasks = await repos.task.findActiveByUser(userId);
-    for (const task of currentTasks) {
-      if (!restoredTaskIds.includes(task.id)) {
-        await repos.task.remove(task.id);
+    await db.withTransaction(async (client) => {
+      const currentTasks = await repos.task.findActiveByUser(userId, client);
+      for (const task of currentTasks) {
+        if (!restoredTaskIds.includes(task.id)) {
+          await repos.task.remove(task.id, userId, client);
+        }
       }
-    }
 
-    for (const task of snapshot.tasks_snapshot) {
-      if (task.id) {
-        await repos.task.update(task.id, { status: 'todo' });
+      for (const task of snapshot.tasks_snapshot) {
+        if (task.id) {
+          await repos.task.update(task.id, { status: 'todo' }, client);
+        }
       }
-    }
 
-    await repos.planSnapshot.remove(snapshot.id);
+      await repos.planSnapshot.remove(snapshot.id, client);
 
-    await repos.audit.create({
-      user_id: userId,
-      action: 'COACH_PLAN_UNDONE',
-      metadata: {
-        trigger_id: snapshot.trigger_id,
-        adaptation_type: snapshot.adaptation_type,
-        restored_task_count: snapshot.tasks_snapshot.length,
-      },
-      session_id: sessionId,
+      await repos.audit.create({
+        user_id: userId,
+        action: 'COACH_PLAN_UNDONE',
+        metadata: {
+          trigger_id: snapshot.trigger_id,
+          adaptation_type: snapshot.adaptation_type,
+          restored_task_count: snapshot.tasks_snapshot.length,
+        },
+        session_id: sessionId,
+      }, client);
     });
 
     return { type: 'message', data: { message: 'Rencana sebelumnya telah dikembalikan.', plan: null }, meta: { attempts: [], duration_ms: 0 } };
@@ -672,7 +668,7 @@ class CoachRouterService {
 
     switch (action) {
       case 'COMPLETE_TASK': {
-        const task = await repos.task.findById(payload.taskId);
+        const task = await repos.task.findByIdAndUser(payload.taskId, userId);
         if (task) {
           await repos.task.update(payload.taskId, {
             status: 'done',
@@ -691,7 +687,7 @@ class CoachRouterService {
         break;
       }
       case 'SKIP_TASK': {
-        const task = await repos.task.findById(payload.taskId);
+        const task = await repos.task.findByIdAndUser(payload.taskId, userId);
         if (task) {
           await repos.task.update(payload.taskId, {
             status: 'skipped',
@@ -760,18 +756,18 @@ class CoachRouterService {
   }
 
   async _buildContext(userId, sessionType, payload) {
-    const user = await repos.user.findById(userId);
-    const profile = await repos.profile.findByUserId(userId);
-    const goals = await repos.goal.list(userId);
+    const [user, profile, goals, tasks, metrics, chatHistory] = await Promise.all([
+      repos.user.findById(userId),
+      repos.profile.findByUserId(userId),
+      repos.goal.list(userId),
+      repos.task.listByUser(userId),
+      repos.studentMetrics.findByUserId(userId).then(r => r || {}),
+      sessionType === 'chat' ? repos.chatMessage.findRecentByUser(userId, 6) : [],
+    ]);
     const activeGoal = goals[0] || {};
-    const tasks = await repos.task.listByUser(userId);
-    const metrics = (await repos.studentMetrics.findByUserId(userId)) || {};
-    const chatHistory = sessionType === 'chat'
-      ? await repos.chatMessage.findRecentByUser(userId, 6)
-      : [];
 
     const pendingTasks = tasks.filter(
-      (t) => t.status === 'todo' || t.status === 'pending'
+      (t) => t.status === 'todo'
     );
     const completedTasks = tasks.filter(
       (t) => t.status === 'done' || t.status === 'completed'
@@ -790,7 +786,7 @@ class CoachRouterService {
       .map((m) => `${m.role}: ${m.content}`)
       .join('\n');
 
-    const consecutiveDrained = await this._countConsecutiveDrained(userId);
+    const consecutiveDrained = await this._checkLastMoodDrained(userId);
 
     const totalTasks = tasks.length;
     const completedCount = tasks.filter((t) => t.status === 'done' || t.status === 'completed').length;
@@ -865,14 +861,24 @@ class CoachRouterService {
     };
   }
 
-  async _countConsecutiveDrained(userId) {
+  async _checkLastMoodDrained(userId) {
     try {
       const dbModule = require('../db');
       const result = await dbModule.query(
-        'SELECT last_mood FROM student_metrics WHERE user_id = $1',
+        'SELECT last_mood, mood_history FROM student_metrics WHERE user_id = $1',
         [userId]
       );
-      return result.rows[0]?.last_mood === 'drained' ? 2 : 0;
+      const row = result.rows[0];
+      if (!row || row.last_mood !== 'drained') return 0;
+      if (Array.isArray(row.mood_history)) {
+        let count = 1;
+        for (let i = row.mood_history.length - 1; i >= 0; i--) {
+          if (row.mood_history[i] === 'drained') count++;
+          else break;
+        }
+        return count;
+      }
+      return 1;
     } catch {
       return 0;
     }

@@ -13,9 +13,10 @@ import ModifyTaskModal from '../components/ModifyTaskModal';
 import SkipTaskModal from '../components/SkipTaskModal';
 import FeedbackModal from '../components/FeedbackModal';
 import { onDataChanged } from '../utils/invalidation';
+import { SLOT_ORDER, TASK_TYPE_PALETTE } from '../utils/constants';
+import { formatDuration } from '../utils/helpers';
 
 const DAY_NAMES = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
-const SLOT_ORDER = { morning: 0, afternoon: 1, evening: 2 };
 
 function getWeekDates(offset = 0) {
   const now = new Date();
@@ -42,13 +43,6 @@ function formatWeekRange(dates) {
   return `${start.toLocaleDateString(locale, { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString(locale, opts)}`;
 }
 
-function formatDuration(min) {
-  if (min < 60) return `${min}m`;
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return m > 0 ? `${h}j ${m}m` : `${h}j`;
-}
-
 export default function CalendarPage() {
   const dispatch = useDispatch();
   const studentMetrics = useSelector((s) => s.observability.studentMetrics);
@@ -65,8 +59,12 @@ export default function CalendarPage() {
   const openTaskDetail = (task) => setDetailTask(task);
   const closeDetail = () => setDetailTask(null);
   const saveNotes = async (taskId, notes) => {
-    await api.patch(`/tasks/${taskId}`, { personal_notes: notes });
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, personal_notes: notes } : t));
+    try {
+      await api.patch(`/tasks/${taskId}`, { personal_notes: notes });
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, personal_notes: notes } : t));
+    } catch (err) {
+      console.error('Failed to save notes:', err);
+    }
   };
 
   const {
@@ -84,9 +82,9 @@ export default function CalendarPage() {
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const loadTasks = useCallback(async () => {
+  const loadTasks = useCallback(async (signal) => {
     try {
-      const data = await api.get('/tasks');
+      const data = await api.get('/tasks', { signal });
       setTasks(Array.isArray(data) ? data : []);
     } catch {
       setTasks([]);
@@ -95,7 +93,11 @@ export default function CalendarPage() {
     }
   }, []);
 
-  useEffect(() => { loadTasks(); }, [loadTasks]);
+  useEffect(() => {
+    const controller = new AbortController();
+    loadTasks(controller.signal);
+    return () => controller.abort();
+  }, [loadTasks]);
   useEffect(() => { dispatch(fetchStudentMetrics()); }, [dispatch]);
 
   useEffect(() => {
@@ -439,7 +441,7 @@ export default function CalendarPage() {
       />
 
       {/* Reschedule Modal */}
-      <rescheduleModal />
+      {rescheduleModal()}
     </div>
   );
 

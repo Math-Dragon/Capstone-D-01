@@ -12,7 +12,7 @@ router.use(authenticate);
 router.get('/history', async (req, res, next) => {
   try {
     const messages = await repos.chatMessage.findByUser(req.user.id);
-    res.json(messages);
+    res.json({ success: true, data: messages });
   } catch (err) {
     next(err);
   }
@@ -21,7 +21,7 @@ router.get('/history', async (req, res, next) => {
 router.get('/recommendations/metrics', async (req, res, next) => {
   try {
     const metrics = await coachRouter.getRecommendationMetrics();
-    res.json(metrics);
+    res.json({ success: true, data: metrics });
   } catch (err) {
     next(err);
   }
@@ -43,14 +43,6 @@ router.post('/recommendations/:recId/tasks/:taskId/decide', async (req, res, nex
     );
     res.json({ success: true, data: result });
   } catch (err) {
-    if (err.name === 'ZodError') {
-      return res.status(400).json({
-        success: false,
-        status: 'error',
-        error_code: 'VALIDATION_FAILED',
-        message: err.errors.map((e) => e.message).join(', '),
-      });
-    }
     if (err.status) {
       return res.status(err.status).json({
         success: false,
@@ -136,14 +128,6 @@ router.post('/', aiLimiter, async (req, res, next) => {
       server_timestamp: Date.now(),
     });
   } catch (err) {
-    if (err.name === 'ZodError') {
-      return res.status(400).json({
-        success: false,
-        status: 'error',
-        error_code: 'VALIDATION_FAILED',
-        message: err.errors.map((e) => e.message).join(', '),
-      });
-    }
     next(err);
   }
 });

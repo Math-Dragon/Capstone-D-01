@@ -15,11 +15,6 @@ async function findByGoogleId(googleId, client) {
   return result.rows[0] || null;
 }
 
-async function findByGithubId(githubId, client) {
-  const result = await db.query('SELECT * FROM users WHERE github_id = $1', [githubId], client);
-  return result.rows[0] || null;
-}
-
 async function updateGoogleId(userId, googleId, client) {
   const result = await db.query(
     'UPDATE users SET google_id = $1 WHERE id = $2 RETURNING *',
@@ -38,4 +33,4 @@ async function create({ email, password_hash, google_id = null, github_id = null
   return result.rows[0];
 }
 
-module.exports = { findByEmail, findById, findByGoogleId, findByGithubId, updateGoogleId, create };
+module.exports = { findByEmail, findById, findByGoogleId, updateGoogleId, create };

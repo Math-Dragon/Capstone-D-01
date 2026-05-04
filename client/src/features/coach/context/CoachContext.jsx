@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { setPipelineTrace as setPipelineTraceRedux } from '../../../store/slices/observabilitySlice';
-import coachService from '../services/coachService';
+import coachService, { setSessionId } from '../services/coachService';
 
 const CoachContext = createContext(null);
 
@@ -42,14 +42,22 @@ function getOrCreateSessionId() {
   return id;
 }
 
+const MAX_MESSAGES = 200;
+
 export function CoachProvider({ children }) {
   const dispatch = useDispatch();
   const sessionIdRef = useRef(getOrCreateSessionId());
   useEffect(() => {
-    window.__coachSessionId = sessionIdRef.current;
-    return () => { window.__coachSessionId = null; };
+    setSessionId(sessionIdRef.current);
+    return () => { setSessionId(null); };
   }, []);
   const [messages, setMessages] = useState([]);
+
+  useEffect(() => {
+    if (messages.length > MAX_MESSAGES) {
+      setMessages((prev) => prev.length > MAX_MESSAGES ? prev.slice(-MAX_MESSAGES) : prev);
+    }
+  }, [messages.length]);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState(null);
   const [recommendation, setRecommendation] = useState(null);
@@ -314,20 +322,17 @@ export function CoachProvider({ children }) {
       );
 
       if (result?.allDecided) {
-        setRecommendation((prev) => {
-          if (!prev) return prev;
-          const acceptedCount = prev.tasks.filter((t) => t.status === 'accepted').length;
-          const coachMsg = {
-            id: `coach-${Date.now()}`,
-            role: 'coach',
-            content: `Rencana belajar telah ditetapkan! ${acceptedCount} tugas diterima dan ditambahkan ke jadwal kamu. Silakan tanya apa saja tentang rencana belajarmu.`,
-            timestamp: new Date().toISOString(),
-            planSnapshot: prev.summary,
-          };
-          setMessages((prevMsgs) => [...prevMsgs, coachMsg]);
-          setMode('chat');
-          return null;
-        });
+        const acceptedCount = (recommendation?.tasks || []).filter((t) => t.status === 'accepted').length;
+        const coachMsg = {
+          id: `coach-${Date.now()}`,
+          role: 'coach',
+          content: `Rencana belajar telah ditetapkan! ${acceptedCount} tugas diterima dan ditambahkan ke jadwal kamu. Silakan tanya apa saja tentang rencana belajarmu.`,
+          timestamp: new Date().toISOString(),
+          planSnapshot: recommendation?.summary,
+        };
+        setRecommendation(null);
+        setMessages((prevMsgs) => [...prevMsgs, coachMsg]);
+        setMode('chat');
       }
 
       return result;

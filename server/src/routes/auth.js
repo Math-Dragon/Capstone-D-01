@@ -4,6 +4,13 @@ const authService = require('../services/auth.service');
 const { authenticate } = require('../middleware/authenticate');
 const { registerSchema, loginSchema } = require('../models/user.model');
 
+const REFRESH_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict',
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+};
+
 router.post('/register', async (req, res, next) => {
   try {
     const data = registerSchema.parse(req.body);
@@ -16,12 +23,7 @@ router.post('/login', async (req, res, next) => {
   try {
     const data = loginSchema.parse(req.body);
     const result = await authService.login(data);
-    res.cookie('refreshToken', result.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie('refreshToken', result.refreshToken, REFRESH_COOKIE_OPTIONS);
     res.json({ success: true, data: { accessToken: result.accessToken, user: result.user } });
   } catch (err) { next(err); }
 });
@@ -35,12 +37,7 @@ router.post('/google', async (req, res, next) => {
       throw err;
     }
     const result = await authService.googleLogin(idToken);
-    res.cookie('refreshToken', result.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie('refreshToken', result.refreshToken, REFRESH_COOKIE_OPTIONS);
     res.json({ success: true, data: { accessToken: result.accessToken, user: result.user } });
   } catch (err) { next(err); }
 });
@@ -54,12 +51,7 @@ router.post('/refresh', async (req, res, next) => {
       throw err;
     }
     const result = await authService.refresh(refreshToken);
-    res.cookie('refreshToken', result.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie('refreshToken', result.refreshToken, REFRESH_COOKIE_OPTIONS);
     res.json({ success: true, data: { accessToken: result.accessToken } });
   } catch (err) { next(err); }
 });

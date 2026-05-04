@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-do
 import CoachObservability from './CoachObservability';
 import AdaptationBanner from '../../../components/AdaptationBanner';
 import AdjustmentPanel from '../../../components/AdjustmentPanel';
+import useFocusTrap from '../../../hooks/useFocusTrap';
 
 function TypingIndicator() {
   return (
@@ -104,6 +105,8 @@ const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri'];
 const WEEKENDS = ['sat', 'sun'];
 
 function PlanFormModal({ onSubmit, onCancel, disabled, initialPayload }) {
+  const modalRef = useRef(null);
+  useFocusTrap(modalRef, true);
   const [title, setTitle] = useState(initialPayload?.goal?.title || '');
   const [description, setDescription] = useState(initialPayload?.goal?.description || '');
   const [deadline, setDeadline] = useState(initialPayload?.goal?.deadline || '');
@@ -142,6 +145,7 @@ function PlanFormModal({ onSubmit, onCancel, disabled, initialPayload }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onCancel}>
       <div
+        ref={modalRef}
         className="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 p-6 animate-fade-in max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >

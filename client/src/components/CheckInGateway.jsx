@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import useFocusTrap from '../hooks/useFocusTrap';
 import coachService from '../features/coach/services/coachService';
 
 const MOODS = [
@@ -15,6 +16,8 @@ function getToday() {
 
 export default function CheckInGateway({ children }) {
   const [showCheckIn, setShowCheckIn] = useState(false);
+  const checkinRef = useRef(null);
+  useFocusTrap(checkinRef, showCheckIn);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -52,6 +55,7 @@ export default function CheckInGateway({ children }) {
 
   return (
     <div
+      ref={checkinRef}
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white"
       role="dialog"
       aria-modal="true"

@@ -21,15 +21,24 @@ export default class ErrorBoundary extends Component {
     }
   }
 
+  handleReset = () => {
+    this.setState({ hasError: false, error: null });
+  };
+
   render() {
     if (this.state.hasError) {
       const fallback = this.props.fallback || (
         <div className="error-boundary" style={{ padding: '2rem', textAlign: 'center' }}>
           <h2>Terjadi kesalahan</h2>
           <p>{this.props.message || 'Coba muat ulang halaman ini.'}</p>
-          <button className="btn-primary" onClick={() => window.location.reload()}>
-            Muat ulang
-          </button>
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '1rem' }}>
+            <button className="btn-primary" onClick={this.handleReset}>
+              Coba Lagi
+            </button>
+            <button className="btn-secondary" onClick={() => window.location.reload()}>
+              Muat ulang
+            </button>
+          </div>
         </div>
       );
       return fallback;

@@ -1,12 +1,14 @@
-import { useState, createContext, useContext } from 'react';
+import { useState, createContext, useContext, useRef } from 'react';
 
 const ToastContext = createContext();
+
+let toastCounter = 0;
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
   const addToast = (message, type = 'info', duration = 3000) => {
-    const id = Date.now();
+    const id = ++toastCounter;
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));

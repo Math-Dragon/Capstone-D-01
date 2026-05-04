@@ -159,9 +159,11 @@ async function callWithRetry(userMessage, { maxRetries = 3, label = 'llm', timeo
 }
 
 async function validateGemini() {
-  const { GoogleGenerativeAI } = require('@google/generative-ai');
-  const testClient = new GoogleGenerativeAI(config.geminiKey);
-  const model = testClient.getGenerativeModel({ model: config.geminiModel });
+  if (!genAI) {
+    const { GoogleGenerativeAI } = require('@google/generative-ai');
+    genAI = new GoogleGenerativeAI(config.geminiKey);
+  }
+  const model = genAI.getGenerativeModel({ model: config.geminiModel });
   const result = await model.generateContent({
     contents: [{ role: 'user', parts: [{ text: 'Respond with only the word: ok' }] }],
     generationConfig: { maxOutputTokens: 10 },
@@ -221,7 +223,7 @@ async function validateConnection() {
     if (hasFallback) {
       try {
         const fbResult = await validateOpenRouter();
-        logger.info({ provider: 'openrouter', model: config.geminiModel }, 'Fallback provider active (primary failed)');
+        logger.info({ provider: 'openrouter', model: config.openrouterModel }, 'Fallback provider active (primary failed)');
         return { ...fbResult, primaryFailed: true };
       } catch (fbErr) {
         logger.error({ err: fbErr.message }, 'OpenRouter fallback also failed');

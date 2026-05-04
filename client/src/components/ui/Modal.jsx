@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import useFocusTrap from '../../hooks/useFocusTrap';
+import { lockScroll, unlockScroll } from '../../utils/scrollLock';
 
 export function Modal({ isOpen, onClose, title, description, children, size = 'md' }) {
   const modalRef = useRef(null);
@@ -7,13 +8,9 @@ export function Modal({ isOpen, onClose, title, description, children, size = 'm
 
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
+      lockScroll();
+      return () => unlockScroll();
     }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
   }, [isOpen]);
 
   useEffect(() => {

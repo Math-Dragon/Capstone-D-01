@@ -1,3 +1,5 @@
+// @deprecated — Use SkipTaskModal, FeedbackModal, or ModifyTaskModal instead.
+// TaskActionModal is unused (zero imports across codebase). Kept for reference.
 import { useState } from 'react';
 
 const SKIP_REASONS = [

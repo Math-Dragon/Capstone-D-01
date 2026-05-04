@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import useFocusTrap from '../hooks/useFocusTrap';
+import { lockScroll, unlockScroll } from '../utils/scrollLock';
+import { TASK_TYPE_PALETTE } from '../utils/constants';
 
 const SLOT_LABELS = { morning: 'Pagi', afternoon: 'Siang', evening: 'Malam' };
-const TYPE_COLORS = {
-  acquire: '#818CF8', practice: '#F0A500', recall: '#EC4899',
-  interleave: '#06B6D4', synthesize: '#A78BFA', review: '#34D399',
-  assess: '#F87171', reflect: '#94A3B8',
-};
+const TYPE_COLORS = Object.fromEntries(
+  Object.entries(TASK_TYPE_PALETTE).map(([k, v]) => [k, v.color])
+);
 
 function formatDate(dateStr) {
   if (!dateStr) return null;
@@ -49,11 +49,9 @@ export default function TaskDetailModal({ task, isOpen, onClose, onSaveNotes }) 
 
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
+      lockScroll();
+      return () => unlockScroll();
     }
-    return () => { document.body.style.overflow = 'unset'; };
   }, [isOpen]);
 
   useEffect(() => {

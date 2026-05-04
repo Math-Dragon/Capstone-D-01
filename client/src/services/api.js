@@ -1,6 +1,7 @@
 import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+import store from '../store';
+import { logout } from '../store/slices/authSlice';
+import { API_BASE_URL } from '../utils/constants';
 
 let lastRequestId = localStorage.getItem('lastRequestId') || null;
 
@@ -124,6 +125,7 @@ api.interceptors.response.use(
         processQueue(refreshError, null);
         isRefreshing = false;
         localStorage.removeItem('token');
+        store.dispatch(logout());
         if (window.location.pathname !== '/login') {
           window.location.href = '/login';
         }

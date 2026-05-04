@@ -1,10 +1,14 @@
 import api from '../../../services/api';
 
 const APP_VERSION = '1.0.0';
+let _sessionId = null;
+
+export function setSessionId(id) {
+  _sessionId = id;
+}
 
 function enrichPayload(payload) {
-  const sessionId = typeof window !== 'undefined' ? window.__coachSessionId : null;
-  return { ...payload, client_timestamp: Date.now(), app_version: APP_VERSION, session_id: sessionId };
+  return { ...payload, client_timestamp: Date.now(), app_version: APP_VERSION, session_id: _sessionId };
 }
 
 export const coachService = {
@@ -22,8 +26,7 @@ export const coachService = {
   },
 
   decideTask: async (recId, taskId, decision) => {
-    const sessionId = typeof window !== 'undefined' ? window.__coachSessionId : null;
-    const data = await api.post(`/coach/recommendations/${recId}/tasks/${taskId}/decide`, { decision, session_id: sessionId });
+    const data = await api.post(`/coach/recommendations/${recId}/tasks/${taskId}/decide`, { decision, session_id: _sessionId });
     return data;
   },
 

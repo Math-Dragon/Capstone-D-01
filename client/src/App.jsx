@@ -33,8 +33,8 @@ export default function App() {
         <AuthProvider>
           <GoalsProvider>
             <ToastProvider>
-              <Suspense fallback={<SkeletonList count={5} />}>
-                <CoachProvider>
+              <CoachProvider>
+                <Suspense fallback={<SkeletonList count={5} />}>
                   <Routes>
                     <Route path="/" element={<Layout />}>
                       <Route index element={<RootPage />} />
@@ -47,8 +47,8 @@ export default function App() {
                       <Route path="coach" element={<ProtectedRoute><CheckInGateway><CoachPage /></CheckInGateway></ProtectedRoute>} />
                     </Route>
                   </Routes>
-                </CoachProvider>
-              </Suspense>
+                </Suspense>
+              </CoachProvider>
             </ToastProvider>
           </GoalsProvider>
         </AuthProvider>

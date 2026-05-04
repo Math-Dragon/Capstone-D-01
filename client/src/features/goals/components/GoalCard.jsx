@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useGoals } from '../context/GoalsContext';
 import { Modal } from '../../../components/ui/Modal';
 
-export default function GoalCard({ goal }) {
+const GoalCard = memo(function GoalCard({ goal }) {
   const navigate = useNavigate();
   const { remove } = useGoals();
   const [deleting, setDeleting] = useState(false);
@@ -95,4 +95,6 @@ export default function GoalCard({ goal }) {
       </Modal>
     </>
   );
-}
+});
+
+export default GoalCard;

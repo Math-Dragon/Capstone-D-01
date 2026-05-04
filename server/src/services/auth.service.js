@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../config');
 const db = require('../db');
 const repos = require('../repositories');
+const admin = require('../config/firebase');
 
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -84,8 +85,6 @@ class AuthService {
   }
 
   async googleLogin(idToken) {
-    // 1. Verify Firebase ID token
-    const admin = require('../config/firebase');
     if (!admin.apps || !admin.apps.length) {
       const err = new Error('Firebase not configured');
       err.statusCode = 500;
@@ -111,6 +110,9 @@ class AuthService {
           password_hash: null,
           google_id: uid,
         }, client);
+        if (!email) {
+          console.warn(`[auth] User ${u.id} created with placeholder email — account merging may be needed`);
+        }
         await repos.profile.create({
           user_id: u.id,
           timezone: 'Asia/Jakarta',
@@ -149,8 +151,15 @@ class AuthService {
   }
 
   async refresh(refreshToken) {
+    if (!refreshToken || typeof refreshToken !== 'string') {
+      const err = new Error('Invalid refresh token');
+      err.statusCode = 401;
+      throw err;
+    }
+
+    let decoded;
     try {
-      jwt.verify(refreshToken, config.jwtRefreshSecret);
+      decoded = jwt.verify(refreshToken, config.jwtRefreshSecret);
     } catch {
       const err = new Error('Invalid refresh token');
       err.statusCode = 401;

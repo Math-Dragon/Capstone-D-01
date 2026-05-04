@@ -4,6 +4,7 @@ const logger = require('../utils/logger');
 
 class RedisService {
   constructor() {
+    this._connecting = null;
     this.client = createClient({
       url: config.redisUrl || 'redis://localhost:6379',
       socket: {
@@ -24,9 +25,13 @@ class RedisService {
   }
 
   async connect() {
-    if (!this.client.isOpen) {
-      await this.client.connect();
+    if (this.client.isOpen) return;
+    if (!this._connecting) {
+      this._connecting = this.client.connect().finally(() => {
+        this._connecting = null;
+      });
     }
+    return this._connecting;
   }
 
   async quit() {

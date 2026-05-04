@@ -30,18 +30,18 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-primary-900 mb-4">Sumber Daya</h4>
             <ul className="space-y-2">
-              <li><a href="#" className="text-sm text-primary-500 hover:text-primary-900 transition-colors">Panduan</a></li>
-              <li><a href="#" className="text-sm text-primary-500 hover:text-primary-900 transition-colors">Tutorial</a></li>
-              <li><a href="#" className="text-sm text-primary-500 hover:text-primary-900 transition-colors">Contoh Proyek</a></li>
+              <li><span className="text-sm text-primary-300 cursor-not-allowed">Panduan</span></li>
+              <li><span className="text-sm text-primary-300 cursor-not-allowed">Tutorial</span></li>
+              <li><span className="text-sm text-primary-300 cursor-not-allowed">Contoh Proyek</span></li>
             </ul>
           </div>
 
           <div>
             <h4 className="font-semibold text-primary-900 mb-4">Hubungi</h4>
             <ul className="space-y-2">
-              <li><a href="#" className="text-sm text-primary-500 hover:text-primary-900 transition-colors">GitHub</a></li>
-              <li><a href="#" className="text-sm text-primary-500 hover:text-primary-900 transition-colors">Forum</a></li>
-              <li><a href="#" className="text-sm text-primary-500 hover:text-primary-900 transition-colors">Email</a></li>
+              <li><a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-sm text-primary-500 hover:text-primary-900 transition-colors">GitHub</a></li>
+              <li><span className="text-sm text-primary-300 cursor-not-allowed">Forum</span></li>
+              <li><span className="text-sm text-primary-300 cursor-not-allowed">Email</span></li>
             </ul>
           </div>
         </div>
@@ -51,8 +51,8 @@ export function Footer() {
             &copy; {currentYear} StepUp. All rights reserved.
           </p>
           <div className="flex items-center gap-6">
-            <a href="#" className="text-sm text-primary-500 hover:text-primary-900 transition-colors">Kebijakan Privasi</a>
-            <a href="#" className="text-sm text-primary-500 hover:text-primary-900 transition-colors">Ketentuan Layanan</a>
+            <span className="text-sm text-primary-300 cursor-not-allowed">Kebijakan Privasi</span>
+            <span className="text-sm text-primary-300 cursor-not-allowed">Ketentuan Layanan</span>
           </div>
         </div>
       </div>

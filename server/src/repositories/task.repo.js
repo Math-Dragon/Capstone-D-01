@@ -1,6 +1,6 @@
 const db = require('../db');
 
-async function listByUser(userId, { goalId, status } = {}, client) {
+async function listByUser(userId, { goalId, status, limit: queryLimit } = {}, client) {
   let sql = 'SELECT t.* FROM tasks t INNER JOIN goals g ON t.goal_id = g.id WHERE g.user_id = $1';
   const params = [userId];
   let idx = 2;
@@ -14,6 +14,11 @@ async function listByUser(userId, { goalId, status } = {}, client) {
     params.push(status);
   }
   sql += ' ORDER BY t.planned_date ASC';
+  const limit = queryLimit != null ? parseInt(queryLimit, 10) : 500;
+  if (limit > 0) {
+    sql += ` LIMIT $${idx++}`;
+    params.push(limit);
+  }
 
   const result = await db.query(sql, params, client);
   return result.rows;
@@ -126,6 +131,7 @@ async function update(taskId, data, client) {
   }
   if (sets.length === 0) return findById(taskId, client);
 
+  sets.push('updated_at = NOW()');
   vals.push(taskId);
   const result = await db.query(
     `UPDATE tasks SET ${sets.join(', ')} WHERE id = $${i} RETURNING *`,
@@ -135,8 +141,14 @@ async function update(taskId, data, client) {
   return result.rows[0];
 }
 
-async function remove(taskId, client) {
-  const result = await db.query('DELETE FROM tasks WHERE id = $1 RETURNING id', [taskId], client);
+async function remove(taskId, userId, client) {
+  const result = await db.query(
+    `DELETE FROM tasks t USING goals g
+     WHERE t.id = $1 AND t.goal_id = g.id AND g.user_id = $2
+     RETURNING t.id`,
+    [taskId, userId],
+    client
+  );
   return result.rowCount > 0;
 }
 

@@ -1,20 +1,9 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
+import { TASK_TYPE_PALETTE, SLOT_LABELS } from '../utils/constants';
 
-const TASK_TYPE_PALETTE = {
-  acquire: { icon: '📖', color: '#818CF8' },
-  practice: { icon: '✏️', color: '#F0A500' },
-  recall: { icon: '🧠', color: '#EC4899' },
-  interleave: { icon: '🔀', color: '#06B6D4' },
-  synthesize: { icon: '🔗', color: '#A78BFA' },
-  review: { icon: '🔄', color: '#34D399' },
-  assess: { icon: '✅', color: '#F87171' },
-  reflect: { icon: '💬', color: '#94A3B8' },
-};
-
-const SLOT_LABELS = { morning: '☀️ Pagi', afternoon: '⛅ Siang', evening: '🌙 Malam' };
 const PRIORITY_DOT = { high: 'bg-red-500', medium: 'bg-amber-400', low: 'bg-gray-300' };
 
-export default function TaskCard({
+const TaskCard = memo(function TaskCard({
   task,
   onComplete,
   onModify,
@@ -148,4 +137,6 @@ export default function TaskCard({
       )}
     </div>
   );
-}
+});
+
+export default TaskCard;
