@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import useFocusTrap from '../hooks/useFocusTrap';
-import coachService from '../features/coach/services/coachService';
+import { useCoach } from '../features/coach/hooks/useCoach';
 
 const MOODS = [
   { value: 'great', emoji: '🔥', label: 'Bersemangat' },
@@ -16,6 +16,7 @@ function getToday() {
 
 export default function CheckInGateway({ children }) {
   const [showCheckIn, setShowCheckIn] = useState(false);
+  const { handleCheckIn } = useCoach();
   const checkinRef = useRef(null);
   useFocusTrap(checkinRef, showCheckIn);
 
@@ -38,18 +39,14 @@ export default function CheckInGateway({ children }) {
   }, []);
 
   const handleMoodSelect = useCallback(async (mood) => {
-    try {
-      await coachService.checkIn(mood);
-    } catch {
-      // Network failure — proceed with default mood, never block the app
-    }
+    await handleCheckIn(mood);
     try {
       localStorage.setItem('lastCheckIn', getToday());
     } catch {
       // localStorage unavailable
     }
     setShowCheckIn(false);
-  }, []);
+  }, [handleCheckIn]);
 
   if (!showCheckIn) return children;
 

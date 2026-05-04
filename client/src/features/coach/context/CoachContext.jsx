@@ -13,6 +13,10 @@ function formatSystemEvent(action, payload) {
       return `Kamu melewatkan tugas${payload.reason ? ` (${payload.reason})` : ''}`;
     case 'SUBMIT_FEEDBACK':
       return `Kamu memberikan feedback pada tugas`;
+    case 'CHECK_IN':
+      return `Kamu melakukan check-in`;
+    case 'REQUEST_ADJUSTMENT':
+      return `Kamu meminta penyesuaian rencana`;
     default:
       return `Aksi: ${action}`;
   }
@@ -192,6 +196,29 @@ export function CoachProvider({ children }) {
         }
       }
 
+      if (result?.tasks && !result?.adaptationType && !result?.message) {
+        const notes = result.adaptation_notes || result.summary || 'Rencana telah disesuaikan.';
+        const adjMsg = {
+          id: `adj-${Date.now()}`,
+          role: 'system',
+          content: `Rencana telah disesuaikan: ${notes}`,
+          timestamp: new Date().toISOString(),
+          adaptationType: 'adjustment',
+          adaptationNotes: result.adaptation_notes || null,
+        };
+        setMessages((prev) => [...prev, adjMsg]);
+        const coachMsg = {
+          id: `coach-${Date.now()}`,
+          role: 'coach',
+          content: notes,
+          timestamp: new Date().toISOString(),
+          planSnapshot: result.summary || null,
+          plan: result || null,
+        };
+        setMessages((prev) => [...prev, coachMsg]);
+        return result;
+      }
+
       if (result?.message) {
         if (action === 'COMPLETE_TASK' && !result?.plan) {
           // Static COMPLETE_TASK: exclude from chat history (noise)
@@ -227,6 +254,28 @@ export function CoachProvider({ children }) {
 
   const dismissBanner = useCallback(() => {
     setBanner(null);
+  }, []);
+
+  const handleCheckIn = useCallback(async (mood) => {
+    try {
+      const result = await coachService.checkIn(mood);
+      if (result?._meta) {
+        setPipelineTrace(result._meta);
+      }
+      setObservabilityRefresh((n) => n + 1);
+      if (result?.tasks) {
+        const notes = result.adaptation_notes || result.summary || 'Rencana telah disesuaikan.';
+        const adjMsg = {
+          id: `checkin-${Date.now()}`,
+          role: 'system',
+          content: `Check-in: ${notes}`,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, adjMsg]);
+      }
+    } catch {
+      // Network failure — proceed, never block the app
+    }
   }, []);
 
   const clearError = useCallback(() => {
@@ -371,6 +420,7 @@ export function CoachProvider({ children }) {
         observabilityRefresh,
         sendMessage,
         dispatchTaskAction,
+        handleCheckIn,
         generatePlan,
         retryGeneratePlan,
         getLastPayload,
