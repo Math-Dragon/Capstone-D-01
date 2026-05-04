@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 # AI Learning Plan
 
 > Aplikasi web yang membantu peserta bootcamp merencanakan dan menjalani belajar secara konsisten, dengan bantuan AI sebagai learning coach.
@@ -41,3 +42,6 @@ cd client && npm install && npm run dev
 =======
 # DB12-Capstone-D-01
 >>>>>>> 51f7fbc4f3c2bd91a4d12925d327a96c9db84607
+=======
+# DB12-Capstone-D-01
+>>>>>>> 398194829c12772fe42358432f244d6946582f3a
