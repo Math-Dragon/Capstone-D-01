@@ -44,8 +44,8 @@ function isRetryable(err) {
   return true;
 }
 
-async function callGemini(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS) {
-  const { modelConfig, contentConfig } = buildGeminiPayload(systemPrompt, userMessage, config.geminiModel);
+async function callGemini(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
+  const { modelConfig, contentConfig } = buildGeminiPayload(systemPrompt, userMessage, config.geminiModel, temperature);
   const model = genAI.getGenerativeModel(modelConfig);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -64,9 +64,9 @@ async function callGemini(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS) {
   }
 }
 
-async function callOpenRouter(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS) {
+async function callOpenRouter(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
   initSystemPrompt();
-  const { url, body } = buildOpenRouterPayload(systemPrompt, userMessage, config.openrouterModel);
+  const { url, body } = buildOpenRouterPayload(systemPrompt, userMessage, config.openrouterModel, temperature);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -100,7 +100,7 @@ async function callOpenRouter(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS) {
   }
 }
 
-async function callWithRetry(userMessage, { maxRetries = 3, label = 'llm', timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+async function callWithRetry(userMessage, { maxRetries = 3, label = 'llm', timeoutMs = DEFAULT_TIMEOUT_MS, temperature } = {}) {
   if (isMock) {
     throw new Error('llm-client.callWithRetry called while LLM_PROVIDER=mock');
   }
@@ -133,7 +133,7 @@ async function callWithRetry(userMessage, { maxRetries = 3, label = 'llm', timeo
 
   try {
     const content = await withRetry(
-      makeTracker('gemini', () => callGemini(userMessage, timeoutMs)),
+      makeTracker('gemini', () => callGemini(userMessage, timeoutMs, temperature)),
       { maxAttempts: maxRetries, delayMs: 500, maxDelayMs: 8000, shouldRetry: isRetryable, label: `${label}:gemini` }
     );
     return { content, attempts };
@@ -147,7 +147,7 @@ async function callWithRetry(userMessage, { maxRetries = 3, label = 'llm', timeo
     logger.warn({ err: primaryErr.message, label, isQuota }, 'Primary LLM failed, falling back to OpenRouter');
     try {
       const content = await withRetry(
-        makeTracker('openrouter', () => callOpenRouter(userMessage, timeoutMs)),
+        makeTracker('openrouter', () => callOpenRouter(userMessage, timeoutMs, temperature)),
         { maxAttempts: maxRetries, delayMs: isQuota ? 10000 : 500, maxDelayMs: 30000, shouldRetry: () => true, label: `${label}:openrouter` }
       );
       return { content, attempts };

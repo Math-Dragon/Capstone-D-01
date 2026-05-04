@@ -1,6 +1,8 @@
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-function buildGeminiPayload(systemPrompt, userMessage, model) {
+function buildGeminiPayload(systemPrompt, userMessage, model, temperature) {
+  const generationConfig = { responseMimeType: 'application/json' };
+  if (temperature !== undefined) generationConfig.temperature = temperature;
   return {
     modelConfig: {
       model,
@@ -8,22 +10,24 @@ function buildGeminiPayload(systemPrompt, userMessage, model) {
     },
     contentConfig: {
       contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-      generationConfig: { responseMimeType: 'application/json' },
+      generationConfig,
     },
   };
 }
 
-function buildOpenRouterPayload(systemPrompt, userMessage, model) {
+function buildOpenRouterPayload(systemPrompt, userMessage, model, temperature) {
+  const body = {
+    model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userMessage },
+    ],
+    response_format: { type: 'json_object' },
+  };
+  if (temperature !== undefined) body.temperature = temperature;
   return {
     url: OPENROUTER_BASE_URL,
-    body: {
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-      response_format: { type: 'json_object' },
-    },
+    body,
   };
 }
 

@@ -1,10 +1,10 @@
 const db = require('../db');
 
-async function create({ user_id, recommendation_id, action, metadata, session_id }, client) {
+async function create({ user_id, recommendation_id, action, metadata, session_id, involves_llm }, client) {
   const result = await db.query(
-    `INSERT INTO audit_logs (user_id, recommendation_id, action, metadata, session_id)
-     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [user_id || null, recommendation_id || null, action, metadata || {}, session_id || null],
+    `INSERT INTO audit_logs (user_id, recommendation_id, action, metadata, session_id, involves_llm)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    [user_id || null, recommendation_id || null, action, metadata || {}, session_id || null, involves_llm ?? false],
     client
   );
   return result.rows[0];

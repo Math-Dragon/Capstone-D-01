@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { z } = require('zod');
-const coachRouter = require('../services/coach-router.service');
+const coachRouter = require('../services/coach');
 const repos = require('../repositories');
 const { authenticate } = require('../middleware/authenticate');
 const { aiLimiter } = require('../middleware/rateLimiter');
