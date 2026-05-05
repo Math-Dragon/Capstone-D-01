@@ -28,12 +28,24 @@ function _stripMarkdown(raw) {
   return s;
 }
 
+function _extractJson(raw) {
+  const match = raw.match(/\{[\s\S]*\}/);
+  return match ? match[0] : raw;
+}
+
 function _parse(raw) {
   try {
     const stripped = _stripMarkdown(raw);
     const parsed = JSON.parse(stripped);
     return _sanitize(parsed);
   } catch (error) {
+    try {
+      const extracted = _extractJson(_stripMarkdown(raw));
+      if (extracted !== _stripMarkdown(raw)) {
+        const parsed = JSON.parse(extracted);
+        return _sanitize(parsed);
+      }
+    } catch { /* extraction failed, fall through to original error */ }
     const err = new Error('AI output is not valid JSON: ' + error.message);
     err.code = 'AI_OUTPUT_INVALID';
     err.statusCode = 422;

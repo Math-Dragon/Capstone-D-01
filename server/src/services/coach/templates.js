@@ -9,7 +9,7 @@ const TEMPLATES = {
     `Preferred study slots: ${ctx.profile.preferred_slots}\n` +
     `Available days: ${(ctx.profile.available_days || ['mon', 'tue', 'wed', 'thu', 'fri']).join(', ')}\n` +
     `Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
-    'Generate a personalized study plan for this student. Follow the output structure exactly.',
+    'Generate a personalized study plan for this student. Follow the output structure exactly. Respond with JSON only. No conversational text.',
 
   task_action: (ctx) => {
     let body = '[session_type: task_action]\n\n';
@@ -35,7 +35,7 @@ const TEMPLATES = {
       `Available days: ${(ctx.profile.available_days || ['mon', 'tue', 'wed', 'thu', 'fri']).join(', ')}\n` +
       `Weekly target hours: ${ctx.profile.weekly_available_hours}\n` +
       `Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
-      'Respond with a brief acknowledgment (1-2 sentences) in the "message" field. If the plan needs adjustment based on this student action, provide the updated plan in the "plan" field. If no adjustment is needed, set "plan" to null. Keep the message concise and actionable. Do NOT include chat history.';
+      'Respond with a brief acknowledgment (1-2 sentences) in the "message" field. If the plan needs adjustment based on this student action, provide the updated plan in the "plan" field. If no adjustment is needed, set "plan" to null. Keep the message concise and actionable. Do NOT include chat history. Respond with JSON only. No conversational text outside the JSON.';
     return body;
   },
 
@@ -48,7 +48,7 @@ const TEMPLATES = {
     `Completed since last check-in:\n${ctx.completedSummary}\n\n` +
     `Skipped since last check-in:\n${ctx.skippedSummary}\n\n` +
     `Remaining plan:\n${ctx.remainingTasksJson}\n\n` +
-    'Based on this check-in, adjust the remaining plan if needed. If the student is on track, keep the plan unchanged.',
+    'Based on this check-in, adjust the remaining plan if needed. If the student is on track, keep the plan unchanged. Respond with JSON only. No conversational text.',
 
   adjustment: (ctx) =>
     '[session_type: adjustment]\n\n' +
@@ -63,7 +63,7 @@ const TEMPLATES = {
     `Weekly target hours: ${ctx.profile.weekly_available_hours}\n` +
     `Preferred slots: ${ctx.profile.preferred_slots}\n` +
     `Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
-    'Adjust the plan to accommodate this change. Only modify tasks that are affected. Explain changes in adaptation_notes.',
+    'Adjust the plan to accommodate this change. Only modify tasks that are affected. Explain changes in adaptation_notes. Respond with JSON using the output structure from the system prompt. No conversational text.',
 
   chat: (ctx) => {
     let body = '[session_type: chat]\n\n';
@@ -89,7 +89,7 @@ const TEMPLATES = {
       `Available days: ${(ctx.profile.available_days || ['mon', 'tue', 'wed', 'thu', 'fri']).join(', ')}\n` +
       `Weekly target hours: ${ctx.profile.weekly_available_hours}\n` +
       `Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
-      'Respond conversationally. If the student needs a plan change, adjust the plan and explain why. Otherwise just answer. Keep response under 150 words.';
+      'Respond using the JSON dual format with "message" (conversational) and "plan" fields. If the student needs a plan change, include the updated plan. Otherwise set "plan" to null. No text outside the JSON structure.';
     return body;
   },
 
@@ -103,7 +103,7 @@ const TEMPLATES = {
     `Available days: ${(ctx.profile.available_days || ['mon', 'tue', 'wed', 'thu', 'fri']).join(', ')}\n` +
     `Weekly target hours: ${ctx.profile.weekly_available_hours}\n` +
     `Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
-    'This student may be overwhelmed. Reduce the plan. Focus on highest-impact tasks only. Be empathetic.',
+    'This student may be overwhelmed. Reduce the plan. Focus on highest-impact tasks only. Be empathetic. Respond with JSON only. No conversational text.',
 
   milestone: (ctx) =>
     '[session_type: milestone]\n\n' +
@@ -115,7 +115,7 @@ const TEMPLATES = {
     `- Weekly hours: ${ctx.profile.weekly_available_hours}\n` +
     `- Available days: ${(ctx.profile.available_days || ['mon', 'tue', 'wed', 'thu', 'fri']).join(', ')}\n` +
     `- Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
-    'Generate the next phase. Increase difficulty by 10-15%. Acknowledge the achievement.',
+    'Generate the next phase. Increase difficulty by 10-15%. Acknowledge the achievement. Respond with JSON only. No conversational text.',
 };
 
 const TEMPERATURES = {

@@ -124,11 +124,10 @@ async function callLLM(ctx, isChat) {
   const MAX_BUSINESS_RETRIES = 2;
   let allAttempts = [];
   let totalDuration = 0;
+  let retryHint = '';
 
   for (let attempt = 0; attempt <= MAX_BUSINESS_RETRIES; attempt++) {
-    const msg = attempt === 0
-      ? baseMessage
-      : baseMessage + '\n\n[Business validation: The previous response was missing a "reflect" task. Please include at least one task with task_type "reflect".]';
+    const msg = attempt === 0 ? baseMessage : baseMessage + retryHint;
 
     const start = Date.now();
     let raw, attempts;
@@ -156,13 +155,30 @@ async function callLLM(ctx, isChat) {
     totalDuration += durationMs;
     allAttempts = allAttempts.concat(attempts);
 
-    const validated = isChat ? validateChatOutput(raw) : validateAIOutput(raw);
+    let validated;
+    try {
+      validated = isChat ? validateChatOutput(raw) : validateAIOutput(raw);
+    } catch (validationErr) {
+      if (validationErr.code === 'AI_OUTPUT_INVALID' && attempt < MAX_BUSINESS_RETRIES) {
+        logger.warn({ attempt, sessionType: ctx.sessionType, err: validationErr.message }, 'JSON parse failed, retrying with format hint');
+        retryHint = '\n\n[Format error: Your response was not valid JSON. Respond with ONLY valid JSON using the output structure described in the system prompt. Do not include any text before or after the JSON.]';
+        continue;
+      }
+      aiRequestCount.inc({ type: `coach.${ctx.sessionType}`, status: 'error' });
+      const llmMeta = { attempts: allAttempts, duration_ms: totalDuration };
+      if (isChat) {
+        return { validated: { message: 'Maaf, saya sedang mengalami gangguan. Coba lagi sebentar.', plan: null }, llmMeta };
+      }
+      validationErr._llmMeta = llmMeta;
+      throw validationErr;
+    }
 
     if (!isChat && validated && Array.isArray(validated.tasks) && validated.tasks.length > 0) {
       const { result: planResult, retry } = applyBusinessRules(validated, ctx);
       if (!retry || attempt === MAX_BUSINESS_RETRIES) {
         return { validated: planResult, llmMeta: { attempts: allAttempts, duration_ms: totalDuration } };
       }
+      retryHint = '\n\n[Business validation: The previous response was missing a "reflect" task. Please include at least one task with task_type "reflect".]';
       continue;
     }
 
