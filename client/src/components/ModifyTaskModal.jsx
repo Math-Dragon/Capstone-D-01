@@ -11,6 +11,7 @@ export default function ModifyTaskModal({ task, isOpen, onSave, onCancel }) {
   const [title, setTitle] = useState('');
   const [duration, setDuration] = useState(30);
   const [slot, setSlot] = useState('morning');
+  const [date, setDate] = useState('');
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
@@ -18,6 +19,7 @@ export default function ModifyTaskModal({ task, isOpen, onSave, onCancel }) {
       setTitle(task.title || '');
       setDuration(task.duration_estimate || 30);
       setSlot(task.planned_slot || 'morning');
+      setDate(task.planned_date ? task.planned_date.substring(0, 10) : new Date().toISOString().substring(0, 10));
       setErrors({});
     }
   }, [isOpen, task]);
@@ -28,6 +30,7 @@ export default function ModifyTaskModal({ task, isOpen, onSave, onCancel }) {
     const d = Number(duration);
     if (!d || d < 10 || d > 90) e.duration = 'Durasi 10–90 menit';
     if (!slot) e.slot = 'Pilih sesi';
+    if (!date) e.date = 'Pilih tanggal';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -39,6 +42,7 @@ export default function ModifyTaskModal({ task, isOpen, onSave, onCancel }) {
       title: title.trim(),
       duration_estimate: Number(duration),
       planned_slot: slot,
+      planned_date: date,
     });
   };
 
@@ -75,6 +79,20 @@ export default function ModifyTaskModal({ task, isOpen, onSave, onCancel }) {
             className="input"
           />
           {errors.duration && <p className="error-text">{errors.duration}</p>}
+        </div>
+
+        <div>
+          <label htmlFor="modify-date" className="block text-sm font-medium text-primary-700 mb-1">
+            Tanggal
+          </label>
+          <input
+            id="modify-date"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="input"
+          />
+          {errors.date && <p className="error-text">{errors.date}</p>}
         </div>
 
         <div>

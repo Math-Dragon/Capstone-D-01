@@ -2,12 +2,10 @@ const fs = require('fs');
 const path = require('path');
 const config = require('../config');
 const { withRetry } = require('../utils/retry');
-const { buildGeminiPayload, buildOpenRouterPayload, extractContent } = require('../utils/converter');
+const { buildGeminiPayload, buildOpenRouterPayload, buildOllamaPayload, extractContent } = require('../utils/converter');
 const logger = require('../utils/logger');
 
 const DEFAULT_TIMEOUT_MS = 60000;
-
-const hasFallback = !!(config.openrouterKey && config.openrouterModel);
 
 let isMock = config.llmProvider === 'mock';
 
@@ -26,7 +24,7 @@ function initSystemPrompt() {
   systemPrompt = fs.readFileSync(path.join(__dirname, '../prompts/system-v3.md'), 'utf8');
 }
 
-if (!isMock) {
+if (!isMock && config.llmProvider === 'gemini') {
   initGemini();
 }
 
@@ -42,6 +40,10 @@ function isRetryable(err) {
   if (err.statusCode === 429 || err.status === 429) return false;
   if (err.message?.includes('429 Too Many Requests')) return false;
   return true;
+}
+
+function _genOllamaUrl() {
+  return `${config.ollamaBaseUrl}/v1/chat/completions`;
 }
 
 async function callGemini(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
@@ -100,6 +102,40 @@ async function callOpenRouter(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, tempe
   }
 }
 
+async function callOllama(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
+  initSystemPrompt();
+  const { body } = buildOllamaPayload(systemPrompt, userMessage, config.ollamaModel, temperature);
+  const url = _genOllamaUrl();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (!resp.ok) {
+      const detail = await resp.text();
+      const err = new Error(`Ollama ${resp.status}: ${detail}`);
+      err.statusCode = resp.status;
+      throw err;
+    }
+    const raw = await resp.json();
+    const content = extractContent('ollama', raw);
+    if (!content) throw new Error('Ollama returned empty content');
+    const usage = raw.usage ? {
+      prompt_tokens: raw.usage.prompt_tokens,
+      completion_tokens: raw.usage.completion_tokens,
+      total_tokens: raw.usage.total_tokens,
+    } : null;
+    return { content, usage };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function callWithRetry(userMessage, { maxRetries = 3, label = 'llm', timeoutMs = DEFAULT_TIMEOUT_MS, temperature } = {}) {
   if (isMock) {
     throw new Error('llm-client.callWithRetry called while LLM_PROVIDER=mock');
@@ -131,6 +167,14 @@ async function callWithRetry(userMessage, { maxRetries = 3, label = 'llm', timeo
     };
   }
 
+  if (config.llmProvider === 'ollama') {
+    const content = await withRetry(
+      makeTracker('ollama', () => callOllama(userMessage, timeoutMs, temperature)),
+      { maxAttempts: maxRetries, delayMs: 500, maxDelayMs: 8000, shouldRetry: isRetryable, label: `${label}:ollama` }
+    );
+    return { content, attempts };
+  }
+
   try {
     const content = await withRetry(
       makeTracker('gemini', () => callGemini(userMessage, timeoutMs, temperature)),
@@ -138,17 +182,17 @@ async function callWithRetry(userMessage, { maxRetries = 3, label = 'llm', timeo
     );
     return { content, attempts };
   } catch (primaryErr) {
-    if (!hasFallback) {
+    if (!config.hasFallback) {
       primaryErr.attempts = attempts;
       throw primaryErr;
     }
 
     const isQuota = primaryErr.statusCode === 429 || primaryErr.message?.includes('429');
-    logger.warn({ err: primaryErr.message, label, isQuota }, 'Primary LLM failed, falling back to OpenRouter');
+    logger.warn({ err: primaryErr.message, label, isQuota }, 'Primary LLM failed, falling back to Ollama');
     try {
       const content = await withRetry(
-        makeTracker('openrouter', () => callOpenRouter(userMessage, timeoutMs, temperature)),
-        { maxAttempts: maxRetries, delayMs: isQuota ? 10000 : 500, maxDelayMs: 30000, shouldRetry: () => true, label: `${label}:openrouter` }
+        makeTracker('ollama', () => callOllama(userMessage, timeoutMs, temperature)),
+        { maxAttempts: maxRetries, delayMs: isQuota ? 10000 : 500, maxDelayMs: 30000, shouldRetry: () => true, label: `${label}:ollama` }
       );
       return { content, attempts };
     } catch (fallbackErr) {
@@ -200,34 +244,64 @@ async function validateOpenRouter() {
   return { ok: true, provider: 'openrouter', model: config.openrouterModel };
 }
 
+async function validateOllama() {
+  const url = _genOllamaUrl();
+  const body = {
+    model: config.ollamaModel,
+    messages: [
+      { role: 'user', content: 'Respond with only the word: ok' },
+    ],
+    stream: false,
+  };
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw new Error(`Ollama validation ${resp.status}: ${detail}`);
+  }
+  const raw = await resp.json();
+  const content = extractContent('ollama', raw);
+  if (!content) throw new Error('Ollama returned empty content');
+  return { ok: true, provider: 'ollama', model: config.ollamaModel };
+}
+
 async function validateConnection() {
   if (isMock) {
     return { ok: true, provider: 'mock', message: 'Mock provider active, no validation needed.' };
   }
 
+  if (config.llmProvider === 'ollama') {
+    const result = await validateOllama();
+    logger.info({ provider: 'ollama', model: config.ollamaModel }, 'Ollama connection validated');
+    return result;
+  }
+
   try {
     const result = await validateGemini();
     logger.info({ provider: 'gemini', model: config.geminiModel }, 'Gemini connection validated');
-    if (hasFallback) {
+    if (config.hasFallback) {
       try {
-        await validateOpenRouter();
-        logger.info({ provider: 'openrouter', model: config.openrouterModel }, 'OpenRouter fallback validated');
+        await validateOllama();
+        logger.info({ provider: 'ollama', model: config.ollamaModel }, 'Ollama fallback validated');
       } catch (fbErr) {
-        logger.warn({ err: fbErr.message }, 'OpenRouter fallback validation failed — primary only');
+        logger.warn({ err: fbErr.message }, 'Ollama fallback validation failed — primary only');
       }
     }
     return result;
   } catch (geminiErr) {
     logger.error({ err: geminiErr.message }, 'Gemini connection validation failed');
 
-    if (hasFallback) {
+    if (config.hasFallback) {
       try {
-        const fbResult = await validateOpenRouter();
-        logger.info({ provider: 'openrouter', model: config.openrouterModel }, 'Fallback provider active (primary failed)');
+        const fbResult = await validateOllama();
+        logger.info({ provider: 'ollama', model: config.ollamaModel }, 'Fallback provider active (primary failed)');
         return { ...fbResult, primaryFailed: true };
       } catch (fbErr) {
-        logger.error({ err: fbErr.message }, 'OpenRouter fallback also failed');
-        const combined = new Error(`Both providers failed. Gemini: ${geminiErr.message} | OpenRouter: ${fbErr.message}`);
+        logger.error({ err: fbErr.message }, 'Ollama fallback also failed');
+        const combined = new Error(`Both providers failed. Gemini: ${geminiErr.message} | Ollama: ${fbErr.message}`);
         throw combined;
       }
     }
@@ -239,7 +313,7 @@ async function validateConnection() {
 module.exports = {
   get isMock() { return isMock; },
   setIsMock,
-  get hasFallback() { return hasFallback; },
+  get hasFallback() { return config.hasFallback; },
   systemPrompt,
   DEFAULT_TIMEOUT_MS,
   isRetryable,

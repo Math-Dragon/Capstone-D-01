@@ -31,11 +31,25 @@ function buildOpenRouterPayload(systemPrompt, userMessage, model, temperature) {
   };
 }
 
+function buildOllamaPayload(systemPrompt, userMessage, model, temperature) {
+  const body = {
+    model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userMessage },
+    ],
+    stream: false,
+  };
+  if (temperature !== undefined) body.temperature = temperature;
+  return { body };
+}
+
 function extractContent(provider, raw) {
   switch (provider) {
     case 'gemini':
       return raw.response.text();
     case 'openrouter':
+    case 'ollama':
       return raw.choices?.[0]?.message?.content;
     default:
       throw new Error(`Unknown provider for extraction: ${provider}`);
@@ -45,6 +59,7 @@ function extractContent(provider, raw) {
 module.exports = {
   buildGeminiPayload,
   buildOpenRouterPayload,
+  buildOllamaPayload,
   extractContent,
   OPENROUTER_BASE_URL,
 };

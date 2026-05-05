@@ -52,9 +52,6 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(null);
   const [detailTask, setDetailTask] = useState(null);
-  const [rescheduleTask, setRescheduleTask] = useState(null);
-  const [rescheduleDate, setRescheduleDate] = useState('');
-  const [rescheduleSlot, setRescheduleSlot] = useState('morning');
 
   const openTaskDetail = (task) => setDetailTask(task);
   const closeDetail = () => setDetailTask(null);
@@ -149,13 +146,13 @@ export default function CalendarPage() {
   const displayDate = selectedDate || todayStr;
 
   const todayTasks = useMemo(() => {
-    const dayTasks = tasksByDate[todayStr] || [];
+    const dayTasks = tasksByDate[displayDate] || [];
     return {
       all: dayTasks,
       active: dayTasks.filter(t => t.status === 'todo' || t.status === 'in_progress'),
       completed: dayTasks.filter(t => t.status === 'done' || t.status === 'completed'),
     };
-  }, [tasksByDate, todayStr]);
+  }, [tasksByDate, displayDate]);
 
   const todayTasksBySlot = useMemo(() => {
     const map = {};
@@ -192,7 +189,7 @@ export default function CalendarPage() {
         <button
           role="tab"
           aria-selected={subView === 'today'}
-          onClick={() => setSubView('today')}
+          onClick={() => { setSelectedDate(null); setSubView('today'); }}
           className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${
             subView === 'today'
               ? 'bg-primary-900 text-white shadow-sm'
@@ -334,7 +331,7 @@ export default function CalendarPage() {
               return (
                 <button
                   key={date}
-                  onClick={() => { setSelectedDate(date); setSubView('today'); }}
+                  onClick={() => { setSelectedDate(selectedDate === date ? null : date); }}
                   className={`rounded-xl p-2 text-center transition-all duration-200 border ${
                     isSelected
                       ? 'border-primary-900 bg-primary-100 shadow-soft'
@@ -375,7 +372,7 @@ export default function CalendarPage() {
 
           {/* Upcoming tasks section */}
           <div className="space-y-3">
-            {weekDates.filter(d => d >= todayStr).map((date) => {
+            {weekDates.filter(d => selectedDate ? d === selectedDate : d >= todayStr).map((date) => {
               const dayTasks = (tasksByDate[date] || []).filter(t => t.status === 'todo' || t.status === 'in_progress');
               if (dayTasks.length === 0) return null;
               return (
@@ -439,66 +436,6 @@ export default function CalendarPage() {
         onReject={rejectProposal}
         accepting={proposalAccepting}
       />
-
-      {/* Reschedule Modal */}
-      {rescheduleModal()}
     </div>
   );
-
-  function rescheduleModal() {
-    return (
-      <div className={`fixed inset-0 z-50 overflow-y-auto ${rescheduleTask ? '' : 'hidden'}`}>
-        <div className="flex min-h-screen items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setRescheduleTask(null)} />
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-semibold mb-4">Jadwal Ulang Tugas</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-primary-700 mb-2">Tanggal</label>
-                <input
-                  type="date"
-                  value={rescheduleDate}
-                  onChange={(e) => setRescheduleDate(e.target.value)}
-                  className="input"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-primary-700 mb-2">Sesi</label>
-                <select
-                  value={rescheduleSlot}
-                  onChange={(e) => setRescheduleSlot(e.target.value)}
-                  className="input"
-                >
-                  <option value="morning">☀️ Pagi</option>
-                  <option value="afternoon">⛅ Siang</option>
-                  <option value="evening">🌙 Malam</option>
-                </select>
-              </div>
-              <div className="flex gap-3 justify-end">
-                <button onClick={() => setRescheduleTask(null)} className="btn-secondary text-sm">Batal</button>
-                <button
-                  onClick={async () => {
-                    if (!rescheduleTask) return;
-                    try {
-                      await api.patch(`/tasks/${rescheduleTask.id}`, {
-                        planned_date: rescheduleDate,
-                        planned_slot: rescheduleSlot,
-                      });
-                      setTasks(prev => prev.map(t => t.id === rescheduleTask.id ? { ...t, planned_date: rescheduleDate, planned_slot: rescheduleSlot } : t));
-                      setRescheduleTask(null);
-                    } catch (err) {
-                      console.error('Failed to reschedule task:', err);
-                    }
-                  }}
-                  className="btn-primary text-sm"
-                >
-                  Simpan
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 }

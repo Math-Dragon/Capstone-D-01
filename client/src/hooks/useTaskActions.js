@@ -119,6 +119,7 @@ export default function useTaskActions({ onUpdateTasks, refreshData }) {
         title: changes.title,
         duration_estimate: changes.duration_estimate,
         planned_slot: changes.planned_slot,
+        planned_date: changes.planned_date,
       });
       onUpdateTasks((prev) =>
         (Array.isArray(prev) ? prev : []).map((t) =>

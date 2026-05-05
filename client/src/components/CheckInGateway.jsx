@@ -16,6 +16,8 @@ function getToday() {
 
 export default function CheckInGateway({ children }) {
   const [showCheckIn, setShowCheckIn] = useState(false);
+  const [selectedMood, setSelectedMood] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const { handleCheckIn } = useCoach();
   const checkinRef = useRef(null);
   useFocusTrap(checkinRef, showCheckIn);
@@ -38,15 +40,28 @@ export default function CheckInGateway({ children }) {
     setShowCheckIn(true);
   }, []);
 
-  const handleMoodSelect = useCallback(async (mood) => {
-    await handleCheckIn(mood);
+  const handleSubmit = async () => {
+    if (!selectedMood) return;
+    setIsLoading(true);
+    try {
+      await handleCheckIn(selectedMood);
+    } catch (error) {
+      console.error('Check-in failed:', error);
+    } finally {
+      try {
+        localStorage.setItem('lastCheckIn', getToday());
+      } catch {}
+      setShowCheckIn(false);
+      setIsLoading(false);
+    }
+  };
+
+  const handleSkip = () => {
     try {
       localStorage.setItem('lastCheckIn', getToday());
-    } catch {
-      // localStorage unavailable
-    }
+    } catch {}
     setShowCheckIn(false);
-  }, [handleCheckIn]);
+  };
 
   if (!showCheckIn) return children;
 
@@ -70,18 +85,36 @@ export default function CheckInGateway({ children }) {
           {MOODS.map(({ value, emoji, label }) => (
             <button
               key={value}
-              onClick={() => handleMoodSelect(value)}
-              className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-primary-50 hover:bg-primary-100 border border-primary-100 hover:border-primary-300 transition-all focus:outline-none focus:ring-2 focus:ring-primary-500"
+              onClick={() => setSelectedMood(value)}
+              className={`flex flex-col items-center gap-1.5 p-3 rounded-2xl border transition-all focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                selectedMood === value 
+                  ? 'bg-primary-100 border-primary-500 shadow-sm' 
+                  : 'bg-primary-50 hover:bg-primary-100 border-primary-100 hover:border-primary-300'
+              }`}
               aria-label={label}
+              aria-pressed={selectedMood === value}
             >
               <span className="text-2xl">{emoji}</span>
               <span className="text-[10px] text-primary-600 font-medium">{label}</span>
             </button>
           ))}
         </div>
-        <p className="text-[11px] text-primary-300 mt-6" aria-live="polite">
-          Pilih suasana hatimu untuk melanjutkan
-        </p>
+        
+        <div className="mt-8 flex flex-col gap-3">
+          <button 
+            onClick={handleSubmit} 
+            disabled={!selectedMood || isLoading}
+            className="w-full py-3 px-4 bg-primary-900 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-800 transition-colors"
+          >
+            {isLoading ? 'Menyimpan...' : 'Lanjutkan'}
+          </button>
+          <button 
+            onClick={handleSkip} 
+            className="text-xs font-medium text-primary-500 hover:text-primary-700"
+          >
+            Lewati
+          </button>
+        </div>
       </div>
     </div>
   );

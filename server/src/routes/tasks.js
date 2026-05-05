@@ -36,6 +36,14 @@ router.put('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.patch('/:id', async (req, res, next) => {
+  try {
+    const data = updateTaskSchema.parse(req.body);
+    const task = await taskService.update(req.user.id, req.params.id, data);
+    res.json({ success: true, data: task });
+  } catch (err) { next(err); }
+});
+
 router.delete('/:id', async (req, res, next) => {
   try {
     await taskService.delete(req.user.id, req.params.id);

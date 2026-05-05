@@ -11,8 +11,11 @@ for (const p of envPaths) {
 
 const llmProvider = process.env.LLM_PROVIDER || 'gemini';
 
+const ollamaBaseUrl = (process.env.OLLAMA_BASE_URL || 'http://localhost:11434').replace(/\/+$/, '');
+const ollamaModel = (process.env.OLLAMA_MODEL || '').trim();
+
 const required = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET'];
-if (llmProvider !== 'mock') {
+if (llmProvider === 'gemini') {
   required.push('GEMINI_API_KEY');
 }
 for (const key of required) {
@@ -34,9 +37,11 @@ module.exports = {
   jwtAccessExpiry: '15m',
   jwtRefreshExpiry: '7d',
   llmProvider,
-  llmProvider2: process.env.LLM_PROVIDER_V2 || null,
   geminiKey: (process.env.GEMINI_API_KEY || '').trim(),
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite',
+  ollamaBaseUrl,
+  ollamaModel,
+  hasFallback: !!(ollamaBaseUrl && ollamaModel),
   openrouterKey: (process.env.OPENROUTER_API_KEY || '').trim() || null,
   openrouterModel: (process.env.OPENROUTER_MODEL || '').trim() || null,
   redisUrl: process.env.REDIS_URL,
