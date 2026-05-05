@@ -8,6 +8,7 @@ const logger = require('../utils/logger');
 const DEFAULT_TIMEOUT_MS = 60000;
 
 let isMock = config.llmProvider === 'mock';
+let _gemini429 = false;
 
 let genAI;
 let systemPrompt;
@@ -136,7 +137,7 @@ async function callOllama(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperatu
   }
 }
 
-async function callWithRetry(userMessage, { maxRetries = 3, label = 'llm', timeoutMs = DEFAULT_TIMEOUT_MS, temperature } = {}) {
+async function callWithRetry(userMessage, { maxRetries = 2, label = 'llm', timeoutMs = DEFAULT_TIMEOUT_MS, temperature } = {}) {
   if (isMock) {
     throw new Error('llm-client.callWithRetry called while LLM_PROVIDER=mock');
   }
@@ -175,30 +176,43 @@ async function callWithRetry(userMessage, { maxRetries = 3, label = 'llm', timeo
     return { content, attempts };
   }
 
-  try {
-    const content = await withRetry(
-      makeTracker('gemini', () => callGemini(userMessage, timeoutMs, temperature)),
-      { maxAttempts: maxRetries, delayMs: 500, maxDelayMs: 8000, shouldRetry: isRetryable, label: `${label}:gemini` }
-    );
-    return { content, attempts };
-  } catch (primaryErr) {
-    if (!config.hasFallback) {
-      primaryErr.attempts = attempts;
-      throw primaryErr;
-    }
-
-    const isQuota = primaryErr.statusCode === 429 || primaryErr.message?.includes('429');
-    logger.warn({ err: primaryErr.message, label, isQuota }, 'Primary LLM failed, falling back to Ollama');
+  if (!_gemini429) {
     try {
       const content = await withRetry(
-        makeTracker('ollama', () => callOllama(userMessage, timeoutMs, temperature)),
-        { maxAttempts: maxRetries, delayMs: isQuota ? 10000 : 500, maxDelayMs: 30000, shouldRetry: () => true, label: `${label}:ollama` }
+        makeTracker('gemini', () => callGemini(userMessage, timeoutMs, temperature)),
+        { maxAttempts: maxRetries, delayMs: 500, maxDelayMs: 8000, shouldRetry: isRetryable, label: `${label}:gemini` }
       );
       return { content, attempts };
-    } catch (fallbackErr) {
-      fallbackErr.attempts = attempts;
-      throw fallbackErr;
+    } catch (primaryErr) {
+      const isQuota = primaryErr.statusCode === 429 || primaryErr.message?.includes('429');
+      if (isQuota) {
+        _gemini429 = true;
+        logger.warn({ label }, 'Gemini 429 — circuit breaker active, skipping for remaining calls');
+      }
+      if (!config.hasFallback) {
+        primaryErr.attempts = attempts;
+        throw primaryErr;
+      }
+      logger.warn({ err: primaryErr.message, label, isQuota }, 'Primary LLM failed, falling back to Ollama');
     }
+  } else {
+    logger.info({ label }, 'Gemini circuit breaker active — using Ollama directly');
+  }
+
+  if (!config.hasFallback) {
+    const err = new Error('Gemini unavailable (429 circuit breaker) and no fallback configured');
+    err.attempts = attempts;
+    throw err;
+  }
+  try {
+    const content = await withRetry(
+      makeTracker('ollama', () => callOllama(userMessage, timeoutMs, temperature)),
+      { maxAttempts: maxRetries, delayMs: 500, maxDelayMs: 8000, shouldRetry: () => true, label: `${label}:ollama` }
+    );
+    return { content, attempts };
+  } catch (fallbackErr) {
+    fallbackErr.attempts = attempts;
+    throw fallbackErr;
   }
 }
 
@@ -292,6 +306,11 @@ async function validateConnection() {
     }
     return result;
   } catch (geminiErr) {
+    const isQuota = geminiErr.statusCode === 429 || geminiErr.message?.includes('429');
+    if (isQuota) {
+      _gemini429 = true;
+      logger.warn('Gemini 429 during validation — circuit breaker active');
+    }
     logger.error({ err: geminiErr.message }, 'Gemini connection validation failed');
 
     if (config.hasFallback) {

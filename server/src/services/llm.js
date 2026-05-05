@@ -1,12 +1,14 @@
 const { PlanSchema, SuggestionSchema, ChatResponseSchema } = require('../models/llm.model');
 
 function _sanitize(parsed) {
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return parsed;
+  if (Array.isArray(parsed)) return { tasks: parsed, summary: 'Adjusted plan' };
+  if (!parsed || typeof parsed !== 'object') return parsed;
   const clean = {};
   for (const [key, value] of Object.entries(parsed)) {
     if (key === '') continue;
     clean[key] = value;
   }
+  if (clean.adjusted_plan && !clean.tasks) clean.tasks = clean.adjusted_plan;
   if (!('plan' in clean) && 'message' in clean) {
     clean.plan = null;
   }
@@ -29,7 +31,7 @@ function _stripMarkdown(raw) {
 }
 
 function _extractJson(raw) {
-  const match = raw.match(/\{[\s\S]*\}/);
+  const match = raw.match(/([[{][\s\S]*[}\]])/);
   return match ? match[0] : raw;
 }
 

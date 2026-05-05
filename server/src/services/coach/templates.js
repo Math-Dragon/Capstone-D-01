@@ -63,7 +63,7 @@ const TEMPLATES = {
     `Weekly target hours: ${ctx.profile.weekly_available_hours}\n` +
     `Preferred slots: ${ctx.profile.preferred_slots}\n` +
     `Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
-    'Adjust the plan to accommodate this change. Only modify tasks that are affected. Explain changes in adaptation_notes. Respond with JSON using the output structure from the system prompt. No conversational text.',
+    'Adjust the plan to accommodate this change. Only modify tasks that are affected. Respond with JSON only in this exact structure:\n{"tasks": [{...}], "summary": "brief description of changes", "adaptation_notes": "explanation of what was adjusted and why"}\nNo conversational text outside the JSON.',
 
   chat: (ctx) => {
     let body = '[session_type: chat]\n\n';
