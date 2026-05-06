@@ -121,7 +121,7 @@ async function callLLM(ctx, isChat) {
     return { validated, llmMeta: { attempts: [], duration_ms: 0 } };
   }
 
-  const MAX_BUSINESS_RETRIES = 2;
+  const MAX_BUSINESS_RETRIES = 1;
   let allAttempts = [];
   let totalDuration = 0;
   let retryHint = '';
@@ -133,9 +133,9 @@ async function callLLM(ctx, isChat) {
     let raw, attempts;
     try {
       const result = await callWithRetry(msg, {
-        maxRetries: 2,
+        maxRetries: 1,
         label: `coach.${ctx.sessionType}`,
-        timeoutMs: isChat ? 45000 : 90000,
+        timeoutMs: isChat ? 25000 : 30000,
         temperature: TEMPERATURES[ctx.sessionType],
       });
       raw = result.content;

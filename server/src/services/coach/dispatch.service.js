@@ -59,10 +59,7 @@ class DispatchService {
 
     if (action === 'CHECK_IN') {
       const metrics = (await repos.studentMetrics.findByUserId(userId)) || {};
-      const gateResult = gate.evaluateGate(action, metrics, payload);
-      if (gateResult.staticOnly) {
-        return staticResponse.respondCheckIn(userId, payload, sessionId, metrics);
-      }
+      return staticResponse.respondCheckIn(userId, payload, sessionId, metrics);
     }
 
     const ctx = await contextBuilder.buildContext(userId, sessionType, payload);

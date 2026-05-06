@@ -5,7 +5,7 @@ const { withRetry } = require('../utils/retry');
 const { buildGeminiPayload, buildOpenRouterPayload, buildOllamaPayload, extractContent } = require('../utils/converter');
 const logger = require('../utils/logger');
 
-const DEFAULT_TIMEOUT_MS = 60000;
+const DEFAULT_TIMEOUT_MS = 30000;
 
 let isMock = config.llmProvider === 'mock';
 let _gemini429 = false;
