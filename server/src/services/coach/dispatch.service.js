@@ -38,7 +38,12 @@ class DispatchService {
 
     let triggerFired = null;
 
-    if (action === 'COMPLETE_TASK' || action === 'SUBMIT_FEEDBACK' || action === 'SKIP_TASK') {
+    if (action === 'SKIP_TASK') {
+      await this._updateState(userId, action, payload, sessionId);
+      return staticResponse.respondSkip(userId, payload, sessionId);
+    }
+
+    if (action === 'COMPLETE_TASK' || action === 'SUBMIT_FEEDBACK') {
       const metrics = (await repos.studentMetrics.findByUserId(userId)) || {};
       const gateResult = gate.evaluateGate(action, metrics, payload);
       if (gateResult.staticOnly) {
@@ -46,10 +51,7 @@ class DispatchService {
         if (action === 'COMPLETE_TASK') {
           return staticResponse.respondTaskCompleted(userId, payload, sessionId);
         }
-        if (action === 'SUBMIT_FEEDBACK') {
-          return staticResponse.respondFeedback(userId, payload, sessionId);
-        }
-        return staticResponse.respondSkip(userId, payload, sessionId);
+        return staticResponse.respondFeedback(userId, payload, sessionId);
       }
       triggerFired = gateResult.triggerFired;
       if (gateResult.sessionTypeOverride) {
