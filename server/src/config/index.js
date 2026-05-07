@@ -39,11 +39,20 @@ module.exports = {
   llmProvider,
   geminiKey: (process.env.GEMINI_API_KEY || '').trim(),
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite',
+  geminiPaidKey: (process.env.GEMINI_PAID_API_KEY || '').trim(),
+  geminiPaidModel: process.env.GEMINI_PAID_MODEL || 'gemini-3.1-flash-lite',
+  glmKey: (process.env.GLM_API_KEY || '').trim(),
+  glmModel: process.env.GLM_MODEL || 'glm-4.7-flash',
+  glmBaseUrl: process.env.GLM_BASE_URL || 'https://api.z.ai/api/paas/v4/chat/completions',
   ollamaBaseUrl,
   ollamaModel,
-  hasFallback: !!(ollamaBaseUrl && ollamaModel),
+  hasFallback: !!(
+    (process.env.GEMINI_PAID_API_KEY || '').trim() ||
+    (process.env.GLM_API_KEY || '').trim() ||
+    (process.env.OPENROUTER_API_KEY || '').trim()
+  ),
   openrouterKey: (process.env.OPENROUTER_API_KEY || '').trim() || null,
-  openrouterModel: (process.env.OPENROUTER_MODEL || '').trim() || null,
+  openrouterModel: process.env.OPENROUTER_MODEL || 'qwen/qwen3-next-80b-a3b-instruct:free',
   redisUrl: process.env.REDIS_URL,
   allowedOrigins,
   metricsApiKey: process.env.METRICS_API_KEY || '',
