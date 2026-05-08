@@ -18,8 +18,6 @@ Tim perlu memilih teknologi yang tepat untuk membangun aplikasi AI Learning Plan
 | Logging | Pino | Structured JSON logging, performa tinggi |
 | Metrics | prom-client | Prometheus-compatible, standar industri |
 | Testing | Jest + Supertest (server), Vitest (client) | Unit + integration test, coverage reporting |
-| Container | Docker + Docker Compose | Environment konsisten antar developer |
-| CI/CD | GitHub Actions | Otomasi lint, test, dan deployment |
 
 ## Alasan
 1. React + Vite: Build cepat, hot module replacement, sudah dipelajari di kelas Dicoding
@@ -32,4 +30,4 @@ Tim perlu memilih teknologi yang tepat untuk membangun aplikasi AI Learning Plan
 - Perlu Docker Desktop untuk development (PostgreSQL + Redis berjalan di container)
 - Biaya Gemini API jika melebihi free tier
 - Migration tool (node-pg-migrate) diperlukan untuk schema changes
-- Dua test framework berbeda (Jest vs Vitest) — tapi pola testing serupa
+- Dua test framework berbeda (Jest vs Vitest) — unit, component, integration test

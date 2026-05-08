@@ -12,4 +12,10 @@ export default defineConfig({
       '/metrics': { target: 'http://localhost:3000', changeOrigin: true },
     },
   },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './tests/setup.js',
+    css: true,
+  },
 });

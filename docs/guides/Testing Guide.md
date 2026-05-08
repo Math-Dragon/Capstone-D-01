@@ -14,8 +14,6 @@
 
 ### Frontend (client/)
 
-Dependencies testing sudah include di package.json:
-
 ```json
 {
   "devDependencies": {
@@ -28,13 +26,29 @@ Dependencies testing sudah include di package.json:
 }
 ```
 
+Test configuration ditambahkan ke `vite.config.js`:
+
+```javascript
+test: {
+  globals: true,
+  environment: 'jsdom',
+  setupFiles: './tests/setup.js',
+  css: true,
+}
+```
+
+Setup file (`client/tests/setup.js`):
+
+```javascript
+import '@testing-library/jest-dom';
+```
+
 ### Backend (server/)
 
 ```json
 {
   "devDependencies": {
     "jest": "^29.7.0",
-    "@jest/globals": "^29.7.0",
     "supertest": "^7.0.0"
   }
 }
@@ -44,19 +58,15 @@ Dependencies testing sudah include di package.json:
 
 ```javascript
 // server/tests/setup.js
-import { jest } from '@jest/globals';
+const { pool } = require('../src/db');
 
-process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET = 'test-secret';
-process.env.JWT_ACCESS_EXPIRY = '15m';
-process.env.JWT_REFRESH_EXPIRY = '7d';
+beforeAll(async () => {
+  await pool.query('SELECT 1');
+});
 
-// Mock database
-jest.mock('../src/db.js', () => ({
-  query: jest.fn(),
-  withTransaction: jest.fn(),
-  isHealthy: jest.fn().mockResolvedValue(true),
-}));
+afterAll(async () => {
+  await pool.end();
+});
 ```
 
 ---
@@ -69,13 +79,13 @@ jest.mock('../src/db.js', () => ({
 cd client
 
 # Run tests once
-npx vitest run
+npm test
 
 # Run tests in watch mode
-npx vitest
+npm run test:watch
 
 # Run with coverage
-npx vitest run --coverage
+npm run test:coverage
 ```
 
 ### Backend Commands
@@ -86,24 +96,12 @@ cd server
 # Run all tests
 npm test
 
-# Run tests in watch mode
-npm run test:watch
-
 # Run with coverage
 npm run test:coverage
 
 # Run specific test file
 npx jest tests/unit/auth.test.js
 ```
-
-### Coverage Target
-
-| Type | Target |
-|------|--------|
-| Statements | 80% |
-| Branches | 75% |
-| Functions | 80% |
-| Lines | 80% |
 
 ---
 
@@ -113,17 +111,17 @@ npx jest tests/unit/auth.test.js
 
 ```
 client/tests/
-├── setup.js              # Test configuration
-├── components/           # Component tests
-│   ├── StreakBadge.test.jsx
-│   └── TaskCard.test.jsx
-├── features/             # Feature tests
+├── setup.js                     # Test configuration
+├── components/
+│   ├── StreakBadge.test.jsx     # Streak badge component tests
+│   └── TaskCard.test.jsx        # Task card component tests
+├── features/
 │   ├── auth/
-│   │   └── authSlice.test.js
+│   │   └── authSlice.test.js    # Auth reducer tests
 │   └── goals/
-│       └── goalsSlice.test.js
-└── utils/                # Utility tests
-    └── helpers.test.js
+│       └── goalsSlice.test.js   # Goals reducer + async thunk tests
+└── utils/
+    └── helpers.test.js          # Pure utility function tests
 ```
 
 ### Backend Tests
@@ -132,9 +130,16 @@ client/tests/
 server/tests/
 ├── setup.js              # Test configuration
 ├── smoke.test.js         # Basic health check test
-└── unit/
-    ├── auth.test.js      # Auth service/route tests
-    └── llm-mock.test.js  # LLM mock tests
+├── fixtures/
+│   └── goals.json        # Goal fixture data
+├── unit/
+│   ├── auth.test.js      # Auth endpoint validation tests
+│   ├── health.test.js    # Health & metrics endpoint tests
+│   ├── llm.test.js       # LLM output validation & Zod schema tests
+│   ├── llm-mock.test.js  # Mock LLM suggestion generator tests
+│   └── routes.test.js    # Protected routes auth guard tests
+└── integration/
+    └── goals.test.js     # Goals CRUD integration tests
 ```
 
 ---
@@ -146,163 +151,68 @@ server/tests/
 ```javascript
 // client/tests/features/auth/authSlice.test.js
 import { describe, it, expect } from 'vitest';
-import authReducer, {
-  login,
-  logout,
-  clearError,
-} from '../../../src/features/auth/slices/authSlice';
+import authReducer, { setUser, logout } from '../../../src/store/slices/authSlice';
 
 describe('authSlice', () => {
   const initialState = {
-    user: null,
-    token: null,
-    loading: false,
-    error: null,
+    user: null, isAuthenticated: false, loading: false, error: null,
   };
 
-  it('should return initial state', () => {
-    expect(authReducer(undefined, { type: 'unknown' })).toEqual(initialState);
-  });
-
-  it('should handle login.pending', () => {
-    const actual = authReducer(initialState, login.pending());
-    expect(actual.loading).toBe(true);
-    expect(actual.error).toBeNull();
-  });
-
-  it('should handle login.fulfilled', () => {
-    const payload = {
-      user: { id: 1, email: 'test@example.com' },
-      token: 'jwt-token',
-    };
-
-    const actual = authReducer(
-      { ...initialState, loading: true },
-      login.fulfilled(payload)
-    );
-
-    expect(actual.loading).toBe(false);
-    expect(actual.user).toEqual(payload.user);
-    expect(actual.token).toBe(payload.token);
-  });
-
-  it('should handle login.rejected', () => {
-    const error = 'Invalid credentials';
-
-    const actual = authReducer(
-      { ...initialState, loading: true },
-      login.rejected(new Error(error), '', { email: '', password: '' })
-    );
-
-    expect(actual.loading).toBe(false);
-    expect(actual.error).toBe(error);
+  it('should handle setUser with user data', () => {
+    const user = { id: 1, email: 'test@example.com' };
+    const actual = authReducer(initialState, setUser(user));
+    expect(actual.user).toEqual(user);
+    expect(actual.isAuthenticated).toBe(true);
   });
 
   it('should handle logout', () => {
-    const stateWithUser = {
-      ...initialState,
-      user: { id: 1, email: 'test@example.com' },
-      token: 'jwt-token',
-    };
-
-    const actual = authReducer(stateWithUser, logout());
-
+    const state = { ...initialState, user: { id: 1 }, isAuthenticated: true };
+    const actual = authReducer(state, logout());
     expect(actual.user).toBeNull();
-    expect(actual.token).toBeNull();
-  });
-
-  it('should handle clearError', () => {
-    const stateWithError = { ...initialState, error: 'Something went wrong' };
-    const actual = authReducer(stateWithError, clearError());
-    expect(actual.error).toBeNull();
+    expect(actual.isAuthenticated).toBe(false);
   });
 });
 ```
 
-### Auth Service Test (Backend)
+### Component Test (Frontend)
+
+```javascript
+// client/tests/components/StreakBadge.test.jsx
+import { render, screen } from '@testing-library/react';
+import StreakBadge from '../../src/components/StreakBadge';
+
+describe('StreakBadge', () => {
+  it('renders null when streak is 0', () => {
+    const { container } = render(<StreakBadge streak={0} />);
+    expect(container.innerHTML).toBe('');
+  });
+
+  it('displays streak count', () => {
+    render(<StreakBadge streak={5} />);
+    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(screen.getByText('hari streak')).toBeInTheDocument();
+  });
+
+  it('renders fire emoji for active streak', () => {
+    render(<StreakBadge streak={7} />);
+    expect(screen.getByText('🔥')).toBeInTheDocument();
+  });
+});
+```
+
+### Auth Endpoint Test (Backend)
 
 ```javascript
 // server/tests/unit/auth.test.js
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { authService } from '../../src/services/auth.service.js';
-import db from '../../src/db.js';
+const request = require('supertest');
+const app = require('../../src/app');
 
-describe('authService', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  describe('register', () => {
-    it('should register a new user', async () => {
-      const mockUser = {
-        id: 'uuid-123',
-        email: 'test@example.com',
-        name: 'Test User',
-      };
-
-      db.query.mockResolvedValueOnce({ rows: [mockUser] });
-
-      const result = await authService.register({
-        email: 'test@example.com',
-        password: 'password123',
-        name: 'Test User',
-      });
-
-      expect(result).toHaveProperty('user');
-      expect(result.user.email).toBe('test@example.com');
-      expect(result).toHaveProperty('accessToken');
-      expect(result).toHaveProperty('refreshToken');
-    });
-
-    it('should throw error for duplicate email', async () => {
-      db.query.mockRejectedValueOnce({ code: '23505' }); // unique violation
-
-      await expect(authService.register({
-        email: 'existing@example.com',
-        password: 'password123',
-      })).rejects.toThrow('Email already registered');
-    });
-  });
-
-  describe('login', () => {
-    it('should login with valid credentials', async () => {
-      const hashedPassword = '$2b$10$...'; // bcrypt hash
-      const mockUser = {
-        id: 'uuid-123',
-        email: 'test@example.com',
-        password: hashedPassword,
-        name: 'Test User',
-      };
-
-      db.query.mockResolvedValueOnce({ rows: [mockUser] });
-
-      const result = await authService.login({
-        email: 'test@example.com',
-        password: 'password123',
-      });
-
-      expect(result).toHaveProperty('user');
-      expect(result).toHaveProperty('accessToken');
-    });
-
-    it('should reject invalid password', async () => {
-      const mockUser = { id: '1', email: 'test@example.com', password: 'hashed' };
-      db.query.mockResolvedValueOnce({ rows: [mockUser] });
-
-      await expect(authService.login({
-        email: 'test@example.com',
-        password: 'wrongpassword',
-      })).rejects.toThrow('Invalid credentials');
-    });
-
-    it('should reject non-existent user', async () => {
-      db.query.mockResolvedValueOnce({ rows: [] });
-
-      await expect(authService.login({
-        email: 'nonexistent@example.com',
-        password: 'password123',
-      })).rejects.toThrow('Invalid credentials');
-    });
+describe('POST /api/auth/register validation', () => {
+  test('rejects invalid email', async () => {
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ email: 'not-an-email', password: 'Passw0rd' });
+    expect([400, 429]).toContain(res.status);
   });
 });
 ```
@@ -311,33 +221,14 @@ describe('authService', () => {
 
 ```javascript
 // server/tests/unit/llm-mock.test.js
-import { describe, it, expect } from '@jest/globals';
-import { mockLLM } from '../../src/services/llm-mock.js';
+const { generateMockSuggestion } = require('../../src/services/llm-mock');
 
-describe('mockLLM', () => {
-  it('should return mock plan suggestions', async () => {
-    const result = await mockLLM.generate({
-      prompt: 'generate plan',
-      userId: 'test-user',
-    });
-
-    expect(result).toHaveProperty('tasks');
-    expect(result).toHaveProperty('summary');
-    expect(Array.isArray(result.tasks)).toBe(true);
-  });
-
-  it('should return tasks with valid structure', async () => {
-    const result = await mockLLM.generate({
-      prompt: 'generate plan',
-      userId: 'test-user',
-    });
-
-    const task = result.tasks[0];
-    expect(task).toHaveProperty('title');
-    expect(task).toHaveProperty('type');
-    expect(task).toHaveProperty('duration_minutes');
-    expect(task).toHaveProperty('slot');
-    expect(['morning', 'afternoon', 'evening']).toContain(task.slot);
+describe('generateMockSuggestion', () => {
+  test('returns valid schema-conforming output', () => {
+    const result = generateMockSuggestion(makeContext());
+    expect(result.tasks.length).toBeGreaterThanOrEqual(2);
+    expect(result.tasks.length).toBeLessThanOrEqual(5);
+    expect(result.summary).toContain('[MOCK]');
   });
 });
 ```
@@ -346,47 +237,53 @@ describe('mockLLM', () => {
 
 ```javascript
 // server/tests/smoke.test.js
-import { describe, it, expect } from '@jest/globals';
-import request from 'supertest';
-import app from '../src/app.js';
+require('dotenv').config();
+const request = require('supertest');
+const app = require('../src/app');
 
-describe('Health Check', () => {
-  it('should return health status', async () => {
+describe('Smoke Tests', () => {
+  test('GET /health returns ok', async () => {
     const res = await request(app).get('/health');
     expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty('status', 'ok');
-  });
-
-  it('should return 404 for unknown routes', async () => {
-    const res = await request(app).get('/unknown-route');
-    expect(res.status).toBe(404);
+    expect(res.body.data.status).toBe('ok');
   });
 });
 ```
 
-### Component Test
+### Goals Integration Test (Backend)
 
 ```javascript
-// client/tests/components/StreakBadge.test.jsx
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
-import { StreakBadge } from '../../src/components/StreakBadge';
+// server/tests/integration/goals.test.js
+const request = require('supertest');
+const jwt = require('jsonwebtoken');
+const app = require('../../src/app');
 
-describe('StreakBadge', () => {
-  it('should display streak count', () => {
-    render(<StreakBadge streak={5} />);
-    expect(screen.getByText('5')).toBeInTheDocument();
-  });
+let accessToken;
+let testGoalId;
 
-  it('should display motivational text for zero streak', () => {
-    render(<StreakBadge streak={0} />);
-    expect(screen.getByText(/mulai streak/i)).toBeInTheDocument();
-  });
+beforeAll(async () => {
+  // Register + login to get JWT token
+  const loginRes = await request(app)
+    .post('/api/auth/login')
+    .send({ email: 'test@example.com', password: 'TestPass1' });
+  accessToken = loginRes.body.data.accessToken;
+});
 
-  it('should display fire emoji for active streak', () => {
-    render(<StreakBadge streak={7} />);
-    expect(screen.getByText(/🔥/)).toBeInTheDocument();
-  });
+test('POST /api/goals creates a new goal', async () => {
+  const res = await request(app)
+    .post('/api/goals')
+    .set('Authorization', `Bearer ${accessToken}`)
+    .send({ title: 'Belajar Node.js', deadline: '2026-06-01' });
+  expect(res.status).toBe(201);
+  testGoalId = res.body.data.id;
+});
+
+test('GET /api/goals/:id returns goal with tasks', async () => {
+  const res = await request(app)
+    .get(`/api/goals/${testGoalId}`)
+    .set('Authorization', `Bearer ${accessToken}`);
+  expect(res.status).toBe(200);
+  expect(res.body.data.id).toBe(testGoalId);
 });
 ```
 
@@ -397,87 +294,36 @@ describe('StreakBadge', () => {
 ### Mocking API Calls
 
 ```javascript
-// Mock axios in component test
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+// Mock axios/API calls in Redux slice tests
+import { vi } from 'vitest';
 
 vi.mock('../../src/services/api', () => ({
   default: {
-    get: vi.fn().mockResolvedValue({
-      data: [
-        { id: 1, title: 'Belajar React', status: 'completed' },
-        { id: 2, title: 'Belajar Node.js', status: 'in_progress' },
-      ]
-    }),
-    post: vi.fn().mockResolvedValue({
-      data: { id: 3, title: 'New Goal', status: 'pending' }
-    }),
+    get: vi.fn().mockResolvedValue([
+      { id: 1, title: 'Belajar React', status: 'active' },
+    ]),
+    post: vi.fn().mockResolvedValue({ id: 2, title: 'New Goal' }),
   },
 }));
 ```
 
 ### Test Database Fixtures
 
-```javascript
+```json
 // server/tests/fixtures/goals.json
 [
   {
-    "id": "uuid-1",
-    "user_id": "uuid-user-1",
+    "id": "00000000-0000-0000-0000-000000000001",
     "title": "Belajar React",
-    "deadline": "2026-06-01T00:00:00Z",
     "status": "active",
-    "created_at": "2026-01-01T00:00:00Z"
+    "deadline": "2026-06-01T00:00:00.000Z"
   }
 ]
 ```
 
 ### API Integration Test
 
-```javascript
-// server/tests/integration/goals.test.js
-import { describe, it, expect, jest } from '@jest/globals';
-import request from 'supertest';
-import app from '../../src/app.js';
-
-describe('Goals API', () => {
-  const mockToken = 'valid-jwt-token';
-
-  beforeAll(() => {
-    // Mock authentication
-    jest.spyOn(authMiddleware, 'authenticate')
-      .mockImplementation((req, res, next) => {
-        req.userId = 'test-user-id';
-        next();
-      });
-  });
-
-  it('GET /api/goals should return goals list', async () => {
-    const res = await request(app)
-      .get('/api/goals')
-      .set('Authorization', `Bearer ${mockToken}`);
-
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(Array.isArray(res.body.data)).toBe(true);
-  });
-
-  it('POST /api/goals should create a new goal', async () => {
-    const newGoal = {
-      title: 'Belajar Node.js',
-      deadline: '2026-06-01T00:00:00Z',
-    };
-
-    const res = await request(app)
-      .post('/api/goals')
-      .set('Authorization', `Bearer ${mockToken}`)
-      .send(newGoal);
-
-    expect(res.status).toBe(201);
-    expect(res.body.data.title).toBe('Belajar Node.js');
-  });
-});
-```
+Integration test menguji full CRUD lifecycle dengan real database dan JWT authentication. Contoh lengkap di `server/tests/integration/goals.test.js`.
 
 ---
 
@@ -499,10 +345,12 @@ describe('Goals API', () => {
 
 ```bash
 # Frontend
-cd client && npx vitest run --coverage
+cd client && npm run test:coverage
 
 # Backend
 cd server && npm run test:coverage
 ```
+
+> **Catatan:** Coverage thresholds (statements 80%, branches 75%, functions 80%, lines 80%) belum dikonfigurasi di Jest/Vitest config.
 
 View detailed report di `coverage/lcov-report/index.html`.

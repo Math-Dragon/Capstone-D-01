@@ -5,9 +5,9 @@ describe('GET /health', () => {
   test('returns ok with database status', async () => {
     const res = await request(app).get('/health');
     expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty('status');
-    expect(res.body).toHaveProperty('timestamp');
-    expect(res.body).toHaveProperty('database');
+    expect(res.body.data).toHaveProperty('status');
+    expect(res.body.data).toHaveProperty('timestamp');
+    expect(res.body.data).toHaveProperty('database');
   });
 });
 

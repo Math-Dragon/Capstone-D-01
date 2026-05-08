@@ -4,17 +4,12 @@ function makeContext(overrides = {}) {
   return {
     user_id: 'mock-user-id',
     goal_id: 'mock-goal-id',
-    timezone: 'Asia/Jakarta',
-    preferred_time: 'morning',
-    weekly_target_hours: 5.0,
-    availability: {},
-    goal: {
-      title: 'Learn React Fundamentals',
-      description: 'Master hooks and state management',
+    profile: {
+      goal: 'Learn React Fundamentals',
       deadline: '2026-06-30',
-      existing_tasks: [],
+      preferred_slots: ['morning'],
+      weekly_available_hours: 5.0,
     },
-    extra_context: {},
     ...overrides,
   };
 }
@@ -45,25 +40,25 @@ describe('generateMockSuggestion', () => {
   });
 
   test('different goal titles produce different tasks', () => {
-    const a = generateMockSuggestion(makeContext({ goal: { title: 'Learn Python', description: '', deadline: null, existing_tasks: [] } }));
-    const b = generateMockSuggestion(makeContext({ goal: { title: 'Learn Rust', description: '', deadline: null, existing_tasks: [] } }));
+    const a = generateMockSuggestion(makeContext({ profile: { goal: 'Learn Python', deadline: null, preferred_slots: ['morning'], weekly_available_hours: 5 } }));
+    const b = generateMockSuggestion(makeContext({ profile: { goal: 'Learn Rust', deadline: null, preferred_slots: ['morning'], weekly_available_hours: 5 } }));
     expect(a.tasks[0].title).not.toBe(b.tasks[0].title);
   });
 
-  test('respects weekly_target_hours for task count', () => {
-    const low = generateMockSuggestion(makeContext({ weekly_target_hours: 2 }));
-    const high = generateMockSuggestion(makeContext({ weekly_target_hours: 10 }));
+  test('respects weekly_available_hours for task count', () => {
+    const low = generateMockSuggestion(makeContext({ profile: { goal: 'Test', weekly_available_hours: 2, preferred_slots: ['morning'], deadline: null } }));
+    const high = generateMockSuggestion(makeContext({ profile: { goal: 'Test', weekly_available_hours: 10, preferred_slots: ['morning'], deadline: null } }));
     expect(high.tasks.length).toBeGreaterThanOrEqual(low.tasks.length);
   });
 
-  test('works with missing goal fields', () => {
-    const result = generateMockSuggestion({ goal: {} });
+  test('works with missing profile', () => {
+    const result = generateMockSuggestion({});
     expect(result.tasks.length).toBeGreaterThanOrEqual(2);
     expect(result.summary).toBeTruthy();
   });
 
   test('dates fall between today and deadline', () => {
-    const result = generateMockSuggestion(makeContext({ goal: { title: 'Test', description: '', deadline: '2026-06-01', existing_tasks: [] } }));
+    const result = generateMockSuggestion(makeContext({ profile: { goal: 'Test', deadline: '2026-06-01', preferred_slots: ['morning'], weekly_available_hours: 5 } }));
     const today = new Date().toISOString().slice(0, 10);
     for (const task of result.tasks) {
       expect(task.planned_date >= today).toBe(true);
