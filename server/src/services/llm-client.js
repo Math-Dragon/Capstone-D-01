@@ -10,8 +10,12 @@ const DEFAULT_TIMEOUT_MS = 30000;
 let isMock = config.llmProvider === 'mock';
 let _gemini429 = false;
 let _geminiPaid429 = false;
-let _glm429 = false;
-let _openrouter429 = false;
+let _glmCooldownUntil = 0;
+let _openrouterCooldownUntil = 0;
+
+function _onCooldown(ts) { return Date.now() < ts; }
+function _startCooldown() { return Date.now() + 60000; }
+function _clearCooldown() { return 0; }
 
 let genAI;
 let genAIPaid;
@@ -248,8 +252,8 @@ async function callWithRetry(userMessage, { maxRetries = 1, label = 'llm', timeo
   const providers = [
     { name: 'gemini',     call: callGemini,     get429: () => _gemini429,     set429: (v) => { _gemini429 = v; },     key: config.geminiKey },
     { name: 'geminiPaid', call: callGeminiPaid,  get429: () => _geminiPaid429, set429: (v) => { _geminiPaid429 = v; }, key: config.geminiPaidKey },
-    { name: 'glm',        call: callGlm,         get429: () => _glm429,        set429: (v) => { _glm429 = v; },        key: config.glmKey },
-    { name: 'openrouter', call: callOpenRouter,   get429: () => _openrouter429, set429: (v) => { _openrouter429 = v; }, key: config.openrouterKey },
+    { name: 'glm',        call: callGlm,         get429: () => _onCooldown(_glmCooldownUntil),        set429: (v) => { _glmCooldownUntil = v ? _startCooldown() : _clearCooldown(); },        key: config.glmKey,        timeout: 45000 },
+    { name: 'openrouter', call: callOpenRouter,   get429: () => _onCooldown(_openrouterCooldownUntil), set429: (v) => { _openrouterCooldownUntil = v ? _startCooldown() : _clearCooldown(); }, key: config.openrouterKey, timeout: 45000 },
   ];
 
   let lastErr;
@@ -260,8 +264,9 @@ async function callWithRetry(userMessage, { maxRetries = 1, label = 'llm', timeo
       continue;
     }
     try {
+      const effectiveTimeout = provider.timeout || timeoutMs;
       const content = await withRetry(
-        makeTracker(provider.name, () => provider.call(userMessage, timeoutMs, temperature)),
+        makeTracker(provider.name, () => provider.call(userMessage, effectiveTimeout, temperature)),
         { maxAttempts: maxRetries, delayMs: 500, maxDelayMs: 8000, shouldRetry: isRetryable, label: `${label}:${provider.name}` }
       );
       return { content, attempts };
@@ -392,8 +397,8 @@ async function validateConnection() {
   const validators = [
     { name: 'gemini',     fn: validateGemini,     key: config.geminiKey,     on429: () => { _gemini429 = true; } },
     { name: 'geminiPaid', fn: validateGeminiPaid,  key: config.geminiPaidKey, on429: () => { _geminiPaid429 = true; } },
-    { name: 'glm',        fn: validateGlm,         key: config.glmKey,        on429: () => { _glm429 = true; } },
-    { name: 'openrouter', fn: validateOpenRouter,   key: config.openrouterKey, on429: () => { _openrouter429 = true; } },
+    { name: 'glm',        fn: validateGlm,         key: config.glmKey,        on429: () => { _glmCooldownUntil = _startCooldown(); } },
+    { name: 'openrouter', fn: validateOpenRouter,   key: config.openrouterKey, on429: () => { _openrouterCooldownUntil = _startCooldown(); } },
   ];
 
   const errors = [];

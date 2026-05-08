@@ -30,7 +30,9 @@ function buildOaiCompatPayload(url, systemPrompt, userMessage, model, temperatur
 }
 
 function buildOpenRouterPayload(systemPrompt, userMessage, model, temperature) {
-  return buildOaiCompatPayload(OPENROUTER_BASE_URL, systemPrompt, userMessage, model, temperature);
+  const result = buildOaiCompatPayload(OPENROUTER_BASE_URL, systemPrompt, userMessage, model, temperature);
+  result.body.thinking = { type: 'disabled' };
+  return result;
 }
 
 function buildGlmPayload(url, systemPrompt, userMessage, model, temperature) {
@@ -59,7 +61,7 @@ function extractContent(provider, raw) {
     case 'openrouter':
     case 'glm':
     case 'ollama':
-      return raw.choices?.[0]?.message?.content;
+      return raw.choices?.[0]?.message?.content || raw.choices?.[0]?.message?.reasoning || null;
     default:
       throw new Error(`Unknown provider for extraction: ${provider}`);
   }
