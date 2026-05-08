@@ -50,7 +50,8 @@
     "coverageDirectory": "coverage",
     "collectCoverageFrom": [
       "src/**/*.js",
-      "!src/index.js"
+      "!src/index.js",
+      "!src/migrations/**"
     ],
     "setupFilesAfterEnv": [
       "<rootDir>/tests/setup.js"

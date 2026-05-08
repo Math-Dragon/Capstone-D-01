@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/17</span>
+                <span class='fraction'>17/17</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/17</span>
+                <span class='fraction'>17/17</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -82,52 +82,52 @@
 <a name='L17'></a><a href='#L17'>17</a>
 <a name='L18'></a><a href='#L18'>18</a>
 <a name='L19'></a><a href='#L19'>19</a>
-<a name='L20'></a><a href='#L20'>20</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L20'></a><a href='#L20'>20</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import { z } from 'zod';<span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span></span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span></td><td class="text"><pre class="prettyprint lang-js">import { z } from 'zod';
 &nbsp;
-<span class="cstat-no" title="statement not covered" >// @deprecated — Not imported anywhere. Form validation is done inline in LoginPage/RegisterPage.</span>
-<span class="cstat-no" title="statement not covered" >export const loginSchema = z.object({</span>
-<span class="cstat-no" title="statement not covered" >  email: z.string().min(1, 'Email harus diisi').email('Email tidak valid'),</span>
-<span class="cstat-no" title="statement not covered" >  password: z.string().min(1, 'Password harus diisi').min(8, 'Password minimal 8 karakter'),</span>
-<span class="cstat-no" title="statement not covered" >});</span>
+// @deprecated — Not imported anywhere. Form validation is done inline in LoginPage/RegisterPage.
+export const loginSchema = z.object({
+  email: z.string().min(1, 'Email harus diisi').email('Email tidak valid'),
+  password: z.string().min(1, 'Password harus diisi').min(8, 'Password minimal 8 karakter'),
+});
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export const registerSchema = z.object({</span>
-<span class="cstat-no" title="statement not covered" >  email: z.string().min(1, 'Email harus diisi').email('Email tidak valid'),</span>
-<span class="cstat-no" title="statement not covered" >  password: z.string().min(1, 'Password harus diisi').min(8, 'Password minimal 8 karakter'),</span>
-<span class="cstat-no" title="statement not covered" >  confirmPassword: z.string().min(1, 'Konfirmasi password harus diisi'),</span>
-<span class="cstat-no" title="statement not covered" >}).refine((data) =&gt; data.password === data.confirmPassword, {</span>
-<span class="cstat-no" title="statement not covered" >  message: 'Password tidak cocok',</span>
-<span class="cstat-no" title="statement not covered" >  path: ['confirmPassword'],</span>
-<span class="cstat-no" title="statement not covered" >});</span>
+export const registerSchema = z.object({
+  email: z.string().min(1, 'Email harus diisi').email('Email tidak valid'),
+  password: z.string().min(1, 'Password harus diisi').min(8, 'Password minimal 8 karakter'),
+  confirmPassword: z.string().min(1, 'Konfirmasi password harus diisi'),
+}).refine((data) =&gt; data.password === data.confirmPassword, {
+  message: 'Password tidak cocok',
+  path: ['confirmPassword'],
+});
 &nbsp;
-<span class="cstat-no" title="statement not covered" >// @deprecated — Move to features/goals/schemas.js when needed</span>
-<span class="cstat-no" title="statement not covered" >// export const goalSchema = z.object({ ... });</span>
-<span class="cstat-no" title="statement not covered" >// export const taskSchema = z.object({ ... });</span></pre></td></tr></table></pre>
+// @deprecated — Move to features/goals/schemas.js when needed
+// export const goalSchema = z.object({ ... });
+// export const taskSchema = z.object({ ... });</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-08T08:36:26.872Z
+                at 2026-05-08T10:15:23.583Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

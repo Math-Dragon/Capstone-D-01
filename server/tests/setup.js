@@ -1,9 +1,14 @@
 const { pool } = require('../src/db');
 
 beforeAll(async () => {
-  await pool.query('SELECT 1');
+  if (!global.__poolEnded) {
+    await pool.query('SELECT 1');
+  }
 });
 
 afterAll(async () => {
-  await pool.end();
+  if (!global.__poolEnded) {
+    global.__poolEnded = true;
+    await pool.end();
+  }
 });
