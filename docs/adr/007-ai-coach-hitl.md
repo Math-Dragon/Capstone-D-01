@@ -1,7 +1,7 @@
 # ADR-007: AI Coach with Human-in-the-Loop
 
 ## Status
-Accepted
+Accepted — **BUG: task_action auto-persist (lihat Konsekuensi)**
 
 ## Konteks
 AI coach berinteraksi dengan user melalui berbagai aksi: generate plan, check-in, task actions (complete/skip/feedback), adjustment request, dan chat. Perlu desain yang memastikan AI tidak mengambil keputusan tanpa persetujuan user (Human-in-the-Loop).
@@ -10,48 +10,57 @@ AI coach berinteraksi dengan user melalui berbagai aksi: generate plan, check-in
 ### Session Types & Behavior
 | Session Type | Output | Plan Persistence | Use Case |
 |-------------|--------|-----------------|----------|
-| chat | { message, plan? } | Auto (_persistPlan) | Percakapan bebas |
-| task_action | { message, plan? } | **Proposal** (via ACCEPT_PROPOSAL) | Complete/skip/feedback task |
+| chat | { message, plan? } | Auto | Percakapan bebas |
+| task_action | { message, plan? } | **AUTO-PERSIST** (BUG — seharusnya proposal) | Complete/skip/feedback task |
 | initial_plan | { tasks, summary } | Via recommendation HITL | Generate rencana awal |
-| check_in | { tasks, summary } | Auto | Check-in harian |
+| check_in | { message, plan: null } | Static only (no LLM) | Check-in harian |
 | adjustment | { tasks, summary } | Auto | Request penyesuaian |
 | crisis | { tasks, summary } | Auto | Beban berlebih |
-| milestone | { tasks, summary } | Auto | Fase baru |
+| milestone | { tasks, summary } | Auto (via adaptation trigger AT-4) | Fase baru |
 
-### HITL Flow for task_action
+### Coach Actions (11 actions — 1 hidden dari ADR)
+INITIAL_PLAN, CHECK_IN, COMPLETE_TASK, SKIP_TASK, MODIFY_TASK, SUBMIT_FEEDBACK, REQUEST_ADJUSTMENT, CHAT_MESSAGE, CRISIS_SIGNAL, ACCEPT_PROPOSAL, **UNDO_PLAN**
+
+### HITL Flow untuk initial_plan (satu-satunya HITL sebenarnya)
 ```
-Task Action (complete/skip/feedback)
-  ↓
-Client → POST /api/coach → Server dispatch()
-  ↓
-Server: task_action session → LLM → { message, plan: [...] | null }
-  ↓ (NO auto-persist)
-Response: { type: 'task_action', data: { message, plan } }
-  ↓
-Client: if plan?.tasks?.length > 0 → show HITL Proposal Modal
-  ├── Accept → POST ACCEPT_PROPOSAL → Server _persistPlan → refresh task list
-  └── Reject → dismiss modal (task status tetap updated)
+User submits plan form → dispatch('INITIAL_PLAN')
+  → LLM → { tasks, summary }
+  → NOT persisted → recommendation staging
+  → Client: per-task Accept/Reject
+    → Accept → POST /coach/recommendations/:recId/tasks/:taskId/decide
+    → Reject → dismiss
 ```
 
-### Coach Actions (10 total)
-INITIAL_PLAN, CHECK_IN, COMPLETE_TASK, SKIP_TASK, MODIFY_TASK, SUBMIT_FEEDBACK, REQUEST_ADJUSTMENT, CHAT_MESSAGE, CRISIS_SIGNAL, ACCEPT_PROPOSAL
+### Static Responses (tanpa LLM)
+- SKIP_TASK: selalu static (via static-response.service.js)
+- CHECK_IN: selalu static (via static-response.service.js)
+- COMPLETE_TASK: static kecuali adaptation trigger fire
+- SUBMIT_FEEDBACK: static kecuali adaptation trigger fire
 
 ### UI Surfaces
-- **CheckInGateway**: App-level overlay setelah login, sebelum akses dashboard
-- **ProposalOverlay**: In-situ modal di GoalDetailPage/CalendarPage
-- **AdjustmentPanel**: Quick actions di Calendar/GoalDetail
-- **CoachPage**: Chat, recommendation, observability
+- **CheckInGateway**: App-level overlay mood check-in (5 mood, sekali/hari)
+- **ProposalOverlay**: Modal di GoalDetailPage/CalendarPage untuk saran AI
+- **AdjustmentPanel**: Quick actions di Calendar/GoalDetail (4 preset + custom)
+- **CoachPage**: Chat, plan form, recommendation panel, observability
+
+### Adaptation Triggers
+AT-1: streak_days == 3 (adjustment-friendly)
+AT-2: streak_days == 0 (recovery mode)
+AT-3: completion_rate_7d < 0.5 (struggling)
+AT-4: completion_rate_7d > 0.9 && streak >= 5 (milestone)
+AT-5: consecutive_skips >= 3 (crisis)
+AT-6: completion_rate_7d == 0 && consecutive_skips >= 2 (crisis)
 
 ## Alasan
-1. **Human-in-the-Loop**: Sesuai prinsip desain — user selalu punya kendali
-2. **task_action sebagai proposal**: Plan dari task actions tidak auto-persist, harus di-accept dulu
-3. **Explainability**: Setiap saran disertai rationale
-4. **Dedicated session type**: task_action punya prompt pendek, fokus aksi, tanpa chat history
-5. **Adaptation trigger**: COMPLETE_TASK hanya panggil LLM jika trigger fire — sisanya static
+1. **Human-in-the-Loop**: Sesuai prinsip desain — user selalu punya kendali (kecuali bug task_action)
+2. **Static responses**: Routine actions (skip, check-in) skip LLM — hemat biaya + latensi
+3. **Adaptation trigger**: LLM hanya dipanggil jika diperlukan (mendeteksi perubahan signifikan)
+4. **initial_plan HITL**: Per-task accept/reject — user kontrol penuh atas task individual
+5. **Dedicated templates**: Setiap session type punya prompt + temperature sendiri
 
 ## Konsekuensi
-- Proposal hilang jika user navigate/refresh (client-held state) — belum ada beforeunload guard
+- **BUG**: task_action auto-persist di dispatch.service.js — melanggar HITL guarantee. ACCEPT_PROPOSAL persistPlan kedua → duplicate tasks
+- Proposal di-persist ke localStorage (30 menit TTL) — survive page refresh
 - ACCEPT_PROPOSAL kena aiLimiter yang sama (bisa dipisah ke endpoint sendiri)
-- Task actions perlu loading state selama menunggu LLM (2-5 detik)
-- Chat history untuk task_complete di-filter di client-side
-- COMPLETE_TASK dengan trigger fires tetap return fallback message jika LLM gagal
+- gate.service.js punya dead code: SKIP_TASK dan CHECK_IN cases tidak pernah reached (dispatch short-circuit)
+- UNDO_PLAN tersedia untuk rollback via POST /coach/undo

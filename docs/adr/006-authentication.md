@@ -4,45 +4,49 @@
 Accepted
 
 ## Konteks
-Aplikasi membutuhkan autentikasi yang aman untuk peserta bootcamp. Dua kebutuhan: login email/password dan social login (Google/GitHub). Perlu menyeimbangkan security dengan user experience.
+Aplikasi membutuhkan autentikasi yang aman untuk peserta bootcamp. Dua kebutuhan: login email/password dan social login (Google). GitHub masih "coming soon".
 
 ## Keputusan
 ### Hybrid Authentication
 1. **Email/Password**: JWT access + refresh tokens (self-managed)
-2. **Social Login**: Firebase Auth (Google, GitHub) — server-side verification via Firebase Admin
+2. **Social Login**: Firebase Auth (Google only) — server-side verification via Firebase Admin
 
 ### Token Strategy
 ```
 Login → Access Token (15 menit) + Refresh Token (7 hari)
          ↓ expired
 Refresh → New Access Token + New Refresh Token (rotation)
-          ↓ jika refresh gagal
+         ↓ jika refresh gagal
 Re-login required
 ```
 
 ### Implementation Details
-- Access token: JWT signed dengan JWT_SECRET, expiry 15 menit
-- Refresh token: JWT signed dengan JWT_REFRESH_SECRET, expiry 7 hari
-- Refresh token hash disimpan di tabel refresh_tokens
-- Token rotation: setiap refresh, token lama di-invalidate
-- Axios interceptor otomatis menangani refresh di client
-- httpOnly cookie untuk refresh token (server-side)
+- Access token: JWT signed dengan JWT_SECRET, expiry 15 menit, disimpan di localStorage
+- Refresh token: JWT signed dengan JWT_REFRESH_SECRET, expiry 7 hari, httpOnly cookie
+- Refresh token SHA-256 hash disimpan di tabel refresh_tokens
+- Token rotation: setiap refresh, token lama di-delete sebelum issue baru
+- Axios interceptor: response 401 → refresh token → retry (dengan queue untuk concurrent 401s)
+- httpOnly cookie: secure (prod), sameSite strict, maxAge 7 hari
+- Register endpoint: return user data saja (tanpa token — perlu login manual)
 
 ### Firebase Social Auth
-- Firebase Client SDK untuk login flow di frontend
-- Firebase Admin SDK untuk verifikasi token di backend
-- Server menyimpan google_id / github_id di tabel users
+- Firebase Client SDK (signInWithPopup) untuk Google login di frontend
+- Firebase Admin SDK (verifyIdToken) untuk verifikasi di backend
+- Server menyimpan google_id di tabel users
+- GitHub OAuth: Google provider only — button GitHub show "coming soon" alert
+- DB schema: github_id column exists tetapi tidak pernah di-write
 
 ## Alasan
 1. **Access + Refresh token**: Access token short-lived (15m) meminimalkan risiko jika bocor
-2. **Token rotation**: Mencegah replay attack — refresh token lama langsung invalid setelah dipakai
-3. **Firebase**: Tanpa implementasi OAuth manual (Google, GitHub siap pakai)
-4. **Firebase Admin**: Verifikasi dari server-side aman
-5. **Axios interceptor**: Transparent refresh — user tidak perlu login ulang
+2. **Token rotation**: Mencegah replay attack — old token langsung di-delete
+3. **Firebase**: Tanpa implementasi OAuth manual untuk Google
+4. **Axios interceptor with queue**: Mencegah multiple refresh calls untuk concurrent 401s
+5. **httpOnly cookie**: Refresh token tidak bisa diakses JavaScript (aman dari XSS)
 
 ## Konsekuensi
-- Firebase dependency untuk social login (perlu API key)
-- Token rotation meningkatkan kompleksitas server-side
-- Refresh token di httpOnly cookie tidak bisa diakses JavaScript (lebih aman)
-- Perlu endpoint POST /auth/refresh dan POST /auth/logout
-- Jika refresh token expired, user harus login ulang
+- Firebase dependency untuk Google login (perlu Firebase project + API key)
+- Access token di localStorage — rentan XSS, dimitigasi oleh short expiry (15m)
+- Token rotation tidak atomic — jika new token gagal setelah old di-delete, user harus re-login
+- Register tidak auto-login — user harus login manual setelah register
+- GitHub OAuth belum diimplementasikan — column + repo method sudah ada tapi tidak digunakan
+- Cookie maxAge dan JWT expiry hardcoded terpisah — risk of drift

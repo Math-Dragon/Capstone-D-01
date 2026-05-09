@@ -8,7 +8,7 @@ Peserta bootcamp kesulitan menjaga ritme belajar secara konsisten. Target belaja
 
 Aplikasi web full-stack (React + Node.js + PostgreSQL) dengan AI sebagai learning coach. Pendekatan utama:
 
-1. **AI Suggestion Engine** — LLM (Gemini sebagai primary, OpenRouter/NVIDIA sebagai fallback) memecah goal menjadi task-task kecil (25-90 menit) yang spesifik, dengan rationale yang transparan.
+1. **AI Suggestion Engine** — LLM (Gemini sebagai primary, OpenRouter dan GLM sebagai fallback) memecah goal menjadi task-task kecil (25-90 menit) yang spesifik, dengan rationale yang transparan.
 2. **Human-in-the-Loop** — AI hanya memberi saran; pengguna menyetujui atau menolak sebelum setiap perubahan dieksekusi. Tidak ada perubahan otomatis tanpa persetujuan.
 3. **Jadwal Adaptif** — Task dijadwalkan berdasarkan preferensi waktu dan ketersediaan pengguna, bukan template generik.
 4. **Progress Tracking** — Check-in harian, streak, snapshot mingguan, dan metrik student untuk memantau perkembangan.
