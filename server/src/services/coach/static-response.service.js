@@ -1,5 +1,4 @@
 const repos = require('../../repositories');
-const logger = require('../../utils/logger');
 
 const DAY_ABBR = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
@@ -139,7 +138,7 @@ async function respondCheckIn(userId, payload, sessionId, metrics) {
   } else if (streak >= 3) {
     message = `💪 Kamu sedang dalam momentum yang baik! Streak ${streak} hari dengan tingkat penyelesaian ${rate}%. Teruskan!`;
   } else if (mood === 'great') {
-    message = `Semangat! Kamu dalam kondisi prima hari ini. Manfaatkan energi ini untuk belajar maksimal!`;
+    message = 'Semangat! Kamu dalam kondisi prima hari ini. Manfaatkan energi ini untuk belajar maksimal!';
   } else {
     message = `Terima kasih sudah check-in! Kamu berada di jalur yang tepat dengan tingkat penyelesaian ${rate}%.`;
   }

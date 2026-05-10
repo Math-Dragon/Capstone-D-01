@@ -40,19 +40,19 @@ afterAll(async () => {
         .delete(`/api/tasks/${testTaskId}`)
         .set('Authorization', `Bearer ${accessToken}`);
     }
-  } catch {}
+  } catch { /* ignore cleanup error */ }
   try {
     if (testGoalId) {
       await request(app)
         .delete(`/api/goals/${testGoalId}`)
         .set('Authorization', `Bearer ${accessToken}`);
     }
-  } catch {}
+  } catch { /* ignore cleanup error */ }
     try {
       await request(app)
         .post('/api/auth/logout')
         .set('Authorization', `Bearer ${accessToken}`);
-    } catch {}
+    } catch { /* ignore cleanup error */ }
 });
 
 describe('Tasks API Integration', () => {

@@ -1,6 +1,7 @@
 const rateLimit = require('express-rate-limit');
 const { RedisStore } = require('rate-limit-redis');
 const { redisClient, connectRedis } = require('../services/redis');
+const logger = require('../utils/logger');
 
 function makeLimiter(opts) {
   return rateLimit({
@@ -15,7 +16,7 @@ function makeLimiter(opts) {
           return await redisClient.sendCommand(args);
         } catch (err) {
           // If Redis is down, we might want to fail open or log
-          console.error('Redis Rate Limiter Error:', err);
+          logger.error({ err: err.message }, 'Redis Rate Limiter Error');
           throw err;
         }
       },

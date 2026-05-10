@@ -1,5 +1,4 @@
 const repos = require('../../repositories');
-const logger = require('../../utils/logger');
 
 async function checkLastMoodDrained(userId) {
   try {

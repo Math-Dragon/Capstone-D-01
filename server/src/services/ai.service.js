@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const { validateAIOutput, SuggestionSchema } = require('./llm');
 const { generateMockSuggestion } = require('./llm-mock');
-const { isMock, systemPrompt, callWithRetry } = require('./llm-client');
+const { isMock, callWithRetry } = require('./llm-client');
 const repos = require('../repositories');
 const db = require('../db');
 const logger = require('../utils/logger');
