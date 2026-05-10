@@ -1,13 +1,13 @@
-const db = require('../db');
+'use strict';
 
-exports.up = async function up() {
-  await db.query(`
-    ALTER TABLE tasks ADD COLUMN task_type varchar(20) DEFAULT NULL
-  `);
-};
+module.exports = {
+  async up(pgm) {
+    pgm.addColumn('tasks', {
+      task_type: { type: 'varchar(20)' },
+    });
+  },
 
-exports.down = async function down() {
-  await db.query(`
-    ALTER TABLE tasks DROP COLUMN IF EXISTS task_type
-  `);
+  async down(pgm) {
+    pgm.dropColumn('tasks', 'task_type');
+  },
 };
