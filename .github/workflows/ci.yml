@@ -16,8 +16,17 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       DATABASE_URL: postgres://user:pass@localhost:5432/planner_test
+      REDIS_URL: redis://localhost:6379
       JWT_SECRET: test_jwt_secret_min_32_characters_long
       JWT_REFRESH_SECRET: test_refresh_secret_min_32_chars_long
       GEMINI_API_KEY: test_key
