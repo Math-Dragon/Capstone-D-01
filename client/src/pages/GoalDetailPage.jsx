@@ -122,7 +122,7 @@ export default function GoalDetailPage() {
       try {
         const data = await api.get(`/goals/${id}`);
         setGoal(data);
-      } catch {}
+      } catch { /* ignore */ }
     });
   }, [id]);
 

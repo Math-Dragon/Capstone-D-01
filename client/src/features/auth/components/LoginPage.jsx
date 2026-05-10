@@ -133,7 +133,7 @@ export default function LoginPage() {
             <div className="grid grid-cols-2 gap-4">
               <button
                 type="button"
-                onClick={async () => { try { await loginWithGoogle(); navigate('/'); } catch {} }}
+                onClick={async () => { try { await loginWithGoogle(); navigate('/'); } catch { /* ignore */ } }}
                 disabled={loading}
                 className="flex items-center justify-center gap-2 py-2.5 px-4 border border-primary-200 rounded-xl hover:bg-primary-50 transition-colors duration-200 disabled:opacity-50"
               >

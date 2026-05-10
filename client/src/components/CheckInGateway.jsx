@@ -50,7 +50,7 @@ export default function CheckInGateway({ children }) {
     } finally {
       try {
         localStorage.setItem('lastCheckIn', getToday());
-      } catch {}
+      } catch { /* ignore */ }
       setShowCheckIn(false);
       setIsLoading(false);
     }
@@ -59,7 +59,7 @@ export default function CheckInGateway({ children }) {
   const handleSkip = () => {
     try {
       localStorage.setItem('lastCheckIn', getToday());
-    } catch {}
+    } catch { /* ignore */ }
     setShowCheckIn(false);
   };
 
