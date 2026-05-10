@@ -29,6 +29,7 @@ jobs:
         with:
           node-version: '20'
       - run: cd server && npm ci
+      - run: cd server && npm run migrate:up
       - run: cd server && npm run lint
       - run: cd server && npm test -- --coverage
       - run: cd client && npm ci
