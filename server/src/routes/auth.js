@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authService = require('../services/auth.service');
 const { authenticate } = require('../middleware/authenticate');
+const { validate } = require('../middleware/validate');
 const { registerSchema, loginSchema } = require('../models/user.model');
 
 const REFRESH_COOKIE_OPTIONS = {
@@ -11,18 +12,16 @@ const REFRESH_COOKIE_OPTIONS = {
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
-router.post('/register', async (req, res, next) => {
+router.post('/register', validate({ body: registerSchema }), async (req, res, next) => {
   try {
-    const data = registerSchema.parse(req.body);
-    const user = await authService.register(data);
+    const user = await authService.register(req.body);
     res.status(201).json({ success: true, data: user });
   } catch (err) { next(err); }
 });
 
-router.post('/login', async (req, res, next) => {
+router.post('/login', validate({ body: loginSchema }), async (req, res, next) => {
   try {
-    const data = loginSchema.parse(req.body);
-    const result = await authService.login(data);
+    const result = await authService.login(req.body);
     res.cookie('refreshToken', result.refreshToken, REFRESH_COOKIE_OPTIONS);
     res.json({ success: true, data: { accessToken: result.accessToken, user: result.user } });
   } catch (err) { next(err); }

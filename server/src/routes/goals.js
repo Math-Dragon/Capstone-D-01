@@ -21,10 +21,9 @@ router.get('/', validate({ query: listGoalsQuerySchema }), async (req, res, next
   } catch (err) { next(err); }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', validate({ body: createGoalSchema }), async (req, res, next) => {
   try {
-    const data = createGoalSchema.parse(req.body);
-    const goal = await goalService.create(req.user.id, data);
+    const goal = await goalService.create(req.user.id, req.body);
     res.status(201).json({ success: true, data: goal });
   } catch (err) { next(err); }
 });
@@ -36,10 +35,9 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', validate({ body: updateGoalSchema }), async (req, res, next) => {
   try {
-    const data = updateGoalSchema.parse(req.body);
-    const goal = await goalService.update(req.user.id, req.params.id, data);
+    const goal = await goalService.update(req.user.id, req.params.id, req.body);
     res.json({ success: true, data: goal });
   } catch (err) { next(err); }
 });

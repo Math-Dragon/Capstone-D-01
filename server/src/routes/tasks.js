@@ -21,10 +21,9 @@ router.get('/', validate({ query: listTasksQuerySchema }), async (req, res, next
   } catch (err) { next(err); }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', validate({ body: createTaskSchema }), async (req, res, next) => {
   try {
-    const data = createTaskSchema.parse(req.body);
-    const task = await taskService.create(req.user.id, data);
+    const task = await taskService.create(req.user.id, req.body);
     res.status(201).json({ success: true, data: task });
   } catch (err) { next(err); }
 });
@@ -36,18 +35,16 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', validate({ body: updateTaskSchema }), async (req, res, next) => {
   try {
-    const data = updateTaskSchema.parse(req.body);
-    const task = await taskService.update(req.user.id, req.params.id, data);
+    const task = await taskService.update(req.user.id, req.params.id, req.body);
     res.json({ success: true, data: task });
   } catch (err) { next(err); }
 });
 
-router.patch('/:id', async (req, res, next) => {
+router.patch('/:id', validate({ body: updateTaskSchema }), async (req, res, next) => {
   try {
-    const data = updateTaskSchema.parse(req.body);
-    const task = await taskService.update(req.user.id, req.params.id, data);
+    const task = await taskService.update(req.user.id, req.params.id, req.body);
     res.json({ success: true, data: task });
   } catch (err) { next(err); }
 });
