@@ -11,3 +11,4 @@ server/coverage/
 .DS_Store
 *.log
 pgdata/
+.npm-cache/
