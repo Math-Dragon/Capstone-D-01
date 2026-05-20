@@ -1,6 +1,7 @@
 const { validateAIOutput, validateChatOutput } = require('../llm');
 const { generateMockSuggestion, generateMockChat, generateMockTaskAction } = require('../llm-mock');
 const { isMock, callWithRetry } = require('../llm-client');
+const { planResponseSchema, chatResponseSchema } = require('../../constants/response-schema');
 const logger = require('../../utils/logger');
 const { aiRequestCount } = require('../../utils/metrics');
 const { TEMPLATES, TEMPERATURES } = require('./templates');
@@ -137,6 +138,7 @@ async function callLLM(ctx, isChat) {
         label: `coach.${ctx.sessionType}`,
         timeoutMs: isChat ? 25000 : 30000,
         temperature: TEMPERATURES[ctx.sessionType],
+        responseSchema: isChat ? chatResponseSchema : planResponseSchema,
       });
       raw = result.content;
       attempts = result.attempts || [];

@@ -68,9 +68,9 @@ function _genOllamaUrl() {
   return `${config.ollamaBaseUrl}/v1/chat/completions`;
 }
 
-async function callGemini(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
+async function callGemini(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature, responseSchema) {
   initGemini();
-  const { modelConfig, contentConfig } = buildGeminiPayload(systemPrompt, userMessage, config.geminiModel, temperature);
+  const { modelConfig, contentConfig } = buildGeminiPayload(systemPrompt, userMessage, config.geminiModel, temperature, responseSchema);
   const model = genAI.getGenerativeModel(modelConfig);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -88,10 +88,10 @@ async function callGemini(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperatu
   }
 }
 
-async function callGeminiPaid(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
+async function callGeminiPaid(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature, responseSchema) {
   initGeminiPaid();
   if (!genAIPaid) throw new Error('Gemini Paid not configured');
-  const { modelConfig, contentConfig } = buildGeminiPayload(systemPrompt, userMessage, config.geminiPaidModel, temperature);
+  const { modelConfig, contentConfig } = buildGeminiPayload(systemPrompt, userMessage, config.geminiPaidModel, temperature, responseSchema);
   const model = genAIPaid.getGenerativeModel(modelConfig);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -109,9 +109,9 @@ async function callGeminiPaid(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, tempe
   }
 }
 
-async function callGlm(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
+async function callGlm(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature, responseSchema) {
   _loadSystemPrompt();
-  const { url, body } = buildGlmPayload(config.glmBaseUrl, systemPrompt, userMessage, config.glmModel, temperature);
+  const { url, body } = buildGlmPayload(config.glmBaseUrl, systemPrompt, userMessage, config.glmModel, temperature, responseSchema);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -144,9 +144,9 @@ async function callGlm(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature)
   }
 }
 
-async function callOpenRouter(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
+async function callOpenRouter(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature, responseSchema) {
   _loadSystemPrompt();
-  const { url, body } = buildOpenRouterPayload(systemPrompt, userMessage, config.openrouterModel, temperature);
+  const { url, body } = buildOpenRouterPayload(systemPrompt, userMessage, config.openrouterModel, temperature, responseSchema);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -179,9 +179,9 @@ async function callOpenRouter(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, tempe
   }
 }
 
-async function callOllama(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
+async function callOllama(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature, responseSchema) {
   _loadSystemPrompt();
-  const { body } = buildOllamaPayload(systemPrompt, userMessage, config.ollamaModel, temperature);
+  const { body } = buildOllamaPayload(systemPrompt, userMessage, config.ollamaModel, temperature, responseSchema);
   const url = _genOllamaUrl();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -212,7 +212,7 @@ async function callOllama(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperatu
   }
 }
 
-async function callWithRetry(userMessage, { maxRetries = 1, label = 'llm', timeoutMs = DEFAULT_TIMEOUT_MS, temperature } = {}) {
+async function callWithRetry(userMessage, { maxRetries = 1, label = 'llm', timeoutMs = DEFAULT_TIMEOUT_MS, temperature, responseSchema } = {}) {
   if (isMock) {
     throw new Error('llm-client.callWithRetry called while LLM_PROVIDER=mock');
   }
@@ -243,7 +243,7 @@ async function callWithRetry(userMessage, { maxRetries = 1, label = 'llm', timeo
 
   if (config.llmProvider === 'ollama') {
     const content = await withRetry(
-      makeTracker('ollama', () => callOllama(userMessage, timeoutMs, temperature)),
+      makeTracker('ollama', () => callOllama(userMessage, timeoutMs, temperature, responseSchema)),
       { maxAttempts: maxRetries, delayMs: 500, maxDelayMs: 8000, shouldRetry: isRetryable, label: `${label}:ollama` }
     );
     return { content, attempts };
@@ -266,7 +266,7 @@ async function callWithRetry(userMessage, { maxRetries = 1, label = 'llm', timeo
     try {
       const effectiveTimeout = provider.timeout || timeoutMs;
       const content = await withRetry(
-        makeTracker(provider.name, () => provider.call(userMessage, effectiveTimeout, temperature)),
+        makeTracker(provider.name, () => provider.call(userMessage, effectiveTimeout, temperature, responseSchema)),
         { maxAttempts: maxRetries, delayMs: 500, maxDelayMs: 8000, shouldRetry: isRetryable, label: `${label}:${provider.name}` }
       );
       return { content, attempts };

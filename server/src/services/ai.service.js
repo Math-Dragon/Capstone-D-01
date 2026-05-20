@@ -3,6 +3,7 @@ const { z } = require('zod');
 const { validateAIOutput, SuggestionSchema } = require('./llm');
 const { generateMockSuggestion } = require('./llm-mock');
 const { isMock, callWithRetry } = require('./llm-client');
+const { planResponseSchema } = require('../constants/response-schema');
 const repos = require('../repositories');
 const db = require('../db');
 const logger = require('../utils/logger');
@@ -91,7 +92,7 @@ class AIService {
     const userMessage = 'CONTEXT:\n' + JSON.stringify(userContext);
     let raw;
     try {
-      raw = await callWithRetry(userMessage, { maxRetries: 3, label: 'ai.suggestPlan' });
+      raw = await callWithRetry(userMessage, { maxRetries: 3, label: 'ai.suggestPlan', responseSchema: planResponseSchema });
     } catch (err) {
       if (err.name === 'AbortError') {
         const e = new Error('AI request timed out. Please try again.');
