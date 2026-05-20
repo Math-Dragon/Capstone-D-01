@@ -121,7 +121,7 @@ const decideSchema = z.object({
 
 const decideParamsSchema = z.object({
   recId: z.string().uuid(),
-  taskId: z.string().uuid(),
+  taskId: z.string(),
 });
 
 module.exports = { coachRequestSchema, decideSchema, decideParamsSchema, coachActionEnum, moodEnum, skipReasonEnum };
