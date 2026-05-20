@@ -1,12 +1,20 @@
 const express = require('express');
 const router = express.Router();
+const { z } = require('zod');
 const goalService = require('../services/goal.service');
 const { authenticate } = require('../middleware/authenticate');
-const { createGoalSchema, updateGoalSchema } = require('../models/goal.model');
+const { validate } = require('../middleware/validate');
+const { createGoalSchema, updateGoalSchema, goalStatusEnum } = require('../models/goal.model');
 
 router.use(authenticate);
 
-router.get('/', async (req, res, next) => {
+const listGoalsQuerySchema = z.object({
+  status: goalStatusEnum.optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
+
+router.get('/', validate({ query: listGoalsQuerySchema }), async (req, res, next) => {
   try {
     const goals = await goalService.list(req.user.id, req.query);
     res.json({ success: true, data: goals });

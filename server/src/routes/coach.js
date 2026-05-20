@@ -5,11 +5,23 @@ const coachRouter = require('../services/coach');
 const repos = require('../repositories');
 const { authenticate } = require('../middleware/authenticate');
 const { aiLimiter } = require('../middleware/rateLimiter');
-const { coachActionSchema } = require('../models/coach.model');
+const { validate } = require('../middleware/validate');
+const { coachRequestSchema, decideSchema, decideParamsSchema } = require('../models/coach.model');
 
 router.use(authenticate);
 
-router.get('/history', async (req, res, next) => {
+const historyQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
+
+const auditQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+  action: z.string().max(50).optional(),
+});
+
+router.get('/history', validate({ query: historyQuerySchema }), async (req, res, next) => {
   try {
     const messages = await repos.chatMessage.findByUser(req.user.id);
     res.json({ success: true, data: messages });
@@ -27,13 +39,11 @@ router.get('/recommendations/metrics', async (req, res, next) => {
   }
 });
 
-router.post('/recommendations/:recId/tasks/:taskId/decide', async (req, res, next) => {
+router.post('/recommendations/:recId/tasks/:taskId/decide',
+  validate({ body: decideSchema, params: decideParamsSchema }),
+  async (req, res, next) => {
   try {
-    const decideSchema = z.object({
-      decision: z.enum(['accepted', 'rejected']),
-      session_id: z.string().optional(),
-    });
-    const { decision, session_id } = decideSchema.parse(req.body);
+    const { decision, session_id } = req.body;
     const result = await coachRouter.decideTask(
       req.user.id,
       req.params.recId,
@@ -54,12 +64,11 @@ router.post('/recommendations/:recId/tasks/:taskId/decide', async (req, res, nex
   }
 });
 
-router.get('/audit', async (req, res, next) => {
+router.get('/audit', validate({ query: auditQuerySchema }), async (req, res, next) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
-    const offset = parseInt(req.query.offset, 10) || 0;
+    const { limit, offset, action } = req.query;
     const [logs, actionCounts] = await Promise.all([
-      repos.audit.findByUserId(req.user.id, { limit, offset, action: req.query.action }),
+      repos.audit.findByUserId(req.user.id, { limit, offset, action }),
       repos.audit.countByAction(req.user.id),
     ]);
     res.json({ success: true, data: { logs, actionCounts, limit, offset } });
@@ -110,9 +119,9 @@ router.post('/undo', async (req, res, next) => {
   }
 });
 
-router.post('/', aiLimiter, async (req, res, next) => {
+router.post('/', aiLimiter, validate({ body: coachRequestSchema }), async (req, res, next) => {
   try {
-    const { action, payload } = coachActionSchema.parse(req.body);
+    const { action, payload } = req.body;
     const result = await coachRouter.dispatch(req.user.id, action, payload);
 
     res.json({
