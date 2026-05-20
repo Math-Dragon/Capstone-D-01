@@ -9,10 +9,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (process.env.CLOSE_DB_AFTER_TESTS !== 'true') return;
   if (process.env.SKIP_DB_CHECK === 'true') return;
 
-  if (!global.__poolEnded) {
-    global.__poolEnded = true;
-    await pool.end();
-  }
+  await pool.end();
 });
