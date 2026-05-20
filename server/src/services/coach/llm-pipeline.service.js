@@ -161,7 +161,11 @@ async function callLLM(ctx, isChat) {
     } catch (validationErr) {
       if (validationErr.code === 'AI_OUTPUT_INVALID' && attempt < MAX_BUSINESS_RETRIES) {
         logger.warn({ attempt, sessionType: ctx.sessionType, err: validationErr.message }, 'JSON parse failed, retrying with format hint');
-        retryHint = '\n\n[Format error: Your response was not valid JSON. Respond with ONLY valid JSON using the output structure described in the system prompt. Do not include any text before or after the JSON.]';
+        if (validationErr.message.includes('schema violation at')) {
+          retryHint = `\n\n[Schema validation: ${validationErr.message.split('schema violation at ')[1]}]\nPlease correct this and respond with valid JSON only.`;
+        } else {
+          retryHint = '\n\n[Format error: Your response was not valid JSON. Respond with ONLY valid JSON using the output structure described in the system prompt. Do not include any text before or after the JSON.]';
+        }
         continue;
       }
       aiRequestCount.inc({ type: `coach.${ctx.sessionType}`, status: 'error' });
