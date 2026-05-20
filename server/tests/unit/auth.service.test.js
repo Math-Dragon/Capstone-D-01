@@ -22,7 +22,6 @@ jest.mock('../../src/config/firebase', () => {
 });
 
 const repos = require('../../src/repositories');
-const db = require('../../src/db');
 const authService = require('../../src/services/auth.service');
 
 describe('authService', () => {

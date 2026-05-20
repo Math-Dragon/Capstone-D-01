@@ -1,6 +1,6 @@
 const { UserEntity, registerSchema, loginSchema } = require('../../src/models/user.model');
-const { GoalEntity, createGoalSchema, updateGoalSchema } = require('../../src/models/goal.model');
-const { TaskEntity, createTaskSchema, updateTaskSchema } = require('../../src/models/task.model');
+const { createGoalSchema, updateGoalSchema } = require('../../src/models/goal.model');
+const { TaskEntity, createTaskSchema } = require('../../src/models/task.model');
 const { coachActionSchema } = require('../../src/models/coach.model');
 const { RefreshTokenEntity } = require('../../src/models/refresh-token.model');
 const { AuditLogEntity } = require('../../src/models/audit-log.model');

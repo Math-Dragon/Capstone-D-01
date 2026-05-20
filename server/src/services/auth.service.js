@@ -5,6 +5,7 @@ const config = require('../config');
 const db = require('../db');
 const repos = require('../repositories');
 const admin = require('../config/firebase');
+const logger = require('../utils/logger');
 
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -111,7 +112,7 @@ class AuthService {
           google_id: uid,
         }, client);
         if (!email) {
-          console.warn(`[auth] User ${u.id} created with placeholder email — account merging may be needed`);
+          logger.warn({ userId: u.id }, 'User created with placeholder email — account merging may be needed');
         }
         await repos.profile.create({
           user_id: u.id,
@@ -157,9 +158,8 @@ class AuthService {
       throw err;
     }
 
-    let decoded;
     try {
-      decoded = jwt.verify(refreshToken, config.jwtRefreshSecret);
+      jwt.verify(refreshToken, config.jwtRefreshSecret);
     } catch {
       const err = new Error('Invalid refresh token');
       err.statusCode = 401;

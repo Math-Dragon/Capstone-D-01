@@ -1,5 +1,4 @@
 const repos = require('../../repositories');
-const logger = require('../../utils/logger');
 
 const DAY_ABBR = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
