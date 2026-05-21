@@ -1,17 +1,8 @@
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-function _schemaForPayload(responseSchema) {
-  if (!responseSchema) return { type: 'json_object' };
-  return {
-    type: 'json_schema',
-    json_schema: { name: 'Plan', schema: responseSchema },
-  };
-}
-
-function buildGeminiPayload(systemPrompt, userMessage, model, temperature, responseSchema) {
+function buildGeminiPayload(systemPrompt, userMessage, model, temperature) {
   const generationConfig = { responseMimeType: 'application/json' };
   if (temperature !== undefined) generationConfig.temperature = temperature;
-  if (responseSchema) generationConfig.responseSchema = responseSchema;
   return {
     modelConfig: {
       model,
@@ -24,33 +15,33 @@ function buildGeminiPayload(systemPrompt, userMessage, model, temperature, respo
   };
 }
 
-function buildOaiCompatPayload(url, systemPrompt, userMessage, model, temperature, responseSchema) {
+function buildOaiCompatPayload(url, systemPrompt, userMessage, model, temperature) {
   const body = {
     model,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userMessage },
     ],
-    response_format: _schemaForPayload(responseSchema),
+    response_format: { type: 'json_object' },
     stream: false,
   };
   if (temperature !== undefined) body.temperature = temperature;
   return { url, body };
 }
 
-function buildOpenRouterPayload(systemPrompt, userMessage, model, temperature, responseSchema) {
-  const result = buildOaiCompatPayload(OPENROUTER_BASE_URL, systemPrompt, userMessage, model, temperature, responseSchema);
+function buildOpenRouterPayload(systemPrompt, userMessage, model, temperature) {
+  const result = buildOaiCompatPayload(OPENROUTER_BASE_URL, systemPrompt, userMessage, model, temperature);
   result.body.thinking = { type: 'disabled' };
   return result;
 }
 
-function buildGlmPayload(url, systemPrompt, userMessage, model, temperature, responseSchema) {
-  const result = buildOaiCompatPayload(url, systemPrompt, userMessage, model, temperature, responseSchema);
+function buildGlmPayload(url, systemPrompt, userMessage, model, temperature) {
+  const result = buildOaiCompatPayload(url, systemPrompt, userMessage, model, temperature);
   result.body.thinking = { type: 'disabled' };
   return result;
 }
 
-function buildOllamaPayload(systemPrompt, userMessage, model, temperature, _responseSchema) {
+function buildOllamaPayload(systemPrompt, userMessage, model, temperature) {
   const body = {
     model,
     messages: [
