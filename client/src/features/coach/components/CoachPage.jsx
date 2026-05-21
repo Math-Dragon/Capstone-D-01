@@ -288,16 +288,34 @@ function PlanFormModal({ onSubmit, onCancel, disabled, initialPayload }) {
   );
 }
 
-function TaskCard({ task, onDecide }) {
+function TaskCard({ task, onDecide, onViolationAccept }) {
   const slotLabels = { morning: 'Pagi', afternoon: 'Siang', evening: 'Malam' };
+  const hasViolation = !!task.violation;
+
+  const handleAccept = () => {
+    if (hasViolation) {
+      onViolationAccept(task);
+    } else {
+      onDecide(task.taskId, 'accepted');
+    }
+  };
 
   return (
-    <div className="bg-white border border-primary-100 rounded-xl p-4 shadow-soft">
+    <div className={`bg-white rounded-xl p-4 shadow-soft ${hasViolation ? 'border border-amber-300' : 'border border-primary-100'}`}>
       <div className="flex items-start justify-between mb-2">
         <h4 className="text-sm font-semibold text-primary-900 flex-1">{task.title}</h4>
-        <div className="flex gap-1.5 ml-2 shrink-0">
+        <div className="flex gap-1.5 ml-2 shrink-0 items-center">
           {task.duration_estimate && (
-            <span className="text-[10px] px-2 py-0.5 bg-primary-100 text-primary-600 rounded-full">{task.duration_estimate}m</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+              hasViolation && task.violation.field === 'duration_estimate'
+                ? 'bg-amber-100 text-red-600 font-semibold'
+                : 'bg-primary-100 text-primary-600'
+            }`}>
+              {task.duration_estimate}m
+            </span>
+          )}
+          {hasViolation && (
+            <span className="text-amber-500 text-sm" title={task.violation.message}>⚠</span>
           )}
           {task.planned_slot && (
             <span className="text-[10px] px-2 py-0.5 bg-accent-100 text-accent-600 rounded-full">
@@ -318,7 +336,7 @@ function TaskCard({ task, onDecide }) {
               ✕ Tolak
             </button>
             <button
-              onClick={() => onDecide(task.taskId, 'accepted')}
+              onClick={handleAccept}
               className="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
               aria-label={`Terima tugas: ${task.title}`}
             >
@@ -335,9 +353,90 @@ function TaskCard({ task, onDecide }) {
   );
 }
 
+function ViolationAdjustModal({ task, onAdjust, onSkip, onCancel }) {
+  const modalRef = useRef(null);
+  useFocusTrap(modalRef, true);
+  const violation = task.violation;
+  if (!violation) return null;
+
+  const isTooBig = violation.constraint === 'max:90';
+  const bound = isTooBig ? 90 : 25;
+  const direction = isTooBig ? 'melebihi batas maksimal' : 'di bawah batas minimal';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onCancel}>
+      <div
+        ref={modalRef}
+        className="bg-white rounded-2xl shadow-xl max-w-sm w-full mx-4 p-6 animate-fade-in"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+            <span className="text-lg">⚠️</span>
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-primary-900">Durasi Tugas</h3>
+            <p className="text-xs text-primary-400">{task.title}</p>
+          </div>
+        </div>
+
+        <p className="text-sm text-primary-700 mb-4">
+          Durasi <span className="font-semibold text-red-600">{violation.value} menit</span> {direction} {bound} menit.
+        </p>
+
+        <p className="text-xs text-primary-400 mb-5">
+          {isTooBig
+            ? 'Tugas yang terlalu panjang dapat mengurangi efektivitas belajar.'
+            : 'Tugas yang terlalu pendek mungkin kurang memberikan tantangan.'}
+        </p>
+
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={() => onAdjust(task.taskId, { duration_estimate: bound })}
+            className="w-full px-4 py-2.5 rounded-xl text-sm font-medium bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+          >
+            Sesuaikan ke {bound} menit
+          </button>
+          <button
+            onClick={() => onSkip(task.taskId)}
+            className="w-full px-4 py-2.5 rounded-xl text-sm font-medium border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+          >
+            Lewati tugas ini
+          </button>
+          <button
+            onClick={onCancel}
+            className="w-full px-4 py-2.5 rounded-xl text-sm font-medium text-primary-400 hover:text-primary-600 transition-colors"
+          >
+            Batal
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RecommendationPanel({ recommendation, onDecide }) {
   const decidedCount = recommendation.tasks.filter((t) => t.status !== 'pending').length;
   const totalTasks = recommendation.tasks.length;
+  const [violationModalTask, setViolationModalTask] = useState(null);
+
+  const handleViolationAccept = (task) => {
+    setViolationModalTask(task);
+  };
+
+  const handleAdjust = (taskId, overrides) => {
+    onDecide(taskId, 'accepted', overrides);
+    setViolationModalTask(null);
+  };
+
+  const handleSkipFromViolation = (taskId) => {
+    onDecide(taskId, 'rejected');
+    setViolationModalTask(null);
+  };
+
+  const handleCancelViolation = () => {
+    setViolationModalTask(null);
+  };
 
   return (
     <div className="space-y-4">
@@ -353,9 +452,18 @@ function RecommendationPanel({ recommendation, onDecide }) {
       </div>
       <div className="space-y-3">
         {recommendation.tasks.map((task) => (
-          <TaskCard key={task.taskId} task={task} onDecide={onDecide} />
+          <TaskCard key={task.taskId} task={task} onDecide={onDecide} onViolationAccept={handleViolationAccept} />
         ))}
       </div>
+
+      {violationModalTask && (
+        <ViolationAdjustModal
+          task={violationModalTask}
+          onAdjust={handleAdjust}
+          onSkip={handleSkipFromViolation}
+          onCancel={handleCancelViolation}
+        />
+      )}
     </div>
   );
 }
@@ -398,7 +506,7 @@ function ErrorView({ error, onRetry, onEditForm }) {
 }
 
 export default function CoachPage() {
-  const { messages, status, sendMessage, generatePlan, retryGeneratePlan, getLastPayload, decideTask, mode, recommendation, error, banner, pipelineTrace, observabilityRefresh } = useCoach();
+  const { messages, status, sendMessage, generatePlan, retryGeneratePlan, getLastPayload, decideTask, mode, recommendation, error, banner, pipelineTrace, observabilityRefresh, trimmedTasks, dismissTrimmed } = useCoach();
   const [input, setInput] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [adjustmentExpanded, setAdjustmentExpanded] = useState(false);
@@ -474,6 +582,25 @@ export default function CoachPage() {
       )}
 
       {banner && <div className="mb-4"><AdaptationBanner /></div>}
+      {trimmedTasks && (
+        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-amber-600 text-sm">📐</span>
+            <p className="text-xs text-amber-800">
+              {trimmedTasks.count} tugas dipangkas agar sesuai jadwal mingguanmu.
+            </p>
+          </div>
+          <button
+            onClick={dismissTrimmed}
+            className="text-amber-400 hover:text-amber-600 shrink-0 ml-3"
+            aria-label="Tutup notifikasi"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {mode === 'loading' && (
         <div className="flex-1 overflow-y-auto min-h-0">
