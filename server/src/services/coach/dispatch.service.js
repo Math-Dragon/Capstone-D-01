@@ -114,7 +114,7 @@ class DispatchService {
       await this._updateState(userId, action, payload, sessionId);
     }
 
-    if (validated) {
+    if (validated && !violations) {
       const tasksToSchedule = usesChatSchema ? validated.plan?.tasks : validated.tasks;
       if (tasksToSchedule && tasksToSchedule.length > 0) {
         const scheduled = scheduleTasks(tasksToSchedule, {

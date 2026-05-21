@@ -314,9 +314,6 @@ function TaskCard({ task, onDecide, onViolationAccept }) {
               {task.duration_estimate}m
             </span>
           )}
-          {hasViolation && (
-            <span className="text-amber-500 text-sm" title={task.violation.message}>⚠</span>
-          )}
           {task.planned_slot && (
             <span className="text-[10px] px-2 py-0.5 bg-accent-100 text-accent-600 rounded-full">
               {slotLabels[task.planned_slot] || task.planned_slot}
@@ -324,6 +321,24 @@ function TaskCard({ task, onDecide, onViolationAccept }) {
           )}
         </div>
       </div>
+      {hasViolation && (() => {
+        const v = task.violation;
+        const isTooBig = v.constraint === 'max:90';
+        const bound = isTooBig ? 90 : 25;
+        return (
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 mb-3">
+            <span className="text-amber-500 text-sm shrink-0 mt-0.5">⚠️</span>
+            <div>
+              <p className="text-xs text-amber-800 font-medium mb-0.5">
+                Durasi {v.value} menit {isTooBig ? 'melebihi batas maksimal' : 'di bawah batas minimal'} {bound} menit.
+              </p>
+              <p className="text-[11px] text-amber-600">
+                Sesuaikan durasi sebelum menerima, atau lewati tugas ini.
+              </p>
+            </div>
+          </div>
+        );
+      })()}
       {task.rationale && <p className="text-xs text-primary-400 italic mb-3">{task.rationale}</p>}
       <div className="flex gap-2 justify-end">
         {task.status === 'pending' ? (
