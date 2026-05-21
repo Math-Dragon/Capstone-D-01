@@ -43,13 +43,14 @@ router.post('/recommendations/:recId/tasks/:taskId/decide',
   validate({ body: decideSchema, params: decideParamsSchema }),
   async (req, res, next) => {
   try {
-    const { decision, session_id } = req.body;
+    const { decision, session_id, overrides } = req.body;
     const result = await coachRouter.decideTask(
       req.user.id,
       req.params.recId,
       req.params.taskId,
       decision,
-      session_id
+      session_id,
+      overrides
     );
     res.json({ success: true, data: result });
   } catch (err) {

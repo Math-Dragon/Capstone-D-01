@@ -117,6 +117,9 @@ const coachRequestSchema = z.discriminatedUnion('action', [
 const decideSchema = z.object({
   decision: z.enum(['accepted', 'rejected']),
   session_id: z.string().optional(),
+  overrides: z.object({
+    duration_estimate: z.number().int().min(25).max(90).optional(),
+  }).optional(),
 });
 
 const decideParamsSchema = z.object({

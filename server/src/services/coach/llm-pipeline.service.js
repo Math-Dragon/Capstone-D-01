@@ -1,4 +1,4 @@
-const { validateAIOutput, validateChatOutput } = require('../llm');
+const { validateChatOutput, validateWithWarnings } = require('../llm');
 const { generateMockSuggestion, generateMockChat, generateMockTaskAction } = require('../llm-mock');
 const { isMock, callWithRetry } = require('../llm-client');
 const { planResponseSchema, chatResponseSchema } = require('../../constants/response-schema');
@@ -158,8 +158,21 @@ async function callLLM(ctx, isChat) {
     allAttempts = allAttempts.concat(attempts);
 
     let validated;
+    let violations;
     try {
-      validated = isChat ? validateChatOutput(raw) : validateAIOutput(raw);
+      if (isChat) {
+        validated = validateChatOutput(raw);
+      } else {
+        const vResult = validateWithWarnings(raw);
+        validated = vResult.data;
+        if (vResult.violations.length > 0) {
+          return {
+            validated: vResult.data,
+            llmMeta: { attempts: allAttempts, duration_ms: totalDuration },
+            violations: vResult.violations,
+          };
+        }
+      }
     } catch (validationErr) {
       if (validationErr.code === 'AI_OUTPUT_INVALID' && attempt < MAX_BUSINESS_RETRIES) {
         logger.warn({ attempt, sessionType: ctx.sessionType, err: validationErr.message }, 'JSON parse failed, retrying with format hint');
@@ -179,7 +192,7 @@ async function callLLM(ctx, isChat) {
       throw validationErr;
     }
 
-    if (!isChat && validated && Array.isArray(validated.tasks) && validated.tasks.length > 0) {
+    if (!isChat && !violations && validated && Array.isArray(validated.tasks) && validated.tasks.length > 0) {
       const { result: planResult, retry } = applyBusinessRules(validated, ctx);
       if (!retry || attempt === MAX_BUSINESS_RETRIES) {
         return { validated: planResult, llmMeta: { attempts: allAttempts, duration_ms: totalDuration } };
