@@ -65,6 +65,10 @@ describe('student-metrics.repo', () => {
       completion_rate_3d: 0.70,
       avg_difficulty_7d: 3.5,
     });
+    const sql = db.query.mock.calls[0][0];
+    expect(sql).toContain('t.status');
+    expect(sql).toContain('t.completed_at');
+    expect(sql).toContain('t.feedback_difficulty');
   });
 
   test('computeRollingMetrics handles null row', async () => {

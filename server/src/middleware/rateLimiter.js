@@ -3,13 +3,22 @@ const { RedisStore } = require('rate-limit-redis');
 const { redisClient, connectRedis } = require('../services/redis');
 const logger = require('../utils/logger');
 
+const windowMs = parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 60 * 1000;
+const authMax = parseInt(process.env.AUTH_RATE_LIMIT_MAX, 10) || 5;
+const aiMax = parseInt(process.env.AI_RATE_LIMIT_MAX, 10) || 20;
+
 function makeLimiter(opts) {
-  return rateLimit({
+  const limiterOptions = {
     windowMs: opts.windowMs,
     max: opts.max,
     standardHeaders: true,
     legacyHeaders: false,
-    store: new RedisStore({
+    keyGenerator: opts.keyGenerator,
+    handler: opts.handler,
+  };
+
+  if (process.env.NODE_ENV !== 'test') {
+    limiterOptions.store = new RedisStore({
       sendCommand: async (...args) => {
         try {
           await connectRedis();
@@ -21,29 +30,55 @@ function makeLimiter(opts) {
         }
       },
       prefix: `rl:${opts.prefix}:`,
-    }),
-    keyGenerator: opts.keyGenerator,
-    handler: opts.handler,
-  });
+    });
+  }
+
+  return rateLimit(limiterOptions);
+}
+
+function getRetryAfterSeconds(req) {
+  const resetTime = req.rateLimit?.resetTime;
+  if (!resetTime) return 60;
+
+  const resetMs = resetTime instanceof Date ? resetTime.getTime() : new Date(resetTime).getTime();
+  if (!Number.isFinite(resetMs)) return 60;
+
+  return Math.max(1, Math.ceil((resetMs - Date.now()) / 1000));
 }
 
 const authLimiter = makeLimiter({
-  windowMs: 60 * 1000,
-  max: 5,
+  windowMs,
+  max: authMax,
   prefix: 'auth',
   keyGenerator: (req) => req.ip,
   handler: (req, res) => {
-    res.status(429).json({ success: false, error: { code: 'RATE_LIMITED', message: 'Too many auth attempts' } });
+    const retryAfterSeconds = getRetryAfterSeconds(req);
+    res.status(429).json({
+      success: false,
+      error: {
+        code: 'RATE_LIMITED',
+        message: `Too many auth attempts, please try again in ${retryAfterSeconds} seconds`,
+        retryAfterSeconds,
+      },
+    });
   },
 });
 
 const aiLimiter = makeLimiter({
-  windowMs: 60 * 1000,
-  max: 20,
+  windowMs,
+  max: aiMax,
   prefix: 'ai',
   keyGenerator: (req) => req.user?.id || req.ip,
   handler: (req, res) => {
-    res.status(429).json({ success: false, error: { code: 'RATE_LIMITED', message: 'Too many AI requests' } });
+    const retryAfterSeconds = getRetryAfterSeconds(req);
+    res.status(429).json({
+      success: false,
+      error: {
+        code: 'RATE_LIMITED',
+        message: `Too many AI requests, please try again in ${retryAfterSeconds} seconds`,
+        retryAfterSeconds,
+      },
+    });
   },
 });
 

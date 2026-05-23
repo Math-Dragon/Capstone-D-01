@@ -1,10 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const aiService = require('../services/ai.service');
-const { authenticate } = require('../middleware/authenticate');
 const { suggestPlanSchema } = require('../models/ai-recommendation.model');
-
-router.use(authenticate);
 
 router.post('/plan/suggest', async (req, res, next) => {
   try {

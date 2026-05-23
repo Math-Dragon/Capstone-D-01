@@ -20,7 +20,9 @@ export default function RegisterPage() {
     try {
       await loginWithGoogle();
       navigate('/');
-    } catch { /* ignore */ }
+    } catch (error) {
+      void error;
+    }
   };
 
   const onSubmit = async (data) => {
@@ -28,7 +30,9 @@ export default function RegisterPage() {
       const { confirmPassword, ...userData } = data;
       await registerUser(userData);
       navigate('/');
-    } catch { /* ignore */ }
+    } catch (error) {
+      void error;
+    }
   };
 
   return (

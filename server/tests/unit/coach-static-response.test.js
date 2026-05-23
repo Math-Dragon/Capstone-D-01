@@ -117,6 +117,10 @@ describe('respondFeedback', () => {
 });
 
 describe('respondSkip', () => {
+  beforeEach(() => {
+    jest.useRealTimers();
+  });
+
   test('reschedules task and sends message', async () => {
     repos.task.findByIdAndUser.mockResolvedValue({ title: 'Skipped Task' });
     repos.profile.findByUserId.mockResolvedValue({ availability: ['mon', 'wed'] });
@@ -129,6 +133,25 @@ describe('respondSkip', () => {
     expect(result.data.message).toContain('busy');
     expect(repos.task.update).toHaveBeenCalledWith('t1', expect.objectContaining({ planned_date: expect.any(String) }));
   });
+
+  test('reschedules to a future local calendar date without UTC date rollback', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-05-20T14:35:00.000Z'));
+    repos.task.findByIdAndUser.mockResolvedValue({ title: 'Skipped Task' });
+    repos.profile.findByUserId.mockResolvedValue({ availability: ['thu'] });
+    repos.task.update.mockResolvedValue({});
+    repos.chatMessage.create.mockResolvedValue({});
+    repos.audit.create.mockResolvedValue({});
+
+    await respondSkip('u1', { taskId: 't1', reason: 'busy' }, 's1');
+
+    expect(repos.task.update).toHaveBeenCalledWith('t1', expect.objectContaining({ planned_date: '2026-05-21' }));
+    jest.useRealTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
 
   test('uses default reason when not provided', async () => {
     repos.task.findByIdAndUser.mockResolvedValue(null);

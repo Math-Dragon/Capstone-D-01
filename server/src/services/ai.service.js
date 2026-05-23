@@ -86,7 +86,15 @@ class AIService {
   }
 
   async _callGeminiWithRetry(userContext) {
-    const userMessage = 'CONTEXT:\n' + JSON.stringify(userContext);
+    const userMessage = [
+      'SESSION_TYPE: initial_plan',
+      'TASK: Generate AI learning plan suggestions for /api/ai/plan/suggest.',
+      'Return valid JSON with exactly this top-level shape:',
+      '{ "tasks": [ { "title": "...", "description": "...", "duration_estimate": 45, "planned_date": "YYYY-MM-DD", "planned_slot": "morning", "rationale": "..." } ], "summary": "..." }',
+      'Do not return chat/message/plan wrapper. Do not return markdown. Do not include text outside JSON.',
+      'CONTEXT:',
+      JSON.stringify(userContext),
+    ].join('\n');
     let raw;
     try {
       raw = await callWithRetry(userMessage, { maxRetries: 3, label: 'ai.suggestPlan' });

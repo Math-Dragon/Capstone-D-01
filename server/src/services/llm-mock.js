@@ -16,6 +16,11 @@ function generateDates(deadline, count) {
 }
 
 const SLOT_CYCLE = ['morning', 'afternoon', 'evening'];
+const SLOT_LABELS = {
+  morning: 'pagi',
+  afternoon: 'siang',
+  evening: 'malam',
+};
 
 const TASK_TEMPLATES = [
   { title: 'Review fundamentals of {topic}', desc: 'Read introductory material and take notes on core concepts of {topic}', type: 'acquire' },
@@ -55,7 +60,7 @@ function generateMockSuggestion(ctx) {
       planned_date: dates[i],
       planned_slot: SLOT_CYCLE[(SLOT_CYCLE.indexOf(preferredSlot) + i) % 3],
       priority: i === 0 ? 'high' : 'medium',
-      rationale: `[MOCK] ${tmpl.type} task scheduled for ${SLOT_CYCLE[(SLOT_CYCLE.indexOf(preferredSlot) + i) % 3]} session to align with your learning preference.`,
+      rationale: `Tugas ini dijadwalkan pada sesi ${SLOT_LABELS[SLOT_CYCLE[(SLOT_CYCLE.indexOf(preferredSlot) + i) % 3]]} agar ritme belajarmu tetap nyaman dan konsisten.`,
     });
   }
 
@@ -63,7 +68,7 @@ function generateMockSuggestion(ctx) {
 
   return {
     tasks,
-    summary: `[MOCK] Generated ${taskCount} study tasks for "${goalTitle}" based on your ${weeklyHours}h/week target. Set LLM_PROVIDER=gemini to use real AI.`,
+    summary: `Rencana belajar untuk "${goalTitle}" sudah diperbarui menjadi ${taskCount} tugas. Jadwal ini disusun berdasarkan target belajarmu sekitar ${weeklyHours} jam per minggu agar progresnya tetap terarah dan realistis.`,
     next_check_in: nextCheckIn,
     adaptation_notes: null,
   };
@@ -157,7 +162,37 @@ function generateMockChat(ctx) {
   const lower = studentMsg.toLowerCase();
 
   let message;
-  if (lower.includes('sulit') || lower.includes('hard') || lower.includes('struggle')) {
+  if (
+    lower.includes('rekomendasi') ||
+    lower.includes('saran') ||
+    lower.includes('belajar apa') ||
+    lower.includes('apa yang harus') ||
+    lower.includes('next')
+  ) {
+    const goal = ctx.profile?.goal || 'target belajarmu';
+    const weeklyHours = ctx.profile?.weekly_available_hours || 5;
+    const level = ctx.profile?.current_level || 'beginner';
+    const remaining = ctx.remainingTasksSummary && ctx.remainingTasksSummary !== 'No tasks.'
+      ? ctx.remainingTasksSummary
+      : null;
+    const completionRate = Math.round((ctx.metrics?.completion_rate_7d || 0) * 100);
+    const focus = level === 'advanced'
+      ? 'latihan proyek kecil dan evaluasi hasil belajarmu'
+      : level === 'intermediate'
+        ? 'praktik terarah, recall konsep, dan review singkat'
+        : 'fondasi konsep, latihan kecil, dan catatan ringkas';
+
+    message = `Rekomendasi saya: fokus dulu pada ${goal}. Dengan target sekitar ${weeklyHours} jam per minggu, bagi belajar menjadi sesi pendek 25-45 menit agar konsisten. `;
+    message += `Untuk levelmu sekarang, prioritaskan ${focus}. `;
+    if (remaining) {
+      message += `Mulai dari task aktif yang paling dekat: ${remaining}. `;
+    }
+    if (completionRate > 0) {
+      message += `Progress 7 hari terakhir sekitar ${completionRate}%, jadi jaga ritme yang sudah terbentuk dan hindari menumpuk terlalu banyak tugas di satu hari.`;
+    } else {
+      message += 'Karena progress minggu ini belum terlihat besar, mulai dari satu task kecil hari ini lalu lanjutkan bertahap.';
+    }
+  } else if (lower.includes('sulit') || lower.includes('hard') || lower.includes('struggle')) {
     message = 'Saya mengerti bahwa ini terasa sulit. Coba pecah menjadi bagian yang lebih kecil dan fokus pada satu konsep dalam satu waktu. Apakah ada topik tertentu yang ingin kita bahas lebih detail?';
   } else if (lower.includes('lebih') || lower.includes('more') || lower.includes('challenge')) {
     message = 'Bagus, semangat belajarmu tinggi! Saya akan tingkatkan tingkat kesulitan pada tugas berikutnya. Tetap pertahankan konsistensi belajarmu.';
