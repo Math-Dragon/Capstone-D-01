@@ -74,6 +74,7 @@ const VALID_TRANSITIONS = Object.freeze({
 const statusTransitionSchema = z.object({
   status: taskStatusEnum,
   actual_duration: z.number().int().min(1).max(180).optional(),
+  skip_reason: z.string().max(100).optional(),
 });
 
 module.exports = {

@@ -47,7 +47,7 @@ export default function useTaskActions({ onUpdateTasks, refreshData }) {
   const handleComplete = useCallback(async (task) => {
     setActionLoading(task.id);
     try {
-      const result = await dispatchTaskAction('COMPLETE_TASK', { taskId: task.id });
+      await api.patch(`/tasks/${task.id}/status`, { status: 'done' });
       onUpdateTasks((prev) =>
         (Array.isArray(prev) ? prev : []).map((t) =>
           t.id === task.id ? { ...t, status: 'done' } : t
@@ -55,10 +55,6 @@ export default function useTaskActions({ onUpdateTasks, refreshData }) {
       );
       addToast('Tugas selesai!', 'success');
       notifyMutation();
-      if (result?.plan?.tasks?.length > 0) {
-        setProposal(result.plan);
-        persistProposal(result.plan);
-      }
       setActiveTask(task);
       setActiveModal('feedback');
     } catch (err) {
@@ -66,7 +62,7 @@ export default function useTaskActions({ onUpdateTasks, refreshData }) {
     } finally {
       setActionLoading(null);
     }
-  }, [dispatchTaskAction, onUpdateTasks, addToast]);
+  }, [onUpdateTasks, addToast]);
 
   const handleSkip = useCallback((task) => {
     setActiveTask(task);
@@ -87,29 +83,24 @@ export default function useTaskActions({ onUpdateTasks, refreshData }) {
     if (!activeTask) return;
     setActionLoading(activeTask.id);
     try {
-      const result = await dispatchTaskAction('SKIP_TASK', {
-        taskId: activeTask.id,
-        reason: reason || 'unspecified',
-        note,
+      await api.patch(`/tasks/${activeTask.id}/status`, {
+        status: 'skipped',
+        skip_reason: reason || undefined,
       });
       onUpdateTasks((prev) =>
         (Array.isArray(prev) ? prev : []).map((t) =>
           t.id === activeTask.id ? { ...t, status: 'skipped' } : t
         )
       );
-      addToast('Tugas dilewati. Coach akan menyesuaikan.', 'warning');
+      addToast('Tugas dilewati.', 'warning');
       notifyMutation();
-      if (result?.plan?.tasks?.length > 0) {
-        setProposal(result.plan);
-        persistProposal(result.plan);
-      }
       closeModal();
     } catch (err) {
       addToast('Gagal melewati tugas.', 'error');
     } finally {
       setActionLoading(null);
     }
-  }, [activeTask, dispatchTaskAction, onUpdateTasks, addToast, closeModal]);
+  }, [activeTask, onUpdateTasks, addToast, closeModal]);
 
   const confirmModify = useCallback(async (changes) => {
     if (!activeTask) return;

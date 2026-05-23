@@ -1,4 +1,5 @@
 const repos = require('../repositories');
+const { VALID_TRANSITIONS } = require('../models/task.model');
 
 class TaskService {
   async list(userId, filters = {}) {
@@ -47,6 +48,61 @@ class TaskService {
 
     const statusChanged = data.status && data.status !== original.status;
     if (statusChanged && (data.status === 'done' || original.status === 'done')) {
+      await this.recalculateProgress(userId, updated);
+    }
+
+    return updated;
+  }
+
+  async updateStatus(userId, taskId, status, { actual_duration, skip_reason } = {}) {
+    const original = await this.getById(userId, taskId);
+
+    if (!VALID_TRANSITIONS[original.status]?.includes(status)) {
+      const err = new Error(`Transition from '${original.status}' to '${status}' is not allowed`);
+      err.statusCode = 400;
+      err.code = 'INVALID_TRANSITION';
+      throw err;
+    }
+
+    const updateData = { status };
+
+    if (status === 'done') {
+      updateData.completed_at = new Date();
+      updateData.actual_duration = actual_duration ?? original.duration_estimate;
+    } else if (status === 'skipped') {
+      updateData.completed_at = null;
+      if (skip_reason) updateData.skip_reason = skip_reason;
+    } else {
+      updateData.completed_at = null;
+    }
+
+    const updated = await repos.task.update(taskId, updateData);
+
+    const metrics = {};
+
+    if (status === 'done') {
+      const current = await repos.studentMetrics.findByUserId(userId);
+      metrics.streak_days = (current?.streak_days || 0) + 1;
+      metrics.total_completed = (current?.total_completed || 0) + 1;
+      metrics.consecutive_skips = 0;
+    } else if (status === 'skipped') {
+      const current = await repos.studentMetrics.findByUserId(userId);
+      metrics.total_skipped = (current?.total_skipped || 0) + 1;
+      metrics.consecutive_skips = (current?.consecutive_skips || 0) + 1;
+    }
+
+    if (Object.keys(metrics).length > 0) {
+      try {
+        const rolling = await repos.studentMetrics.computeRollingMetrics(userId);
+        Object.assign(metrics, rolling);
+      } catch (err) {
+        const logger = require('../utils/logger');
+        logger.warn({ err: err.message }, 'Failed to compute rolling metrics');
+      }
+      await repos.studentMetrics.upsert(userId, metrics);
+    }
+
+    if (updated.planned_date) {
       await this.recalculateProgress(userId, updated);
     }
 
