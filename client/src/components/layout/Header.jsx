@@ -22,9 +22,7 @@ export function Header() {
         { path: '/progress', label: 'Progress' },
         { path: '/coach', label: 'Coach' },
       ]
-    : [
-        { path: '/', label: 'Home' },
-      ];
+    : [];
 
   const isActive = (path) => {
     if (path === '/') return location.pathname === '/';
