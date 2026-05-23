@@ -57,7 +57,7 @@ export default function useTaskActions({ onUpdateTasks, refreshData }) {
       notifyMutation();
       setActiveTask(task);
       setActiveModal('feedback');
-    } catch (err) {
+    } catch {
       addToast('Gagal menyelesaikan tugas.', 'error');
     } finally {
       setActionLoading(null);
@@ -79,7 +79,7 @@ export default function useTaskActions({ onUpdateTasks, refreshData }) {
     setActiveModal('feedback');
   }, []);
 
-  const confirmSkip = useCallback(async (reason, note) => {
+  const confirmSkip = useCallback(async (reason, _note) => {
     if (!activeTask) return;
     setActionLoading(activeTask.id);
     try {
