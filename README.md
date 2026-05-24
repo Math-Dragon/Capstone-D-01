@@ -189,7 +189,7 @@ Status terakhir:
 9 passed
 ```
 
-(docs/assets/images/tc01-tc07-calender-task-ai/cal-script-test.png)
+![Run](docs/assets/images/tc01-tc07-calender-task-ai/cal-script-test.png)
 
 ### Script Testing Otomatis
 
