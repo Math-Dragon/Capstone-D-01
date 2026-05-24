@@ -1,0 +1,14 @@
+*node_modules/
+*.env
+.env.local
+team/client/dist/
+.vscode/
+*.codex
+.opencode/
+.idea/
+*.swp
+.DS_Store
+*.log
+pgdata/
+.npm-cache/
+.tmp/

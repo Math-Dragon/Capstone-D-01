@@ -1,0 +1,62 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: planner_test
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: pass
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://user:pass@localhost:5432/planner_test
+      JWT_SECRET: test_jwt_secret_min_32_characters_long
+      JWT_REFRESH_SECRET: test_refresh_secret_min_32_chars_long
+      GEMINI_API_KEY: test_key
+      LLM_PROVIDER: mock
+      NODE_ENV: test
+      REDIS_URL: redis://localhost:6379
+    defaults:
+      run:
+        working-directory: ./team
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Secret scan
+        working-directory: .
+        run: |
+          if grep -RInE 'AIza[0-9A-Za-z_-]{35}|(^|[^A-Za-z0-9_])sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{30,}|-----BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE KEY-----' \
+            --exclude-dir=.git \
+            --exclude-dir=node_modules \
+            --exclude-dir=coverage \
+            --exclude='package-lock.json' \
+            --exclude='*.md' \
+            .; then
+            echo "Potential secret detected"
+            exit 1
+          fi
+      - run: cd server && npm ci
+      - run: cd server && npm run migrate:up
+      - run: cd server && npm run lint
+      - run: cd server && npm test -- --coverage
+      - run: cd client && npm ci
+      - run: cd client && npm run lint
+      - run: cd client && npm test
