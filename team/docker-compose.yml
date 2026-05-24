@@ -24,22 +24,22 @@ services:
       timeout: 5s
       retries: 5
   server:
-    build: ./server
+    build: ./team/server
     ports:
       - '3000:3000'
-    env_file: ./server/.env
+    env_file: ./team/server/.env
     depends_on:
       db:
         condition: service_healthy
     volumes:
-      - ./server/src:/app/src
+      - ./team/server/src:/app/src
   client:
-    build: ./client
+    build: ./team/client
     ports:
       - '5173:5173'
     depends_on:
       - server
     volumes:
-      - ./client/src:/app/src
+      - ./team/client/src:/app/src
 volumes:
   pgdata:

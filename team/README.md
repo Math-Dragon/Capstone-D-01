@@ -2,7 +2,7 @@
 
 StepUp AI Learn adalah aplikasi web full-stack untuk membantu user membuat rencana belajar yang lebih terarah. User dapat membuat goal, menerima rekomendasi task dari AI, mengatur jadwal di kalender, menyelesaikan task, dan memantau progress belajar.
 
-![Dashboard StepUp AI Learn](docs/assets/images/hero-screenshot.png)
+![Dashboard StepUp AI Learn](team/docs/assets/images/hero-screenshot.png)
 
 ## Tujuan Project
 
@@ -39,10 +39,10 @@ Project ini dibuat untuk membantu user yang punya target belajar, tetapi kesulit
 ## Struktur Project
 
 ```text
-client/      Frontend React
-server/      Backend Express, service, repository, migrations
-docs/        Dokumentasi, ADR, testing report, screenshot
-scripts/     Script otomatis untuk testing dan reporting
+team/client/      Frontend React
+team/server/      Backend Express, service, repository, migrations
+team/docs/        Dokumentasi, ADR, testing report, screenshot
+team/scripts/     Script otomatis untuk testing dan reporting
 ```
 
 ## Setup Lokal
@@ -70,13 +70,13 @@ docker run --name capstone-stepup-redis -p 16379:6379 -d redis:7-alpine
 ### 2. Setup Backend
 
 ```bash
-cd server
+cd team/server
 npm install
 npm run migrate:up
 npm run dev
 ```
 
-Contoh konfigurasi `server/.env`:
+Contoh konfigurasi `team/server/.env`:
 
 ```env
 DATABASE_URL=postgres://user:pass@localhost:5432/planner
@@ -100,7 +100,7 @@ Jangan commit `GEMINI_API_KEY`, `GEMINI_PAID_API_KEY`, atau secret lain ke repos
 ### 3. Setup Frontend
 
 ```bash
-cd client
+cd team/client
 npm install
 npm run dev
 ```
@@ -128,15 +128,15 @@ URL lokal:
 
 | Fitur | Screenshot |
 | --- | --- |
-| Login | ![Login](docs/assets/images/02-login-filled-testing-account.png) |
-| Coach | ![Coach](docs/assets/images/05-coach-home-gemini.png) |
-| Rekomendasi AI | ![Rekomendasi AI](docs/assets/images/07-gemini-recommendation-result.png) |
-| Dashboard | ![Dashboard](docs/assets/images/09-dashboard-with-gemini-plan.png) |
-| Targetku | ![Targetku](docs/assets/images/10-goals-list-gemini.png) |
-| Detail Goal | ![Detail Goal](docs/assets/images/11-goal-detail-gemini-tasks.png) |
-| Kalender | ![Kalender](docs/assets/images/13-calendar-week-gemini.png) |
-| Progress | ![Progress](docs/assets/images/14-progress-gemini.png) |
-| Observability | ![Observability](docs/assets/images/17-coach-observability-gemini.png) |
+| Login | ![Login](team/docs/assets/images/02-login-filled-testing-account.png) |
+| Coach | ![Coach](team/docs/assets/images/05-coach-home-gemini.png) |
+| Rekomendasi AI | ![Rekomendasi AI](team/docs/assets/images/07-gemini-recommendation-result.png) |
+| Dashboard | ![Dashboard](team/docs/assets/images/09-dashboard-with-gemini-plan.png) |
+| Targetku | ![Targetku](team/docs/assets/images/10-goals-list-gemini.png) |
+| Detail Goal | ![Detail Goal](team/docs/assets/images/11-goal-detail-gemini-tasks.png) |
+| Kalender | ![Kalender](team/docs/assets/images/13-calendar-week-gemini.png) |
+| Progress | ![Progress](team/docs/assets/images/14-progress-gemini.png) |
+| Observability | ![Observability](team/docs/assets/images/17-coach-observability-gemini.png) |
 
 ## AI Status
 
@@ -159,14 +159,14 @@ Catatan penting:
 - Jika quota habis, endpoint AI bisa mengembalikan `AI_UNAVAILABLE / HTTP 503`.
 - Untuk demo production-like, gunakan paid fallback key atau tunggu quota reset.
 
-Detail: [docs/ai-gemini-readiness.md](docs/ai-gemini-readiness.md)
+Detail: [team/docs/ai-gemini-readiness.md](team/docs/ai-gemini-readiness.md)
 
 ## Testing
 
 ### Backend Unit Test
 
 ```bash
-cd server
+cd team/server
 SKIP_DB_CHECK=true npm test -- --runTestsByPath tests/unit/repos-extra.test.js tests/unit/llm.test.js tests/unit/ai.service.test.js tests/unit/coach-static-response.test.js
 ```
 
@@ -179,7 +179,7 @@ Status terakhir:
 ### Frontend Calendar Test
 
 ```bash
-cd client
+cd team/client
 npm test -- CalendarPage.test.jsx --run
 ```
 
@@ -193,11 +193,11 @@ Status terakhir:
 
 | Scope | Command | Report |
 | --- | --- | --- |
-| Task & AI TC-03 sampai TC-07 | `node scripts/run-tc03-tc07.js` | `docs/task-ai-management-tc03-tc07-run-report.md` |
-| Task & AI TC-08 sampai TC-12 | `node scripts/run-task-ai-management-extra.js` | `docs/task-ai-management-tc08-tc12-run-report.md` |
-| Performance & Security TC-10 sampai TC-24 | `node scripts/run-tc10-tc24.js` | `docs/performance-security-tc10-tc24-run-report.md` |
-| E2E Core Flow | `node scripts/run-e2e-core-flow.js` | `docs/e2e-core-flow-run-report.md` |
-| Cleanup Data Testing | `node scripts/cleanup-test-data.js` | `docs/test-data-cleanup-run-report.md` |
+| Task & AI TC-03 sampai TC-07 | `node team/scripts/run-tc03-tc07.js` | `team/docs/task-ai-management-tc03-tc07-run-report.md` |
+| Task & AI TC-08 sampai TC-12 | `node team/scripts/run-task-ai-management-extra.js` | `team/docs/task-ai-management-tc08-tc12-run-report.md` |
+| Performance & Security TC-10 sampai TC-24 | `node team/scripts/run-tc10-tc24.js` | `team/docs/performance-security-tc10-tc24-run-report.md` |
+| E2E Core Flow | `node team/scripts/run-e2e-core-flow.js` | `team/docs/e2e-core-flow-run-report.md` |
+| Cleanup Data Testing | `node team/scripts/cleanup-test-data.js` | `team/docs/test-data-cleanup-run-report.md` |
 
 Ringkasan:
 
@@ -209,16 +209,16 @@ Ringkasan:
 
 ## Dokumentasi Penting
 
-- [Problem Framing](docs/problem-framing.md)
-- [AI Gemini Readiness](docs/ai-gemini-readiness.md)
-- [Task & AI TC-03 sampai TC-07](docs/task-ai-management-tc03-tc07-summary.md)
-- [Task & AI TC-08 sampai TC-12](docs/task-ai-management-tc08-tc12-summary.md)
-- [Performance & Security TC-10 sampai TC-24](docs/performance-security-tc10-tc24-summary.md)
-- [E2E Core Flow](docs/e2e-core-flow-summary.md)
-- [Test Data Cleanup](docs/test-data-cleanup.md)
-- [Test Data Cleanup Run Report](docs/test-data-cleanup-run-report.md)
-- [Deployment Readiness Checklist](docs/deployment-readiness-checklist.md)
-- [Architecture Decision Records](docs/adr)
+- [Problem Framing](team/docs/problem-framing.md)
+- [AI Gemini Readiness](team/docs/ai-gemini-readiness.md)
+- [Task & AI TC-03 sampai TC-07](team/docs/task-ai-management-tc03-tc07-summary.md)
+- [Task & AI TC-08 sampai TC-12](team/docs/task-ai-management-tc08-tc12-summary.md)
+- [Performance & Security TC-10 sampai TC-24](team/docs/performance-security-tc10-tc24-summary.md)
+- [E2E Core Flow](team/docs/e2e-core-flow-summary.md)
+- [Test Data Cleanup](team/docs/test-data-cleanup.md)
+- [Test Data Cleanup Run Report](team/docs/test-data-cleanup-run-report.md)
+- [Deployment Readiness Checklist](team/docs/deployment-readiness-checklist.md)
+- [Architecture Decision Records](team/docs/adr)
 
 ## CI Pipeline
 
