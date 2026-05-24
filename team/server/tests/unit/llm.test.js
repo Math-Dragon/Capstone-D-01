@@ -1,4 +1,4 @@
-const { validateAIOutput } = require('../../src/services/llm');
+const { validateAIOutput, sanitizeContext } = require('../../src/services/llm');
 const { LLMTaskSchema: TaskSchema } = require('../../src/models/task.model');
 
 describe('validateAIOutput', () => {
@@ -123,5 +123,57 @@ describe('TaskSchema', () => {
       rationale: 'reason',
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('sanitizeContext', () => {
+  test('removes PII fields from top level', () => {
+    const input = { email: 'test@test.com', password_hash: 'hash123', google_id: 'g123', github_id: 'gh456', name: 'user', profile: { goal: 'Learn JS' } };
+    const result = sanitizeContext(input);
+    expect(result.email).toBeUndefined();
+    expect(result.password_hash).toBeUndefined();
+    expect(result.google_id).toBeUndefined();
+    expect(result.github_id).toBeUndefined();
+    expect(result.name).toBeUndefined();
+    expect(result.profile).toEqual({ goal: 'Learn JS' });
+  });
+
+  test('preserves non-PII fields', () => {
+    const input = { profile: { goal: 'Learn React' }, metrics: { streak: 5 }, remainingTasksJson: '[task]', sessionType: 'initial_plan' };
+    const result = sanitizeContext(input);
+    expect(result.profile).toEqual({ goal: 'Learn React' });
+    expect(result.metrics).toEqual({ streak: 5 });
+    expect(result.remainingTasksJson).toBe('[task]');
+    expect(result.sessionType).toBe('initial_plan');
+  });
+
+  test('removes PII fields from nested objects', () => {
+    const input = { user: { id: 'u1', email: 'user@test.com', password_hash: 'hash' }, profile: { user: { email: 'nested@test.com' } } };
+    const result = sanitizeContext(input);
+    expect(result.user.email).toBeUndefined();
+    expect(result.user.password_hash).toBeUndefined();
+    expect(result.user.id).toBe('u1');
+    expect(result.profile.user.email).toBeUndefined();
+  });
+
+  test('handles arrays recursively', () => {
+    const input = [{ email: 'a@b.com', name: 'UserA' }, { email: 'c@d.com', name: 'UserB', score: 10 }];
+    const result = sanitizeContext(input);
+    expect(result[0].email).toBeUndefined();
+    expect(result[0].name).toBeUndefined();
+    expect(result[1].email).toBeUndefined();
+    expect(result[1].name).toBeUndefined();
+    expect(result[1].score).toBe(10);
+  });
+
+  test('returns primitive values as-is', () => {
+    expect(sanitizeContext(null)).toBeNull();
+    expect(sanitizeContext(undefined)).toBeUndefined();
+    expect(sanitizeContext('string')).toBe('string');
+    expect(sanitizeContext(42)).toBe(42);
+  });
+
+  test('returns empty object for empty input', () => {
+    expect(sanitizeContext({})).toEqual({});
   });
 });

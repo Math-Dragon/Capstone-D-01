@@ -4,7 +4,7 @@ const { z } = require('zod');
 const coachRouter = require('../services/coach');
 const repos = require('../repositories');
 const { authenticate } = require('../middleware/authenticate');
-const { aiLimiter } = require('../middleware/rateLimiter');
+const { aiLimiter, generalLimiter } = require('../middleware/rateLimiter');
 const { validate } = require('../middleware/validate');
 const { coachRequestSchema, decideSchema, decideParamsSchema } = require('../models/coach.model');
 
@@ -21,7 +21,7 @@ const auditQuerySchema = z.object({
   action: z.string().max(50).optional(),
 });
 
-router.get('/history', validate({ query: historyQuerySchema }), async (req, res, next) => {
+router.get('/history', generalLimiter, validate({ query: historyQuerySchema }), async (req, res, next) => {
   try {
     const messages = await repos.chatMessage.findByUser(req.user.id);
     res.json({ success: true, data: messages });
@@ -30,7 +30,7 @@ router.get('/history', validate({ query: historyQuerySchema }), async (req, res,
   }
 });
 
-router.get('/recommendations/metrics', async (req, res, next) => {
+router.get('/recommendations/metrics', generalLimiter, async (req, res, next) => {
   try {
     const metrics = await coachRouter.getRecommendationMetrics();
     res.json({ success: true, data: metrics });
@@ -40,7 +40,7 @@ router.get('/recommendations/metrics', async (req, res, next) => {
 });
 
 router.post('/recommendations/:recId/tasks/:taskId/decide',
-  validate({ body: decideSchema, params: decideParamsSchema }),
+  generalLimiter, validate({ body: decideSchema, params: decideParamsSchema }),
   async (req, res, next) => {
   try {
     const { decision, session_id, overrides } = req.body;
@@ -65,7 +65,7 @@ router.post('/recommendations/:recId/tasks/:taskId/decide',
   }
 });
 
-router.get('/audit', validate({ query: auditQuerySchema }), async (req, res, next) => {
+router.get('/audit', generalLimiter, validate({ query: auditQuerySchema }), async (req, res, next) => {
   try {
     const { limit, offset, action } = req.query;
     const [logs, actionCounts] = await Promise.all([
@@ -78,7 +78,7 @@ router.get('/audit', validate({ query: auditQuerySchema }), async (req, res, nex
   }
 });
 
-router.get('/metrics', async (req, res, next) => {
+router.get('/metrics', generalLimiter, async (req, res, next) => {
   try {
     const [studentMetrics, recMetrics] = await Promise.all([
       repos.studentMetrics.findByUserId(req.user.id),
@@ -100,7 +100,7 @@ router.get('/metrics', async (req, res, next) => {
   }
 });
 
-router.post('/undo', async (req, res, next) => {
+router.post('/undo', generalLimiter, async (req, res, next) => {
   try {
     const result = await coachRouter.dispatch(req.user.id, 'UNDO_PLAN', { session_id: req.body?.session_id });
     res.json({

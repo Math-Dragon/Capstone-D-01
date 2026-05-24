@@ -1,4 +1,4 @@
-const { validateChatOutput, validateWithWarnings } = require('../llm');
+const { validateChatOutput, validateWithWarnings, sanitizeContext } = require('../llm');
 const { generateMockSuggestion, generateMockChat, generateMockTaskAction } = require('../llm-mock');
 const { isMock, callWithRetry } = require('../llm-client');
 const logger = require('../../utils/logger');
@@ -6,8 +6,9 @@ const { aiRequestCount } = require('../../utils/metrics');
 const { TEMPLATES, TEMPERATURES } = require('./templates');
 
 function _buildUserMessage(ctx) {
-  const template = TEMPLATES[ctx.sessionType] || TEMPLATES.chat;
-  return template(ctx);
+  const safeCtx = sanitizeContext(ctx);
+  const template = TEMPLATES[safeCtx.sessionType] || TEMPLATES.chat;
+  return template(safeCtx);
 }
 
 function getTasks(validated) {

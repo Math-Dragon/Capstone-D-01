@@ -82,4 +82,24 @@ const aiLimiter = makeLimiter({
   },
 });
 
-module.exports = { authLimiter, aiLimiter };
+const generalMax = parseInt(process.env.GENERAL_RATE_LIMIT_MAX, 10) || 60;
+
+const generalLimiter = makeLimiter({
+  windowMs,
+  max: generalMax,
+  prefix: 'general',
+  keyGenerator: (req) => req.user?.id || req.ip,
+  handler: (req, res) => {
+    const retryAfterSeconds = getRetryAfterSeconds(req);
+    res.status(429).json({
+      success: false,
+      error: {
+        code: 'RATE_LIMITED',
+        message: `Too many requests, please try again in ${retryAfterSeconds} seconds`,
+        retryAfterSeconds,
+      },
+    });
+  },
+});
+
+module.exports = { authLimiter, aiLimiter, generalLimiter };

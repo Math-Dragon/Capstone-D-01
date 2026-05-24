@@ -156,4 +156,21 @@ function validateWithWarnings(raw) {
   return { data: parsed, violations: recoverable };
 }
 
-module.exports = { validateAIOutput, validateChatOutput, validateWithWarnings, SuggestionSchema, PlanSchema, ChatResponseSchema };
+const PII_FIELDS = new Set(['email', 'password_hash', 'google_id', 'github_id', 'name', 'phone']);
+
+function sanitizeContext(context) {
+  if (!context || typeof context !== 'object') return context;
+  if (Array.isArray(context)) {
+    return context.map(sanitizeContext);
+  }
+  const sanitized = {};
+  for (const [key, value] of Object.entries(context)) {
+    if (PII_FIELDS.has(key)) continue;
+    sanitized[key] = (value && typeof value === 'object')
+      ? sanitizeContext(value)
+      : value;
+  }
+  return sanitized;
+}
+
+module.exports = { validateAIOutput, validateChatOutput, validateWithWarnings, sanitizeContext, SuggestionSchema, PlanSchema, ChatResponseSchema };

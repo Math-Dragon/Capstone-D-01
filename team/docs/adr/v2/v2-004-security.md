@@ -1,7 +1,7 @@
 # ADR v2-004: Security Implementation untuk MVP
 
 ## Status
-Diterapkan dengan catatan (gap teridentifikasi)
+Diterapkan — PII sanitization dan rate limiting selesai
 
 ## Konteks
 Dengan bertambahnya endpoint baru (kalender, reschedule, progress tracking) dan interaksi AI via Coach, attack surface aplikasi bertambah. Tiga area kritis:
@@ -19,44 +19,30 @@ Dengan bertambahnya endpoint baru (kalender, reschedule, progress tracking) dan 
 - Error ZodError dikembalikan sebagai 400 dengan detail array
 - 18 endpoint diproteksi dengan skema spesifik — dari auth, goals, tasks, progress hingga 12 action di coach
 
-### 2. AI Prompt Sanitization — Defense in Depth (BELUM DITERAPKAN)
-**Fungsi `sanitizeContext()` belum diimplementasikan.**
+### 2. AI Prompt Sanitization — Defense in Depth ✅ DITERAPKAN
+**Fungsi `sanitizeContext()` telah diimplementasikan di `server/src/services/llm.js`.**
 
-Saat ini, `context-builder.service.js` menyertakan objek `user` lengkap di dalam context:
-```js
-// context-builder.service.js — return value
-{
-  user,       // { id, email, password_hash, google_id, github_id, ... }
-  profile,    // { timezone, availability, goal, subjects, ... }
-  metrics,    // { streak_days, completion_rate_7d, ... }
-  remainingTasksJson,
-  chatHistory,
-  ...
-}
-```
+Fungsi ini menghapus field PII secara rekursif: `email`, `password_hash`, `google_id`, `github_id`, `name`, `phone`.
 
-**Catatan penting:** Setelah verifikasi codebase, ditemukan bahwa **tidak ada template atau mock function yang mengakses `ctx.user`**. Ketujuh template di `templates.js` hanya menggunakan `ctx.profile`, `ctx.metrics`, `ctx.payload`, dan field pendukung lainnya — tidak ada yang mereferensi email, nama, atau field PII lainnya. Tiga mock function di `llm-mock.js` (`generateMockSuggestion`, `generateMockTaskAction`, `generateMockChat`) juga tidak mengakses `ctx.user`.
+Diterapkan di `llm-pipeline.service.js` pada `_buildUserMessage()` — context disanitasi sebelum masuk ke template builder, sehingga template hanya menerima data non-PII.
 
-Dengan demikian, **prompt yang dikirim ke LLM saat ini tidak mengandung PII pengguna**.
+**Detail teknis:**
+- Fungsi bekerja secara rekursif pada nested object dan array
+- Hanya field dalam `PII_FIELDS` yang dihapus — struktur data tetap utuh
+- Nilai primitif non-objek dikembalikan apa adanya
+- 6 test unit mencakup: removal top-level, nested, array, preservasi non-PII, null/empty, dan primitive passthrough
 
-**Mengapa tetap perlu `sanitizeContext()`?**
-- `ctx.user` adalah **landmine** — field PII tersedia di objek context dan bisa bocor jika template baru tidak sengaja mereferensinya
-- Prinsip *defense in depth*: data sensitif tidak boleh ada di objek yang dikirim ke fungsi eksternal, meskipun tidak dipakai
-- Pencegahan lebih baik daripada deteksi — implementasi bersifat preventif, bukan korektif
-
-**Rencana implementasi:** Tambahkan fungsi `sanitizeContext()` di `llm.js` yang menghapus field PII (`email`, `password_hash`, `google_id`, `github_id`) dari `ctx.user` sebelum context masuk ke template builder. Detail implementasi akan dibahas di task terpisah.
-
-### 3. Rate Limiting — Diterapkan Sebagian
+### 3. Rate Limiting — Diterapkan
 
 | Route | Limiter | Batas | Status |
 |-------|---------|-------|--------|
 | `/api/auth/*` | `authLimiter` | 5 req/min per IP | ✅ Aktif |
 | `/api/ai/*` | `aiLimiter` | 20 req/min per user | ✅ Aktif |
 | `/api/coach` (POST /) | `aiLimiter` | 20 req/min per user | ✅ Aktif |
-| `/api/coach/*` (sub-routes) | — | — | ❌ Tidak ada |
-| `/api/goals/*` | — | — | ❌ Tidak ada |
-| `/api/tasks/*` | — | — | ❌ Tidak ada |
-| `/api/progress/*` | — | — | ❌ Tidak ada |
+| `/api/coach/*` (sub-routes) | `generalLimiter` | 60 req/min per user | ✅ Aktif |
+| `/api/goals/*` | `generalLimiter` | 60 req/min per user | ✅ Aktif |
+| `/api/tasks/*` | `generalLimiter` | 60 req/min per user | ✅ Aktif |
+| `/api/progress/*` | `generalLimiter` | 60 req/min per user | ✅ Aktif |
 
 Rate limiter menggunakan **Redis-backed store** dengan **fail-closed** behavior — jika Redis down, request gagal (tidak bypass limiter).
 
@@ -80,17 +66,16 @@ app.use(helmet({
 
 ## Konsekuensi
 - **Positif:** 100% endpoint divalidasi dengan Zod
-- **Positif:** Rate limiting aktif di endpoint termahal (AI) dan paling riskan (auth)
+- **Positif:** Rate limiting aktif di semua endpoint API — 3 tier: auth (5/min), AI (20/min), general (60/min)
+- **Positif:** PII sanitization sebagai defense in depth — field sensitif dihapus sebelum context masuk template
 - **Positif:** CSP memblokir XSS dari inline scripts
-- **Negatif:** `ctx.user` dengan field PII tersedia di object context — berisiko bocor jika template baru tidak sengaja mereferensinya (saat ini tidak ada template yang mengaksesnya)
-- **Negatif:** `/api/goals`, `/api/tasks`, `/api/progress` tidak terproteksi rate limiter — rentan brute force
-- **Negatif:** Coach sub-routes (history, audit, metrics) tidak terproteksi — rentan abuse
 
 ### Rencana Perbaikan
 
 | Prioritas | Item | Rencana |
 |-----------|------|---------|
-| 🔴 Tinggi | PII sanitization (defense in depth) | Implementasi `sanitizeContext()` untuk hapus `email`, `password_hash`, `google_id`, `github_id` dari `ctx.user` sebelum template dipanggil |
-| 🟡 Sedang | Rate limiter untuk /api/goals, /api/tasks, /api/progress | Tambahkan limiter umum (misal 60 req/min) |
+| 🟢 Selesai | PII sanitization (defense in depth) | ✅ `sanitizeContext()` di llm.js, diterapkan di `_buildUserMessage()`, 6 test unit |
+| 🟢 Selesai | Rate limiter untuk /api/goals, /api/tasks, /api/progress | ✅ `generalLimiter` 60 req/min |
+| 🟢 Selesai | Rate limiter untuk coach sub-routes | ✅ `generalLimiter` 60 req/min |
 | 🟢 Rendah | Circuit breaker untuk LLM API | Hentikan sementara panggilan AI jika gagal 3× dalam 5 menit |
 | 🟢 Rendah | Cost tracking per user | Hitung estimasi biaya API berdasarkan token usage |

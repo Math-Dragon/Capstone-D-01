@@ -7,7 +7,7 @@ const { requestLogger } = require('./middleware/requestLogger');
 const { responseEnricher } = require('./middleware/responseEnricher');
 const { errorHandler } = require('./middleware/errorHandler');
 const { authenticate } = require('./middleware/authenticate');
-const { authLimiter, aiLimiter } = require('./middleware/rateLimiter');
+const { authLimiter, aiLimiter, generalLimiter } = require('./middleware/rateLimiter');
 const { metricsAuth } = require('./middleware/metricsAuth');
 
 const healthRoutes = require('./routes/health');
@@ -40,10 +40,10 @@ app.use(responseEnricher);
 app.use('/health', healthRoutes);
 app.use('/metrics', metricsAuth, metricsRoutes);
 app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/goals', goalRoutes);
-app.use('/api/tasks', taskRoutes);
+app.use('/api/goals', generalLimiter, goalRoutes);
+app.use('/api/tasks', generalLimiter, taskRoutes);
 app.use('/api/ai', authenticate, aiLimiter, aiRoutes);
-app.use('/api/progress', progressRoutes);
+app.use('/api/progress', generalLimiter, progressRoutes);
 app.use('/api/coach', coachRoutes);
 
 app.use(errorHandler);
