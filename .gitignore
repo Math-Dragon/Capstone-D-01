@@ -12,3 +12,4 @@ server/coverage/
 *.log
 pgdata/
 .npm-cache/
+.tmp/

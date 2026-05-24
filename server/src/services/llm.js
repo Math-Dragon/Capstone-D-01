@@ -26,6 +26,14 @@ function _sanitize(parsed) {
     clean[key] = value;
   }
   if (clean.adjusted_plan && !clean.tasks) clean.tasks = clean.adjusted_plan;
+  if (!clean.tasks && clean.content && typeof clean.content === 'string') {
+    try {
+      const inner = JSON.parse(clean.content);
+      if (inner && typeof inner === 'object' && (Array.isArray(inner.tasks) || inner.plan)) {
+        return _sanitize(inner);
+      }
+    } catch {}
+  }
   if (!clean.tasks && clean.plan && typeof clean.plan === 'object' && Array.isArray(clean.plan.tasks)) {
     return _sanitize(clean.plan);
   }
