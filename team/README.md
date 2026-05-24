@@ -186,8 +186,9 @@ npm test -- CalendarPage.test.jsx --run
 Status terakhir:
 
 ```text
-8 passed
+9 passed
 ```
+![Run](team/docs/assets/images/tc01-tc07-calender-task-ai/cal-script-test.png)
 
 ### Script Testing Otomatis
 
