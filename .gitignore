@@ -1,8 +1,7 @@
 *node_modules/
 *.env
 .env.local
-client/dist/
-server/coverage/
+team/client/dist/
 .vscode/
 *.codex
 .opencode/

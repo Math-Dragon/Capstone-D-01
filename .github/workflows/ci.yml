@@ -32,12 +32,16 @@ jobs:
       LLM_PROVIDER: mock
       NODE_ENV: test
       REDIS_URL: redis://localhost:6379
+    defaults:
+      run:
+        working-directory: ./team
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Secret scan
+        working-directory: .
         run: |
           if grep -RInE 'AIza[0-9A-Za-z_-]{35}|(^|[^A-Za-z0-9_])sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{30,}|-----BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE KEY-----' \
             --exclude-dir=.git \
@@ -49,10 +53,10 @@ jobs:
             echo "Potential secret detected"
             exit 1
           fi
-      - run: cd team/server && npm ci
-      - run: cd team/server && npm run migrate:up
-      - run: cd team/server && npm run lint
-      - run: cd team/server && npm test -- --coverage
-      - run: cd team/client && npm ci
-      - run: cd team/client && npm run lint
-      - run: cd team/client && npm test
+      - run: cd server && npm ci
+      - run: cd server && npm run migrate:up
+      - run: cd server && npm run lint
+      - run: cd server && npm test -- --coverage
+      - run: cd client && npm ci
+      - run: cd client && npm run lint
+      - run: cd client && npm test
