@@ -25,8 +25,12 @@ export const coachService = {
     return data;
   },
 
-  decideTask: async (recId, taskId, decision) => {
-    const data = await api.post(`/coach/recommendations/${recId}/tasks/${taskId}/decide`, { decision, session_id: _sessionId });
+  decideTask: async (recId, taskId, decision, overrides) => {
+    const body = { decision, session_id: _sessionId };
+    if (overrides) {
+      body.overrides = overrides;
+    }
+    const data = await api.post(`/coach/recommendations/${recId}/tasks/${taskId}/decide`, body);
     return data;
   },
 

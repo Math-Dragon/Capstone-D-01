@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { loginSchema } from '../schemas';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -12,7 +14,7 @@ export default function LoginPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm();
+  } = useForm({ resolver: zodResolver(loginSchema) });
 
   const onSubmit = async (data) => {
     try {
@@ -51,13 +53,7 @@ export default function LoginPage() {
                 type="email"
                 placeholder="nama@email.com"
                 className="input"
-                {...register('email', {
-                  required: 'Email harus diisi',
-                  pattern: {
-                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: 'Email tidak valid',
-                  },
-                })}
+                {...register('email')}
               />
               {errors.email && (
                 <p className="mt-2 text-sm text-red-500">{errors.email.message}</p>
@@ -73,13 +69,7 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   className="input pr-12"
-                  {...register('password', {
-                    required: 'Password harus diisi',
-                    minLength: {
-                      value: 8,
-                      message: 'Password minimal 8 karakter',
-                    },
-                  })}
+                  {...register('password')}
                 />
                 <button
                   type="button"

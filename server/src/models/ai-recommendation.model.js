@@ -1,6 +1,5 @@
 const { z } = require('zod');
-
-const recommendationStatusEnum = z.enum(['pending', 'accepted', 'rejected']);
+const { recommendationStatusEnum } = require('../constants/enums');
 
 const AiRecommendationEntity = z.object({
   id: z.string().uuid(),

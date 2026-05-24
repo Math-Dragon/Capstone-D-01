@@ -36,7 +36,7 @@ node-pg-migrate dengan up/down migration — 13 migrations total.
 
 ### Application-Level Enums (Zod only)
 - tasks.task_type: acquire | practice | recall | interleave | synthesize | review | assess | reflect
-- tasks.duration_estimate: 10-90 menit (LLMTaskSchema), 25-90 (createTaskSchema) — aplikasi, bukan DB constraint
+- tasks.duration_estimate: 25-90 menit (LLMTaskSchema dan createTaskSchema, selaras) — aplikasi, bukan DB constraint
 - Tidak ada CHECK constraint di DB untuk task_type/duration_estimate — fleksibel
 
 ## Alasan
@@ -44,11 +44,11 @@ node-pg-migrate dengan up/down migration — 13 migrations total.
 2. **node-pg-migrate**: Version-controlled, rollback support
 3. **JSONB**: Fleksibel untuk data yang jarang di-query (availability, trigger_cooldowns, metadata)
 4. **task_type tanpa DB constraint**: Task type bisa berubah tanpa migration
-5. **duration_estimate di Zod**: AI bisa generate task 10 menit (LLMTaskSchema), user manual 25 menit (createTaskSchema)
+5. **duration_estimate di Zod**: AI dan user manual keduanya divalidasi 25–90 menit — selaras sejak TC-09
 
 ## Konsekuensi
 - Migration harus dijalankan sebelum aplikasi bisa digunakan
 - Rollback migration perlu di-test
-- task_type + duration_estimate divalidasi di Zod (bisa berbeda aturan antara AI vs user manual)
+- task_type + duration_estimate divalidasi di Zod (aturan sama untuk AI dan user manual: 25–90 menit)
 - feedback fields (difficulty, focus, notes, submitted_at) di tasks — perlu cleanup policy
 - student_metrics punya trigger_cooldowns jsonb + partial index involves_llm di audit_logs

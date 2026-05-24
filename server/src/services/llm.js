@@ -1,5 +1,22 @@
 const { PlanSchema, SuggestionSchema, ChatResponseSchema } = require('../models/llm.model');
 
+const RECOVERABLE_CODES = new Set(['too_big', 'too_small']);
+const RECOVERABLE_FIELD_PREFIXES = ['duration_estimate'];
+
+function isRecoverable(issue) {
+  const field = issue.path[issue.path.length - 1];
+  return RECOVERABLE_CODES.has(issue.code) && RECOVERABLE_FIELD_PREFIXES.includes(field);
+}
+
+function getValueAtPath(obj, path) {
+  let current = obj;
+  for (const seg of path) {
+    if (current == null) return undefined;
+    current = current[seg];
+  }
+  return current;
+}
+
 function _sanitize(parsed) {
   if (Array.isArray(parsed)) return { tasks: parsed, summary: 'Adjusted plan' };
   if (!parsed || typeof parsed !== 'object') return parsed;
@@ -96,4 +113,39 @@ function validateChatOutput(raw) {
   return result.data;
 }
 
-module.exports = { validateAIOutput, validateChatOutput, SuggestionSchema, PlanSchema, ChatResponseSchema };
+function validateWithWarnings(raw) {
+  const parsed = _parse(raw);
+  const result = PlanSchema.safeParse(parsed);
+  if (result.success) {
+    return { data: result.data, violations: [] };
+  }
+
+  const recoverable = [];
+  const unrecoverable = [];
+
+  for (const err of result.error.errors) {
+    if (isRecoverable(err)) {
+      recoverable.push({
+        path: err.path.join('.'),
+        code: err.code,
+        message: err.message,
+        value: getValueAtPath(parsed, err.path),
+        constraint: err.code === 'too_big' ? 'max:90' : 'min:25',
+      });
+    } else {
+      unrecoverable.push(err);
+    }
+  }
+
+  if (unrecoverable.length > 0) {
+    const first = unrecoverable[0];
+    const err = new Error(`AI output schema violation at ${first.path.join('.')}: ${first.message}`);
+    err.code = 'AI_OUTPUT_INVALID';
+    err.statusCode = 422;
+    throw err;
+  }
+
+  return { data: parsed, violations: recoverable };
+}
+
+module.exports = { validateAIOutput, validateChatOutput, validateWithWarnings, SuggestionSchema, PlanSchema, ChatResponseSchema };

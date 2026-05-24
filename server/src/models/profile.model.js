@@ -1,6 +1,5 @@
 const { z } = require('zod');
-
-const preferredTimeEnum = z.enum(['morning', 'afternoon', 'evening']);
+const { preferredTimeEnum } = require('../constants/enums');
 
 const ProfileEntity = z.object({
   id: z.string().uuid(),

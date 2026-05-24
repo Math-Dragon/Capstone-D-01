@@ -11,6 +11,11 @@ jest.mock('../../src/repositories', () => ({
     listByUser: jest.fn(),
   },
   progress: { upsert: jest.fn() },
+  studentMetrics: {
+    findByUserId: jest.fn(),
+    computeRollingMetrics: jest.fn(),
+    upsert: jest.fn(),
+  },
 }));
 
 const taskService = require('../../src/services/task.service');
@@ -159,5 +164,115 @@ describe('taskService.recalculateProgress', () => {
     const call = repos.progress.upsert.mock.calls[0][0];
     expect(call.completed_hours).toBeGreaterThan(0);
     expect(call.planned_hours).toBeGreaterThan(0);
+  });
+});
+
+describe('taskService.updateStatus', () => {
+  const todoTask = { id: 't1', status: 'todo', planned_date: '2026-05-04', duration_estimate: 30 };
+
+  beforeEach(() => {
+    repos.task.findByIdAndUser.mockReset();
+    repos.task.update.mockReset();
+    repos.task.findByUserAndWeek.mockReset();
+    repos.progress.upsert.mockReset();
+    repos.studentMetrics.findByUserId.mockReset();
+    repos.studentMetrics.computeRollingMetrics.mockReset();
+    repos.studentMetrics.upsert.mockReset();
+  });
+
+  test('todo → done: updates status, sets completed_at, updates metrics', async () => {
+    repos.task.findByIdAndUser.mockResolvedValue(todoTask);
+    repos.task.update.mockResolvedValue({ ...todoTask, status: 'done', completed_at: new Date(), actual_duration: 30 });
+    repos.studentMetrics.findByUserId.mockResolvedValue({ streak_days: 2, total_completed: 5, consecutive_skips: 0 });
+    repos.studentMetrics.computeRollingMetrics.mockResolvedValue({ completion_rate_7d: 0.8 });
+    repos.task.findByUserAndWeek.mockResolvedValue([]);
+    repos.progress.upsert.mockResolvedValue({});
+
+    const result = await taskService.updateStatus('u1', 't1', 'done', {});
+
+    expect(result.status).toBe('done');
+    expect(repos.task.update).toHaveBeenCalledWith('t1', expect.objectContaining({
+      status: 'done',
+      completed_at: expect.any(Date),
+      actual_duration: 30,
+    }));
+    expect(repos.studentMetrics.upsert).toHaveBeenCalledWith('u1', expect.objectContaining({
+      streak_days: 3,
+      total_completed: 6,
+      consecutive_skips: 0,
+    }));
+  });
+
+  test('todo → done: uses provided actual_duration', async () => {
+    repos.task.findByIdAndUser.mockResolvedValue(todoTask);
+    repos.task.update.mockResolvedValue({ ...todoTask, status: 'done', completed_at: new Date(), actual_duration: 45 });
+    repos.studentMetrics.findByUserId.mockResolvedValue({});
+    repos.studentMetrics.computeRollingMetrics.mockResolvedValue({});
+    repos.task.findByUserAndWeek.mockResolvedValue([]);
+    repos.progress.upsert.mockResolvedValue({});
+
+    await taskService.updateStatus('u1', 't1', 'done', { actual_duration: 45 });
+
+    expect(repos.task.update).toHaveBeenCalledWith('t1', expect.objectContaining({ actual_duration: 45 }));
+  });
+
+  test('todo → skipped: updates status, sets skip_reason, updates metrics', async () => {
+    repos.task.findByIdAndUser.mockResolvedValue(todoTask);
+    repos.task.update.mockResolvedValue({ ...todoTask, status: 'skipped' });
+    repos.studentMetrics.findByUserId.mockResolvedValue({ total_skipped: 3, consecutive_skips: 1 });
+    repos.studentMetrics.computeRollingMetrics.mockResolvedValue({});
+    repos.task.findByUserAndWeek.mockResolvedValue([]);
+    repos.progress.upsert.mockResolvedValue({});
+
+    const result = await taskService.updateStatus('u1', 't1', 'skipped', { skip_reason: 'too_hard' });
+
+    expect(result.status).toBe('skipped');
+    expect(repos.task.update).toHaveBeenCalledWith('t1', expect.objectContaining({
+      status: 'skipped',
+      skip_reason: 'too_hard',
+    }));
+    expect(repos.studentMetrics.upsert).toHaveBeenCalledWith('u1', expect.objectContaining({
+      total_skipped: 4,
+      consecutive_skips: 2,
+    }));
+  });
+
+  test('done → todo: throws INVALID_TRANSITION', async () => {
+    repos.task.findByIdAndUser.mockResolvedValue({ id: 't1', status: 'done' });
+
+    await expect(taskService.updateStatus('u1', 't1', 'todo', {}))
+      .rejects.toMatchObject({ statusCode: 400, code: 'INVALID_TRANSITION' });
+  });
+
+  test('task not found: throws 404', async () => {
+    repos.task.findByIdAndUser.mockResolvedValue(null);
+
+    await expect(taskService.updateStatus('u1', 't1', 'done', {}))
+      .rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  test('recalculates progress when planned_date exists', async () => {
+    repos.task.findByIdAndUser.mockResolvedValue(todoTask);
+    repos.task.update.mockResolvedValue({ ...todoTask, status: 'done' });
+    repos.studentMetrics.findByUserId.mockResolvedValue({});
+    repos.studentMetrics.computeRollingMetrics.mockResolvedValue({});
+    repos.task.findByUserAndWeek.mockResolvedValue([]);
+    repos.progress.upsert.mockResolvedValue({});
+
+    await taskService.updateStatus('u1', 't1', 'done', {});
+
+    expect(repos.progress.upsert).toHaveBeenCalled();
+  });
+
+  test('in_progress → done: valid transition', async () => {
+    repos.task.findByIdAndUser.mockResolvedValue({ ...todoTask, status: 'in_progress' });
+    repos.task.update.mockResolvedValue({ ...todoTask, status: 'done' });
+    repos.studentMetrics.findByUserId.mockResolvedValue({});
+    repos.studentMetrics.computeRollingMetrics.mockResolvedValue({});
+    repos.task.findByUserAndWeek.mockResolvedValue([]);
+    repos.progress.upsert.mockResolvedValue({});
+
+    const result = await taskService.updateStatus('u1', 't1', 'done', {});
+    expect(result.status).toBe('done');
   });
 });

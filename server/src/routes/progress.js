@@ -1,9 +1,18 @@
 const express = require('express');
 const router = express.Router();
+const { z } = require('zod');
 const { authenticate } = require('../middleware/authenticate');
+const { validate } = require('../middleware/validate');
 const progressService = require('../services/progress.service');
 
 const ISO_WEEK_REGEX = /^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$/;
+
+const trendQuerySchema = z.object({
+  from: z.string().max(20).optional(),
+  to: z.string().max(20).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
 
 router.use(authenticate);
 
@@ -32,13 +41,13 @@ router.get('/weekly', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.get('/trend', async (req, res, next) => {
+router.get('/trend', validate({ query: trendQuerySchema }), async (req, res, next) => {
   try {
     const { from, to, limit, offset } = req.query;
     const data = await progressService.getTrend(req.user.id, {
       from, to,
-      limit: limit ? parseInt(limit, 10) : undefined,
-      offset: offset ? parseInt(offset, 10) : undefined,
+      limit,
+      offset,
     });
     res.json({ success: true, data });
   } catch (err) { next(err); }

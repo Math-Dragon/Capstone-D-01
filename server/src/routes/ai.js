@@ -1,12 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const aiService = require('../services/ai.service');
+const { authenticate } = require('../middleware/authenticate');
+const { validate } = require('../middleware/validate');
 const { suggestPlanSchema } = require('../models/ai-recommendation.model');
 
-router.post('/plan/suggest', async (req, res, next) => {
+router.use(authenticate);
+
+router.post('/plan/suggest', validate({ body: suggestPlanSchema }), async (req, res, next) => {
   try {
-    const data = suggestPlanSchema.parse(req.body);
-    const result = await aiService.suggestPlan(req.user.id, data.goalId, data.context);
+    const result = await aiService.suggestPlan(req.user.id, req.body.goalId, req.body.context);
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
 });

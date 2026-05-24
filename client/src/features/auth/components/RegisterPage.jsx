@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { registerSchema } from '../schemas';
 import StepUpLogo from '../../../components/ui/StepUpLogo';
 
 export default function RegisterPage() {
@@ -14,7 +16,7 @@ export default function RegisterPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm();
+  } = useForm({ resolver: zodResolver(registerSchema) });
 
   const handleGoogleLogin = async () => {
     try {
@@ -66,13 +68,7 @@ export default function RegisterPage() {
                 type="email"
                 placeholder="nama@email.com"
                 className="input"
-                {...register('email', {
-                  required: 'Email harus diisi',
-                  pattern: {
-                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: 'Email tidak valid',
-                  },
-                })}
+                {...register('email')}
               />
               {errors.email && (
                 <p className="mt-2 text-sm text-red-500">{errors.email.message}</p>
@@ -88,13 +84,7 @@ export default function RegisterPage() {
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   className="input pr-12"
-                  {...register('password', {
-                    required: 'Password harus diisi',
-                    minLength: {
-                      value: 8,
-                      message: 'Password minimal 8 karakter',
-                    },
-                  })}
+                  {...register('password')}
                 />
                 <button
                   type="button"
@@ -127,11 +117,7 @@ export default function RegisterPage() {
                   type={showConfirmPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   className="input pr-12"
-                  {...register('confirmPassword', {
-                    required: 'Konfirmasi password harus diisi',
-                    validate: (value, formValues) =>
-                      value === formValues.password || 'Password tidak cocok',
-                  })}
+                  {...register('confirmPassword')}
                 />
                 <button
                   type="button"

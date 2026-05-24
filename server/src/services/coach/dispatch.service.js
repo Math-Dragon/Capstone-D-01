@@ -74,12 +74,13 @@ class DispatchService {
     ctx.sessionType = effectiveSessionType;
 
     const usesChatSchema = effectiveSessionType === 'chat' || effectiveSessionType === 'task_action';
-    let validated, llmMeta;
+    let validated, llmMeta, violations;
 
     try {
       const result = await llmPipeline.callLLM(ctx, usesChatSchema);
       validated = result.validated;
       llmMeta = result.llmMeta;
+      violations = result.violations || null;
     } catch (err) {
       if (err._llmMeta) {
         const meta = err._llmMeta;
@@ -113,7 +114,7 @@ class DispatchService {
       await this._updateState(userId, action, payload, sessionId);
     }
 
-    if (validated) {
+    if (validated && !violations) {
       const tasksToSchedule = usesChatSchema ? validated.plan?.tasks : validated.tasks;
       if (tasksToSchedule && tasksToSchedule.length > 0) {
         const scheduled = scheduleTasks(tasksToSchedule, {
@@ -210,21 +211,39 @@ class DispatchService {
 
     if (effectiveSessionType === 'initial_plan' && action === 'INITIAL_PLAN') {
       const rec = await responseFormatter.stageRecommendation(userId, validated, ctx);
+      const responseData = {
+        recommendation_id: rec.id,
+        tasks: rec.output.tasks.map((t) => ({
+          task_id: t.task_id,
+          title: t.title,
+          duration_estimate: t.duration_estimate,
+          planned_slot: t.planned_slot,
+          rationale: t.rationale,
+          status: t.status,
+        })),
+        summary: rec.output.summary,
+      };
+
+      if (violations) {
+        responseData.violations = violations.map((v) => {
+          const segs = v.path.split('.');
+          const taskIndex = parseInt(segs[1], 10);
+          const task = rec.output.tasks[taskIndex];
+          return {
+            task_id: task?.task_id || `index_${taskIndex}`,
+            field: segs.slice(2).join('.'),
+            value: v.value,
+            constraint: v.constraint,
+            message: v.message,
+          };
+        });
+        rec.output.violations = violations;
+        await repos.aiRec.updateOutput(rec.id, rec.output);
+      }
 
       return {
         type: 'recommendation',
-        data: {
-          recommendation_id: rec.id,
-          tasks: rec.output.tasks.map((t) => ({
-            task_id: t.task_id,
-            title: t.title,
-            duration_estimate: t.duration_estimate,
-            planned_slot: t.planned_slot,
-            rationale: t.rationale,
-            status: t.status,
-          })),
-          summary: rec.output.summary,
-        },
+        data: responseData,
         meta: llmMeta,
       };
     }
@@ -280,7 +299,7 @@ class DispatchService {
     };
   }
 
-  async decideTask(userId, recId, taskId, decision, sessionId) {
+  async decideTask(userId, recId, taskId, decision, sessionId, overrides) {
     return db.withTransaction(async (client) => {
       const rec = await repos.aiRec.findByIdAndUserId(recId, userId, client);
       if (!rec) {
@@ -310,7 +329,18 @@ class DispatchService {
       task.status = decision;
       task.decided_at = new Date().toISOString();
 
+      if (decision === 'accepted' && overrides) {
+        if (overrides.duration_estimate !== undefined) {
+          task.duration_estimate = overrides.duration_estimate;
+        }
+      }
+
       const allDecided = tasks.every((t) => t.status !== 'pending');
+
+      if (allDecided && tasks.some((t) => t.status === 'accepted')) {
+        const trimmed = this._sweepExcessTasks(rec);
+        rec.output.trimmed = trimmed.length > 0 ? trimmed : undefined;
+      }
 
       await repos.aiRec.updateOutput(recId, rec.output, client);
 
@@ -361,7 +391,13 @@ class DispatchService {
         }, client);
       }
 
-      return { task_id: taskId, status: decision, allDecided };
+      const trimmed = rec.output.trimmed;
+      return {
+        task_id: taskId,
+        status: decision,
+        allDecided,
+        trimmed: allDecided && trimmed && trimmed.length > 0 ? trimmed : undefined,
+      };
     });
   }
 
@@ -496,6 +532,33 @@ class DispatchService {
       }
       await repos.studentMetrics.upsert(userId, updates);
     }
+  }
+
+  _sweepExcessTasks(rec) {
+    const tasks = rec.output.tasks.filter(t => t.status === 'accepted');
+    if (tasks.length === 0) return [];
+
+    const inputContext = rec.input_context || {};
+    const profile = inputContext.profile || {};
+    const weeklyTargetHours = profile.weekly_target_hours || 5;
+    const maxMinutes = Math.round(weeklyTargetHours * 60 * 1.2);
+
+    const sorted = [...tasks].sort((a, b) => {
+      const p = { high: 0, medium: 1, low: 2 };
+      return (p[a.priority] || 1) - (p[b.priority] || 1);
+    });
+
+    let totalMin = sorted.reduce((s, t) => s + (t.duration_estimate || 0), 0);
+    const trimmed = [];
+
+    while (totalMin > maxMinutes && sorted.length > 1) {
+      const removed = sorted.pop();
+      totalMin -= removed.duration_estimate || 0;
+      trimmed.push(removed.task_id);
+      removed.status = 'rejected_by_truncation';
+    }
+
+    return trimmed;
   }
 
   _llmUsageMeta(llmMeta) {
