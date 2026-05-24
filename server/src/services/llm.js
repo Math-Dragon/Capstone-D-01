@@ -32,7 +32,7 @@ function _sanitize(parsed) {
       if (inner && typeof inner === 'object' && (Array.isArray(inner.tasks) || inner.plan)) {
         return _sanitize(inner);
       }
-    } catch {}
+    } catch { /* ignore JSON parse failure */}
   }
   if (!clean.tasks && clean.plan && typeof clean.plan === 'object' && Array.isArray(clean.plan.tasks)) {
     return _sanitize(clean.plan);
