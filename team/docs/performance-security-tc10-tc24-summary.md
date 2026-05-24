@@ -70,7 +70,7 @@ Script ini menjalankan:
 
 - Jest unit test `server/tests/unit/rateLimiter.test.js` untuk TC-10, TC-11, TC-12, TC-15, TC-16, TC-17, TC-18, TC-21, dan TC-22.
 - Static check tracked files untuk TC-13.
-- Static check dokumentasi biaya AI untuk TC-14.
+- Static check dokumentasi biaya AI untuk TC-14. Detail estimasi tersedia di `docs/tc14-ai-cost-per-100-requests.md`.
 - Static check RedisStore, fail-closed Redis, CI secret scan, dan logging HTTP 429 untuk TC-19, TC-20, TC-23, dan TC-24.
 
 Setelah dijalankan, script menulis report terbaru ke:

@@ -330,6 +330,12 @@ Rekomendasi:
 
 ## TC-14 - Estimasi Biaya AI per 100 Request
 
+Dokumen khusus TC-14 tersedia di:
+
+```text
+docs/tc14-ai-cost-per-100-requests.md
+```
+
 Model utama project saat ini:
 
 ```text
