@@ -8,6 +8,6 @@ module.exports = {
   },
 
   async down(pgm) {
-    pgm.dropColumn('tasks', 'task_type');
+    pgm.dropColumn('tasks', 'task_type', { ifExists: true });
   },
 };

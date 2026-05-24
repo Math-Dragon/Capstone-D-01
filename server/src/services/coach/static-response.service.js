@@ -2,6 +2,13 @@ const repos = require('../../repositories');
 
 const DAY_ABBR = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
+function _formatLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function _getNextAvailableDate(availableDays) {
   const validDays = availableDays && availableDays.length > 0
     ? availableDays
@@ -12,13 +19,13 @@ function _getNextAvailableDate(availableDays) {
   for (let i = 0; i < 60; i++) {
     const dayAbbr = DAY_ABBR[cursor.getDay()];
     if (validDays.includes(dayAbbr)) {
-      return cursor.toISOString().slice(0, 10);
+      return _formatLocalDate(cursor);
     }
     cursor.setDate(cursor.getDate() + 1);
   }
   const fallback = new Date();
   fallback.setDate(fallback.getDate() + 1);
-  return fallback.toISOString().slice(0, 10);
+  return _formatLocalDate(fallback);
 }
 
 async function respondTaskCompleted(userId, payload, sessionId) {

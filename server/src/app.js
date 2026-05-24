@@ -6,6 +6,7 @@ const config = require('./config');
 const { requestLogger } = require('./middleware/requestLogger');
 const { responseEnricher } = require('./middleware/responseEnricher');
 const { errorHandler } = require('./middleware/errorHandler');
+const { authenticate } = require('./middleware/authenticate');
 const { authLimiter, aiLimiter } = require('./middleware/rateLimiter');
 const { metricsAuth } = require('./middleware/metricsAuth');
 
@@ -41,7 +42,7 @@ app.use('/metrics', metricsAuth, metricsRoutes);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/goals', goalRoutes);
 app.use('/api/tasks', taskRoutes);
-app.use('/api/ai', aiLimiter, aiRoutes);
+app.use('/api/ai', authenticate, aiLimiter, aiRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/coach', coachRoutes);
 

@@ -1,4 +1,4 @@
-const { generateMockSuggestion } = require('../../src/services/llm-mock');
+const { generateMockSuggestion, generateMockChat } = require('../../src/services/llm-mock');
 
 function makeContext(overrides = {}) {
   return {
@@ -19,7 +19,9 @@ describe('generateMockSuggestion', () => {
     const result = generateMockSuggestion(makeContext());
     expect(result.tasks.length).toBeGreaterThanOrEqual(2);
     expect(result.tasks.length).toBeLessThanOrEqual(5);
-    expect(result.summary).toContain('[MOCK]');
+    expect(result.summary).toContain('Rencana belajar');
+    expect(result.summary).not.toContain('[MOCK]');
+    expect(result.summary).not.toContain('LLM_PROVIDER');
 
     for (const task of result.tasks) {
       expect(task.title).toBeTruthy();
@@ -29,6 +31,7 @@ describe('generateMockSuggestion', () => {
       expect(task.planned_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(['morning', 'afternoon', 'evening']).toContain(task.planned_slot);
       expect(task.rationale).toBeTruthy();
+      expect(task.rationale).not.toContain('[MOCK]');
     }
   });
 
@@ -64,5 +67,29 @@ describe('generateMockSuggestion', () => {
       expect(task.planned_date >= today).toBe(true);
       expect(task.planned_date <= '2026-06-01').toBe(true);
     }
+  });
+});
+
+describe('generateMockChat', () => {
+  test('answers learning recommendation questions with contextual advice', () => {
+    const result = generateMockChat({
+      profile: {
+        goal: 'menguasai React JS',
+        current_level: 'intermediate',
+        weekly_available_hours: 5,
+      },
+      metrics: {
+        completion_rate_7d: 0.4,
+      },
+      remainingTasksSummary: 'Practice React components (practice, 45m), Review hooks (review, 30m)',
+      payload: {
+        message: 'apa rekomendasi belajar kamu?',
+      },
+    });
+
+    expect(result.message).toContain('Rekomendasi saya');
+    expect(result.message).toContain('menguasai React JS');
+    expect(result.message).toContain('Practice React components');
+    expect(result.message).not.toContain('Terima kasih sudah berbagi');
   });
 });

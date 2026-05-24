@@ -1,40 +1,73 @@
-# README Test Gemini - Panduan User Baru & Bukti Testing
+# StepUp AI Learn
 
-Dokumen ini adalah guide terbaru untuk user baru menggunakan StepUp. Testing dilakukan secara lokal memakai akun:
+StepUp AI Learn adalah aplikasi web full-stack untuk membantu user membuat rencana belajar yang lebih terarah. User dapat membuat goal, menerima rekomendasi task dari AI, mengatur jadwal di kalender, menyelesaikan task, dan memantau progress belajar.
+
+![Dashboard StepUp AI Learn](docs/assets/images/hero-screenshot.png)
+
+## Tujuan Project
+
+Project ini dibuat untuk membantu user yang punya target belajar, tetapi kesulitan memecah target tersebut menjadi jadwal harian yang realistis. AI berperan sebagai learning coach yang memberi saran, sementara user tetap memegang kontrol untuk menerima, menolak, atau mengubah rencana.
+
+## Fitur Utama
+
+| Fitur | Deskripsi |
+| --- | --- |
+| Authentication | Register, login, logout, protected route. |
+| Daily Check-In | User mengisi mood/kondisi harian sebelum masuk dashboard. |
+| Dashboard | Ringkasan goal, progress, task hari ini, urgent task, dan momentum mingguan. |
+| AI Learning Coach | Membuat rekomendasi rencana belajar dan menjawab pertanyaan user. |
+| Human-in-the-Loop | Saran AI tidak langsung dipakai; user dapat accept/reject. |
+| Goal Management | Melihat daftar goal dan detail goal. |
+| Task Management | Membuat task manual, update task, complete, skip, dan modify. |
+| Calendar & Planner | View harian, mingguan, bulanan, navigasi periode, filter, dan saran perubahan plan. |
+| Progress Analytics | Snapshot progress, completion rate, durasi belajar, dan distribusi task. |
+| Observability | Audit trail, metrik coach, dan informasi debugging AI. |
+| Rate Limiting | Pembatasan request auth dan AI menggunakan Redis store di non-test environment. |
+
+## Tech Stack
+
+| Layer | Teknologi |
+| --- | --- |
+| Frontend | React 19, Vite, Redux Toolkit, React Router, Recharts |
+| Backend | Node.js, Express, Zod, JWT |
+| Database | PostgreSQL |
+| Cache / Rate Limit | Redis |
+| AI Provider | Gemini primary, optional paid/fallback provider |
+| Testing | Jest, Vitest, Supertest, Testing Library |
+| Infrastructure | Docker Compose, GitHub Actions |
+
+## Struktur Project
 
 ```text
-Email    : testing123@gmail.com
-Password : Testing123
+client/      Frontend React
+server/      Backend Express, service, repository, migrations
+docs/        Dokumentasi, ADR, testing report, screenshot
+scripts/     Script otomatis untuk testing dan reporting
 ```
 
-Testing ini memakai AI provider **Gemini**, bukan mock. Bukti dari backend:
-
-Semua screenshot pada guide ini sudah diambil ulang sebagai **satu viewport utuh 1365x768** dengan `fullPage: false`, sehingga tidak ada long screenshot, potongan bertumpuk, atau halaman yang terlihat tersambung tidak rapi.
-
-```text
-LLM_PROVIDER=gemini
-GEMINI_MODEL=gemini-2.5-flash-lite
-LLM_MAX_OUTPUT_TOKENS=2200
-```
-
-Pada alur Coach, hasil rekomendasi juga sudah dicek tidak mengandung teks `[MOCK]`.
-
-## 1. Setup Project Lokal
+## Setup Lokal
 
 ### Prasyarat
 
 - Node.js 20+
 - npm
 - Docker Desktop
-- PostgreSQL dan Redis lewat Docker Compose
+- Git
 
-### Jalankan Database dan Redis
+### 1. Jalankan PostgreSQL dan Redis
 
 ```bash
 docker compose up db redis -d
 ```
 
-### Jalankan Backend
+Jika port lokal bentrok, gunakan container test terpisah:
+
+```bash
+docker run --name capstone-stepup-db -e POSTGRES_DB=planner -e POSTGRES_USER=user -e POSTGRES_PASSWORD=pass -p 15432:5432 -d postgres:16
+docker run --name capstone-stepup-redis -p 16379:6379 -d redis:7-alpine
+```
+
+### 2. Setup Backend
 
 ```bash
 cd server
@@ -43,7 +76,7 @@ npm run migrate:up
 npm run dev
 ```
 
-Konfigurasi backend yang dipakai untuk testing Gemini:
+Contoh konfigurasi `server/.env`:
 
 ```env
 DATABASE_URL=postgres://user:pass@localhost:5432/planner
@@ -52,13 +85,19 @@ JWT_SECRET=local_dev_jwt_secret_minimum_32_chars
 JWT_REFRESH_SECRET=local_dev_refresh_secret_minimum_32_chars
 LLM_PROVIDER=gemini
 GEMINI_MODEL=gemini-2.5-flash-lite
-LLM_MAX_OUTPUT_TOKENS=2200
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173
 ```
 
-> Jangan commit `GEMINI_API_KEY` ke repo publik. Simpan sebagai environment secret saat deployment.
+Untuk DB/Redis test port:
 
-### Jalankan Frontend
+```env
+DATABASE_URL=postgres://user:pass@localhost:15432/planner
+REDIS_URL=redis://localhost:16379
+```
+
+Jangan commit `GEMINI_API_KEY`, `GEMINI_PAID_API_KEY`, atau secret lain ke repository.
+
+### 3. Setup Frontend
 
 ```bash
 cd client
@@ -69,206 +108,141 @@ npm run dev
 URL lokal:
 
 - Frontend: `http://127.0.0.1:5173`
-- Backend health: `http://localhost:3000/health`
+- Backend: `http://localhost:3000`
+- Health check: `http://localhost:3000/health`
 
-## 2. Login
+## Panduan Singkat User Baru
 
-Buka halaman login, masukkan akun testing, lalu klik `Masuk`.
+1. Login atau register akun.
+2. Isi daily check-in.
+3. Buka menu `Coach`.
+4. Buat rencana belajar baru.
+5. Review rekomendasi AI.
+6. Accept task yang sesuai.
+7. Buka `Targetku` untuk melihat goal.
+8. Buka `Kalender` untuk melihat jadwal harian, mingguan, atau bulanan.
+9. Tandai task sebagai `Done`, atau gunakan `Skip/Modify` jika perlu.
+10. Pantau hasil di menu `Progress`.
 
-![Halaman login](docs/assets/images/01-login-page.png)
+## Screenshot Fitur
 
-![Login akun testing](docs/assets/images/02-login-filled-testing-account.png)
+| Fitur | Screenshot |
+| --- | --- |
+| Login | ![Login](docs/assets/images/02-login-filled-testing-account.png) |
+| Coach | ![Coach](docs/assets/images/05-coach-home-gemini.png) |
+| Rekomendasi AI | ![Rekomendasi AI](docs/assets/images/07-gemini-recommendation-result.png) |
+| Dashboard | ![Dashboard](docs/assets/images/09-dashboard-with-gemini-plan.png) |
+| Targetku | ![Targetku](docs/assets/images/10-goals-list-gemini.png) |
+| Detail Goal | ![Detail Goal](docs/assets/images/11-goal-detail-gemini-tasks.png) |
+| Kalender | ![Kalender](docs/assets/images/13-calendar-week-gemini.png) |
+| Progress | ![Progress](docs/assets/images/14-progress-gemini.png) |
+| Observability | ![Observability](docs/assets/images/17-coach-observability-gemini.png) |
 
-## 3. Check-In Harian
+## AI Status
 
-Setelah login, user dapat mengisi mood harian. Fitur ini membantu Coach memahami kondisi user sebelum menampilkan dashboard.
-
-![Check-in harian](docs/assets/images/03-check-in-gateway.png)
-
-Setelah check-in, Dashboard terbuka.
-
-![Dashboard setelah check-in](docs/assets/images/04-dashboard-after-check-in.png)
-
-## 4. Dashboard
-
-Dashboard menampilkan:
-
-- goal aktif
-- persentase progress
-- jumlah task selesai
-- task in progress
-- focus points
-- urgent task
-- momentum mingguan
-- prioritas task
-- task yang akan dikerjakan berikutnya
-
-![Dashboard dengan rencana Gemini](docs/assets/images/09-dashboard-with-gemini-plan.png)
-
-## 5. AI Learning Coach dengan Gemini
-
-Buka menu `Coach`. Di halaman ini user bisa membuat rencana belajar baru atau bertanya melalui chat.
-
-![Coach Gemini](docs/assets/images/05-coach-home-gemini.png)
-
-Klik `Buat Rencana Belajar`, lalu isi:
-
-- Judul Tujuan
-- Deskripsi
-- Deadline
-- Jam belajar per minggu
-- Waktu preferensi
-- Hari belajar
-
-Data testing yang digunakan:
+Gemini sudah berhasil divalidasi menggunakan model:
 
 ```text
-Judul      : Belajar React dengan Gemini Guide
-Deskripsi  : Mempelajari React hooks, routing, state management, dan testing aplikasi dengan bantuan AI Gemini.
-Deadline   : 30 Juni 2026
-Jam/minggu : 5
-Preferensi : Pagi
-Hari       : Weekdays
+gemini-2.5-flash-lite
 ```
 
-![Form rencana belajar Gemini](docs/assets/images/06-coach-plan-form-filled-gemini.png)
+Perbaikan yang sudah dilakukan:
 
-Setelah submit, Gemini membuat rekomendasi task. Hasil yang muncul pada screenshot ini adalah output Gemini real, bukan mock.
+- parser AI menerima output string JSON dan object JSON,
+- parser dapat unwrap output `{ plan: { tasks, summary } }`,
+- prompt `/api/ai/plan/suggest` dibuat lebih eksplisit,
+- error schema menyimpan preview output untuk debugging.
 
-![Rekomendasi Gemini](docs/assets/images/07-gemini-recommendation-result.png)
+Catatan penting:
 
-Terima task yang sesuai. Pada testing ini, 5 task diterima dan masuk ke jadwal.
+- API key free tier dapat terkena limit `20 requests/day`.
+- Jika quota habis, endpoint AI bisa mengembalikan `AI_UNAVAILABLE / HTTP 503`.
+- Untuk demo production-like, gunakan paid fallback key atau tunggu quota reset.
 
-![Task Gemini diterima](docs/assets/images/08-gemini-tasks-accepted.png)
+Detail: [docs/ai-gemini-readiness.md](docs/ai-gemini-readiness.md)
 
-## 6. Targetku
+## Testing
 
-Menu `Targetku` menampilkan semua goal belajar. User bisa:
+### Backend Unit Test
 
-- melihat daftar goal
-- mencari goal
-- membuka detail goal
-- menambah goal baru melalui Coach
-- edit goal
-- hapus goal
+```bash
+cd server
+SKIP_DB_CHECK=true npm test -- --runTestsByPath tests/unit/repos-extra.test.js tests/unit/llm.test.js tests/unit/ai.service.test.js tests/unit/coach-static-response.test.js
+```
 
-![Daftar target Gemini](docs/assets/images/10-goals-list-gemini.png)
-
-## 7. Detail Goal dan Task
-
-Klik goal untuk membuka detail. Halaman detail menampilkan:
-
-- judul dan deskripsi goal
-- status goal
-- progress goal
-- total task
-- total estimasi waktu
-- daftar task per tanggal
-- pembagian task per sesi pagi/siang/malam
-- action task: `Done`, `Modify`, dan `Skip`
-- panel `Pengaturan Cepat`
-
-![Detail goal Gemini](docs/assets/images/11-goal-detail-gemini-tasks.png)
-
-Task dari Gemini pada testing ini mencakup:
-
-- `acquire`: belajar konsep awal
-- `practice`: latihan implementasi
-- `reflect`: refleksi mingguan
-
-## 8. Kalender
-
-Menu `Kalender` membantu user melihat jadwal belajar.
-
-### Today View
-
-Mode `Today` fokus pada task hari ini, streak, task selesai, task terjadwal, dan sisa task.
-
-![Kalender Today Gemini](docs/assets/images/12-calendar-today-gemini.png)
-
-### Week View
-
-Mode `Week` menampilkan distribusi rencana belajar satu minggu, total durasi, dan task mendatang.
-
-![Kalender Week Gemini](docs/assets/images/13-calendar-week-gemini.png)
-
-## 9. Progress
-
-Menu `Progress` menampilkan analisis belajar:
-
-- jumlah task selesai
-- total task
-- waktu terpakai
-- total estimasi waktu
-- tingkat penyelesaian
-- rata-rata kesulitan
-- distribusi tipe task
-- catatan adaptasi bila ada
-
-![Progress Gemini](docs/assets/images/14-progress-gemini.png)
-
-## 10. Chat Coach
-
-Selain membuat rencana, user bisa bertanya langsung ke Coach.
-
-Contoh pertanyaan:
+Status terakhir:
 
 ```text
-Apa langkah terbaik saya setelah menerima rencana dari Gemini?
+54 passed
 ```
 
-![Pertanyaan ke Coach Gemini](docs/assets/images/15-coach-chat-question-gemini.png)
+### Frontend Calendar Test
 
-Coach memberikan jawaban singkat dan actionable.
+```bash
+cd client
+npm test -- CalendarPage.test.jsx --run
+```
 
-![Jawaban Coach Gemini](docs/assets/images/16-coach-chat-response-gemini.png)
+Status terakhir:
 
-## 11. Observability
+```text
+8 passed
+```
 
-Panel observability tersedia pada halaman Coach untuk membantu debugging alur AI, audit, dan metrik rekomendasi.
+### Script Testing Otomatis
 
-![Observability Coach](docs/assets/images/17-coach-observability-gemini.png)
-
-## 12. Fitur yang Diverifikasi
-
-| Fitur | Status | Bukti |
+| Scope | Command | Report |
 | --- | --- | --- |
-| Login email/password | Berjalan | Screenshot 01-02 |
-| Check-in harian | Berjalan | Screenshot 03 |
-| Dashboard | Berjalan | Screenshot 04 dan 09 |
-| Coach dengan Gemini | Berjalan | Screenshot 05-08 |
-| Rekomendasi tanpa `[MOCK]` | Berjalan | Screenshot 07 |
-| Accept task rekomendasi | Berjalan | Screenshot 08 |
-| Targetku | Berjalan | Screenshot 10 |
-| Detail goal dan task action | Berjalan | Screenshot 11 |
-| Kalender Today | Berjalan | Screenshot 12 |
-| Kalender Week | Berjalan | Screenshot 13 |
-| Progress analytics | Berjalan | Screenshot 14 |
-| Chat Coach | Berjalan | Screenshot 15-16 |
-| Observability | Tersedia | Screenshot 17 |
+| Task & AI TC-03 sampai TC-07 | `node scripts/run-tc03-tc07.js` | `docs/task-ai-management-tc03-tc07-run-report.md` |
+| Task & AI TC-08 sampai TC-12 | `node scripts/run-task-ai-management-extra.js` | `docs/task-ai-management-tc08-tc12-run-report.md` |
+| Performance & Security TC-10 sampai TC-24 | `node scripts/run-tc10-tc24.js` | `docs/performance-security-tc10-tc24-run-report.md` |
+| E2E Core Flow | `node scripts/run-e2e-core-flow.js` | `docs/e2e-core-flow-run-report.md` |
+| Cleanup Data Testing | `node scripts/cleanup-test-data.js` | `docs/test-data-cleanup-run-report.md` |
 
-## 13. Alur Rekomendasi untuk User Baru
+Ringkasan:
 
-1. Login memakai akun testing.
-2. Isi check-in mood harian.
-3. Buka `Coach`.
-4. Klik `Buat Rencana Belajar`.
-5. Isi tujuan belajar, deadline, jam belajar, preferensi waktu, dan hari belajar.
-6. Review rekomendasi task dari Gemini.
-7. Terima task yang relevan.
-8. Buka `Targetku` untuk melihat goal.
-9. Buka detail goal untuk membaca task.
-10. Buka `Kalender` untuk melihat jadwal.
-11. Tandai task sebagai `Done` setelah selesai.
-12. Pantau perkembangan di `Progress`.
-13. Gunakan chat Coach jika perlu arahan atau penyesuaian.
+- TC-03, TC-05, TC-06: PASS
+- TC-04, TC-07: BLOCKED jika quota Gemini free tier habis
+- TC-08 sampai TC-12: PASS
+- TC-10 sampai TC-24: PASS
+- E2E Core Flow: PASS
 
-## 14. Catatan Tester
+## Dokumentasi Penting
 
-- Provider AI aktif: Gemini.
-- Model aktif: `gemini-2.5-flash-lite`.
-- Rekomendasi terbaru tidak memakai `[MOCK]`.
-- Backend health: pass.
-- Database: connected.
-- Frontend: accessible di `127.0.0.1:5173`.
-- Akun testing berhasil dipakai untuk alur end-to-end.
+- [Problem Framing](docs/problem-framing.md)
+- [AI Gemini Readiness](docs/ai-gemini-readiness.md)
+- [Task & AI TC-03 sampai TC-07](docs/task-ai-management-tc03-tc07-summary.md)
+- [Task & AI TC-08 sampai TC-12](docs/task-ai-management-tc08-tc12-summary.md)
+- [Performance & Security TC-10 sampai TC-24](docs/performance-security-tc10-tc24-summary.md)
+- [E2E Core Flow](docs/e2e-core-flow-summary.md)
+- [Test Data Cleanup](docs/test-data-cleanup.md)
+- [Test Data Cleanup Run Report](docs/test-data-cleanup-run-report.md)
+- [Deployment Readiness Checklist](docs/deployment-readiness-checklist.md)
+- [Architecture Decision Records](docs/adr)
+
+## CI Pipeline
+
+CI menjalankan lint/test dan secret scan. Jika pipeline gagal, cek:
+
+- dependency install,
+- env test,
+- Redis/PostgreSQL service,
+- secret scan,
+- lint warning/error,
+- test yang membutuhkan network atau quota AI.
+
+## Known Issues
+
+| Issue | Status | Catatan |
+| --- | --- | --- |
+| Gemini free tier quota | Known limitation | Gunakan paid fallback key untuk demo stabil. |
+| TC-04/TC-07 saat quota habis | Blocked | Bukan bug utama aplikasi, tetapi limit provider. |
+| Docker port conflict | Known local setup issue | Gunakan port test `15432` dan `16379`. |
+
+## Rekomendasi Lanjutan
+
+1. Tambahkan `GEMINI_PAID_API_KEY` sebagai fallback.
+2. Set max billing agar penggunaan AI tetap terkendali.
+3. Jalankan E2E core flow sebelum demo atau release.
+4. Bersihkan data test dengan script cleanup setelah validasi selesai.
+5. Jalankan full lint/test sebelum commit atau push.

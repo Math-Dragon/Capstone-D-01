@@ -13,6 +13,18 @@ function requestLogger(req, res, next) {
     httpRequestCount.inc({ method: req.method, route, status_code: res.statusCode });
     httpLatency.observe({ method: req.method, route }, durationMs / 1000);
 
+    if (res.statusCode === 429) {
+      logger.warn({
+        request_id: req.requestId,
+        method: req.method,
+        route,
+        status_code: res.statusCode,
+        duration_ms: durationMs,
+        user_id: req.user?.id || null,
+        retry_after: res.getHeader('Retry-After') || null,
+      }, 'Rate limit exceeded');
+    }
+
     logger.info({
       request_id: req.requestId,
       method: req.method,

@@ -11,8 +11,8 @@
     "lint": "eslint src/ tests/",
     "lint:fix": "eslint src/ tests/ --fix",
     "migrate:create": "node-pg-migrate create",
-    "migrate:up": "node -r dotenv/config ./node_modules/.bin/node-pg-migrate -m src/migrations up",
-    "migrate:down": "node -r dotenv/config ./node_modules/.bin/node-pg-migrate -m src/migrations down",
+    "migrate:up": "node -r dotenv/config ./node_modules/node-pg-migrate/bin/node-pg-migrate.js -m src/migrations up",
+    "migrate:down": "node -r dotenv/config ./node_modules/node-pg-migrate/bin/node-pg-migrate.js -m src/migrations down",
     "seed": "node seeds/seed.js"
   },
   "node-pg-migrate": {

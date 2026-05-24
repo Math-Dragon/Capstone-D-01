@@ -26,6 +26,9 @@ function _sanitize(parsed) {
     clean[key] = value;
   }
   if (clean.adjusted_plan && !clean.tasks) clean.tasks = clean.adjusted_plan;
+  if (!clean.tasks && clean.plan && typeof clean.plan === 'object' && Array.isArray(clean.plan.tasks)) {
+    return _sanitize(clean.plan);
+  }
   if (!('plan' in clean) && 'message' in clean) {
     clean.plan = null;
   }
@@ -55,6 +58,9 @@ function _extractJson(raw) {
 function _parse(raw) {
   try {
     const stripped = _stripMarkdown(raw);
+    if (stripped && typeof stripped === 'object') {
+      return _sanitize(stripped);
+    }
     const parsed = JSON.parse(stripped);
     return _sanitize(parsed);
   } catch (error) {
@@ -72,6 +78,14 @@ function _parse(raw) {
   }
 }
 
+function _previewParsed(parsed) {
+  try {
+    return JSON.stringify(parsed).slice(0, 500);
+  } catch {
+    return '[unserializable parsed output]';
+  }
+}
+
 function validateAIOutput(raw) {
   const parsed = _parse(raw);
   const result = PlanSchema.safeParse(parsed);
@@ -80,6 +94,7 @@ function validateAIOutput(raw) {
     const err = new Error(`AI output schema violation at ${first.path.join('.')}: ${first.message}`);
     err.code = 'AI_OUTPUT_INVALID';
     err.statusCode = 422;
+    err._meta = { parsed_output_preview: _previewParsed(parsed) };
     throw err;
   }
   return result.data;

@@ -37,15 +37,15 @@ async function upsert(userId, updates, client) {
 async function computeRollingMetrics(userId, client) {
   const result = await db.query(
     `SELECT
-      COUNT(*) FILTER (WHERE status IN ('done','completed') AND completed_at >= NOW() - INTERVAL '7 days')::numeric
-        / NULLIF(COUNT(*) FILTER (WHERE planned_date >= NOW() - INTERVAL '7 days'), 0)
+      COUNT(*) FILTER (WHERE t.status IN ('done','completed') AND t.completed_at >= NOW() - INTERVAL '7 days')::numeric
+        / NULLIF(COUNT(*) FILTER (WHERE t.planned_date >= NOW() - INTERVAL '7 days'), 0)
         AS completion_rate_7d,
-      COUNT(*) FILTER (WHERE status IN ('done','completed') AND completed_at >= NOW() - INTERVAL '3 days')::numeric
-        / NULLIF(COUNT(*) FILTER (WHERE planned_date >= NOW() - INTERVAL '3 days'), 0)
+      COUNT(*) FILTER (WHERE t.status IN ('done','completed') AND t.completed_at >= NOW() - INTERVAL '3 days')::numeric
+        / NULLIF(COUNT(*) FILTER (WHERE t.planned_date >= NOW() - INTERVAL '3 days'), 0)
         AS completion_rate_3d,
-      AVG(feedback_difficulty) FILTER (
-        WHERE feedback_difficulty IS NOT NULL
-          AND feedback_submitted_at >= NOW() - INTERVAL '7 days'
+      AVG(t.feedback_difficulty) FILTER (
+        WHERE t.feedback_difficulty IS NOT NULL
+          AND t.feedback_submitted_at >= NOW() - INTERVAL '7 days'
       ) AS avg_difficulty_7d
      FROM tasks t
      INNER JOIN goals g ON t.goal_id = g.id
