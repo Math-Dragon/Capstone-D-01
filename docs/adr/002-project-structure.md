@@ -52,9 +52,10 @@ server/src/
 ├── services/         # Business logic + coach/ submodule (6 files)
 ├── repositories/     # Data access layer
 ├── models/           # Zod schemas + DB model mapping
-├── middleware/        # Auth, rate limiting, error handler, logging, metrics auth
+├── middleware/        # Auth, rate limiting, error handler, logging, metrics auth, Zod validate factory
 ├── config/           # Centralized config + Firebase admin
 ├── utils/            # Logger, metrics, retry, converter
+├── constants/        # Centralized Zod enums (enums.js)
 ├── migrations/       # 13 sequential DB migrations
 ├── db.js             # DB connection pool
 ├── app.js            # Express app wiring

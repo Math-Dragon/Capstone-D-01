@@ -215,7 +215,7 @@ async function tc11() {
     action: 'SKIP_TASK',
     payload: {
       taskId: state.skipTaskId,
-      reason: 'busy',
+      reason: 'other',
       session_id: `tc11-${Date.now()}`,
     },
   });
@@ -223,7 +223,7 @@ async function tc11() {
   const metrics = await must('GET', '/coach/metrics');
   const audit = await must('GET', '/coach/audit?limit=20&action=COACH_TASK_SKIPPED');
 
-  const skipped = detail.data.status === 'skipped' && detail.data.skip_reason === 'busy';
+  const skipped = detail.data.status === 'skipped' && detail.data.skip_reason === 'other';
   const beforeDate = apiDateString(before.data.planned_date);
   const afterDate = apiDateString(detail.data.planned_date);
   const movedForward = afterDate && afterDate !== beforeDate && afterDate >= todayString();

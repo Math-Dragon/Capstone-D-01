@@ -69,6 +69,7 @@ export function CoachProvider({ children }) {
   const [pipelineTrace, setPipelineTraceLocal] = useState(null);
   const [observabilityRefresh, setObservabilityRefresh] = useState(0);
   const [banner, setBanner] = useState(null);
+  const [trimmedTasks, setTrimmedTasks] = useState(null);
   const messagesEndRef = useRef(null);
   const isLoadedRef = useRef(false);
   const lastPayloadRef = useRef(null);
@@ -288,6 +289,7 @@ export function CoachProvider({ children }) {
       lastPayloadRef.current = payload;
     }
 
+    setTrimmedTasks(null);
     setMode('loading');
     setStatus('loading');
     setError(null);
@@ -302,6 +304,13 @@ export function CoachProvider({ children }) {
       }
 
       if (result?.recommendation_id) {
+        const violationMap = {};
+        if (Array.isArray(result.violations)) {
+          for (const v of result.violations) {
+            violationMap[v.task_id] = v;
+          }
+        }
+
         setRecommendation({
           recommendationId: result.recommendation_id,
           tasks: result.tasks.map((t) => ({
@@ -311,8 +320,10 @@ export function CoachProvider({ children }) {
             planned_slot: t.planned_slot,
             rationale: t.rationale,
             status: t.status,
+            violation: violationMap[t.task_id] || null,
           })),
           summary: result.summary,
+          violationMap, // index for catch-block rollback (§7b) — not for render
         });
         setMode('recommendation');
         setStatus('idle');
@@ -350,7 +361,7 @@ export function CoachProvider({ children }) {
 
   const getLastPayload = useCallback(() => lastPayloadRef.current, []);
 
-  const decideTask = useCallback(async (taskId, decision) => {
+  const decideTask = useCallback(async (taskId, decision, overrides) => {
     if (!recommendation) return null;
 
     try {
@@ -359,7 +370,7 @@ export function CoachProvider({ children }) {
         return {
           ...prev,
           tasks: prev.tasks.map((t) =>
-            t.taskId === taskId ? { ...t, status: decision } : t
+            t.taskId === taskId ? { ...t, status: decision, violation: null } : t
           ),
         };
       });
@@ -367,15 +378,23 @@ export function CoachProvider({ children }) {
       const result = await coachService.decideTask(
         recommendation.recommendationId,
         taskId,
-        decision
+        decision,
+        overrides
       );
 
       if (result?.allDecided) {
         const acceptedCount = (recommendation?.tasks || []).filter((t) => t.status === 'accepted').length;
+        let content = `Rencana belajar telah ditetapkan! ${acceptedCount} tugas diterima dan ditambahkan ke jadwal kamu. Silakan tanya apa saja tentang rencana belajarmu.`;
+
+        if (Array.isArray(result.trimmed) && result.trimmed.length > 0) {
+          setTrimmedTasks({ count: result.trimmed.length, taskIds: result.trimmed });
+          content += ` ${result.trimmed.length} tugas dipangkas agar sesuai jadwal mingguanmu.`;
+        }
+
         const coachMsg = {
           id: `coach-${Date.now()}`,
           role: 'coach',
-          content: `Rencana belajar telah ditetapkan! ${acceptedCount} tugas diterima dan ditambahkan ke jadwal kamu. Silakan tanya apa saja tentang rencana belajarmu.`,
+          content,
           timestamp: new Date().toISOString(),
           planSnapshot: recommendation?.summary,
         };
@@ -392,7 +411,9 @@ export function CoachProvider({ children }) {
         return {
           ...prev,
           tasks: prev.tasks.map((t) =>
-            t.taskId === taskId ? { ...t, status: 'pending' } : t
+            t.taskId === taskId
+              ? { ...t, status: 'pending', violation: prev.violationMap?.[taskId] || null }
+              : t
           ),
         };
       });
@@ -401,6 +422,7 @@ export function CoachProvider({ children }) {
   }, [recommendation]);
 
   const resetToForm = useCallback(() => {
+    setTrimmedTasks(null);
     setRecommendation(null);
     setMode('form');
     setStatus('idle');
@@ -416,6 +438,8 @@ export function CoachProvider({ children }) {
         mode,
         banner,
         recommendation,
+        trimmedTasks,
+        dismissTrimmed: () => setTrimmedTasks(null),
         pipelineTrace,
         observabilityRefresh,
         sendMessage,

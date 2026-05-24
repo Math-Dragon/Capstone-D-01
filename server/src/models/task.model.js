@@ -1,9 +1,10 @@
 const { z } = require('zod');
-
-const taskStatusEnum = z.enum(['todo', 'in_progress', 'done', 'completed', 'skipped']);
-const taskSourceEnum = z.enum(['manual', 'ai', 'coach']);
-const plannedSlotEnum = z.enum(['morning', 'afternoon', 'evening']);
-const taskTypeEnum = z.enum(['acquire', 'practice', 'recall', 'interleave', 'synthesize', 'review', 'assess', 'reflect']);
+const {
+  taskStatusEnum,
+  taskSourceEnum,
+  plannedSlotEnum,
+  taskTypeEnum,
+} = require('../constants/enums');
 
 const TaskEntity = z.object({
   id: z.string().uuid(),
@@ -51,10 +52,10 @@ const updateTaskSchema = z.object({
 
 const LLMTaskSchema = z.object({
   id: z.string().optional(),
-  title: z.string().min(1),
+  title: z.string().min(1).max(255),
   description: z.string(),
   task_type: taskTypeEnum.optional(),
-  duration_estimate: z.number().int().min(10).max(90),
+  duration_estimate: z.number().int().min(25).max(90),
   planned_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   planned_slot: plannedSlotEnum,
   priority: z.enum(['high', 'medium', 'low']).optional(),
@@ -63,11 +64,26 @@ const LLMTaskSchema = z.object({
   rationale: z.string().min(1),
 });
 
+const VALID_TRANSITIONS = Object.freeze({
+  todo:        ['in_progress', 'done', 'skipped'],
+  in_progress: ['done', 'skipped'],
+  done:        [],
+  skipped:     [],
+});
+
+const statusTransitionSchema = z.object({
+  status: taskStatusEnum,
+  actual_duration: z.number().int().min(1).max(180).optional(),
+  skip_reason: z.string().max(100).optional(),
+});
+
 module.exports = {
   TaskEntity,
   createTaskSchema,
   updateTaskSchema,
   LLMTaskSchema,
+  statusTransitionSchema,
+  VALID_TRANSITIONS,
   taskStatusEnum,
   taskSourceEnum,
   plannedSlotEnum,

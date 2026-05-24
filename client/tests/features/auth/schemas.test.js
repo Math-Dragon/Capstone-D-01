@@ -33,8 +33,8 @@ describe('auth schemas', () => {
     it('accepts valid registration', () => {
       const result = registerSchema.safeParse({
         email: 'test@example.com',
-        password: '12345678',
-        confirmPassword: '12345678',
+        password: 'Test1234!',
+        confirmPassword: 'Test1234!',
       });
       expect(result.success).toBe(true);
     });
@@ -42,8 +42,8 @@ describe('auth schemas', () => {
     it('rejects mismatched passwords', () => {
       const result = registerSchema.safeParse({
         email: 'test@example.com',
-        password: '12345678',
-        confirmPassword: 'different',
+        password: 'Test1234!',
+        confirmPassword: 'Different1!',
       });
       expect(result.success).toBe(false);
     });
@@ -51,7 +51,7 @@ describe('auth schemas', () => {
     it('rejects missing confirmPassword', () => {
       const result = registerSchema.safeParse({
         email: 'test@example.com',
-        password: '12345678',
+        password: 'Test1234!',
       });
       expect(result.success).toBe(false);
     });

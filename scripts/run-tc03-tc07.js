@@ -182,7 +182,7 @@ async function tc07() {
     action: 'SKIP_TASK',
     payload: {
       taskId: state.overdueTaskId,
-      reason: 'busy',
+      reason: 'other',
       session_id: `tc07-${Date.now()}`,
     },
   });

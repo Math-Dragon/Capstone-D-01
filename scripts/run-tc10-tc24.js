@@ -7,8 +7,8 @@ const serverDir = path.join(rootDir, 'server');
 const docsDir = path.join(rootDir, 'docs');
 const reportPath = path.join(docsDir, 'performance-security-tc10-tc24-run-report.md');
 
-const secretPattern = /AIza[0-9A-Za-z_-]{35}|sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{30,}|-----BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE KEY-----/;
-const secretPatternText = 'AIza[0-9A-Za-z_-]{35}|sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{30,}|-----BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE KEY-----';
+const secretPattern = /AIza[0-9A-Za-z_-]{35}|(?<![A-Za-z])sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{30,}|-----BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE KEY-----/;
+const secretPatternText = 'AIza[0-9A-Za-z_-]{35}|(?<![A-Za-z])sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{30,}|-----BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE KEY-----';
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {

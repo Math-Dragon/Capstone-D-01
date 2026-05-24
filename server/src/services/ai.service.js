@@ -1,10 +1,12 @@
 const crypto = require('crypto');
+const { z } = require('zod');
 const { validateAIOutput, SuggestionSchema } = require('./llm');
 const { generateMockSuggestion } = require('./llm-mock');
 const { isMock, callWithRetry } = require('./llm-client');
 const repos = require('../repositories');
 const db = require('../db');
 const logger = require('../utils/logger');
+const { createTaskSchema } = require('../models/task.model');
 
 class AIService {
   async suggestPlan(userId, goalId, context = {}) {
@@ -140,6 +142,8 @@ class AIService {
       source: 'ai',
       status: 'todo',
     }));
+
+    z.array(createTaskSchema).parse(tasksToCreate);
 
     const savedTasks = await db.withTransaction(async (client) => {
       const tasks = await repos.task.createMany(tasksToCreate, client);

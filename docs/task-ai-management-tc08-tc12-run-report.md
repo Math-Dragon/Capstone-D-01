@@ -1,6 +1,6 @@
 # TC-08 sampai TC-12 Run Report
 
-Generated: 2026-05-21T05:16:32.764Z
+Generated: 2026-05-24T09:30:10.105Z
 
 API Base URL: `http://localhost:3000/api`
 
@@ -26,12 +26,12 @@ API Base URL: `http://localhost:3000/api`
 
 | TC | Status | Test | Evidence |
 | --- | --- | --- | --- |
-| SETUP | PASS | Membuat dua user, goal, dan task sementara | User A tc08-tc12-a-1779340591453@example.com, User B tc08-tc12-b-1779340592078@example.com, goal bdc41efc-6575-40a7-b185-375e8f2c040c |
+| SETUP | PASS | Membuat dua user, goal, dan task sementara | User A tc08-tc12-a-1779615006332@example.com, User B tc08-tc12-b-1779615006917@example.com, goal 509519d4-b62f-497e-9098-823dadf028b1 |
 | TC-08 | PASS | Validasi input task invalid | Duration terlalu kecil dan slot invalid sama-sama ditolak dengan VALIDATION_ERROR |
-| TC-09 | PASS | Proteksi ownership task antar user | User B tidak bisa membaca/mengubah task ba1ab321-46ca-4843-9a93-e7665296f92e |
-| TC-10 | PASS | Aksi coach COMPLETE_TASK tanpa perlu LLM | Task e963d99a-0f81-47d4-874e-516746e97063 done, metric total_completed=1, audit tercatat |
-| TC-11 | PASS | Aksi coach SKIP_TASK melakukan reschedule statis | Task b3a82264-2679-42de-ac1e-4c63b329d632 skipped dan dipindah dari 2026-05-19 ke 2026-05-21 |
-| TC-12 | PASS | AI suggestion tersedia atau fallback error jelas | Provider AI unavailable ditangani dengan AI_UNAVAILABLE dan tidak membuat task baru |
+| TC-09 | PASS | Proteksi ownership task antar user | User B tidak bisa membaca/mengubah task 4293b126-8aed-42eb-8f53-4056db2719f7 |
+| TC-10 | PASS | Aksi coach COMPLETE_TASK tanpa perlu LLM | Task 57a376f2-5fd9-4b9b-9c58-fce4ae249d14 done, metric total_completed=1, audit tercatat |
+| TC-11 | PASS | Aksi coach SKIP_TASK melakukan reschedule statis | Task 033c729b-912d-460b-bc36-415bcaac2312 skipped dan dipindah dari 2026-05-22 ke 2026-05-24 |
+| TC-12 | PASS | AI suggestion tersedia atau fallback error jelas | AI tersedia dan mengembalikan recommendation f7d9f56d-fcbd-406e-adbc-0a42e8b64771 |
 
 ## Command
 

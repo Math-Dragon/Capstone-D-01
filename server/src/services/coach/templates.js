@@ -9,7 +9,9 @@ const TEMPLATES = {
     `Preferred study slots: ${ctx.profile.preferred_slots}\n` +
     `Available days: ${(ctx.profile.available_days || ['mon', 'tue', 'wed', 'thu', 'fri']).join(', ')}\n` +
     `Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
-    'Generate a personalized study plan for this student. Follow the output structure exactly. Respond with JSON only. No conversational text.',
+    'Generate a personalized study plan for this student. Respond with JSON only in this exact structure:\n' +
+    '{"tasks": [{"title": "...", "description": "...", "task_type": "acquire|practice|recall|interleave|synthesize|review|assess|reflect", "duration_estimate": 25-90, "planned_date": "YYYY-MM-DD", "planned_slot": "morning|afternoon|evening", "rationale": "..."}], "summary": "brief overview of the plan"}\n' +
+    'No conversational text outside the JSON.',
 
   task_action: (ctx) => {
     let body = '[session_type: task_action]\n\n';

@@ -1,6 +1,5 @@
 const { z } = require('zod');
-
-const goalStatusEnum = z.enum(['active', 'completed', 'archived']);
+const { goalStatusEnum } = require('../constants/enums');
 
 const GoalEntity = z.object({
   id: z.string().uuid(),

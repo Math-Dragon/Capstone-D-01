@@ -1,7 +1,7 @@
 const { UserEntity, registerSchema, loginSchema } = require('../../src/models/user.model');
 const { createGoalSchema, updateGoalSchema } = require('../../src/models/goal.model');
 const { TaskEntity, createTaskSchema } = require('../../src/models/task.model');
-const { coachActionSchema } = require('../../src/models/coach.model');
+const { coachRequestSchema } = require('../../src/models/coach.model');
 const { RefreshTokenEntity } = require('../../src/models/refresh-token.model');
 const { AuditLogEntity } = require('../../src/models/audit-log.model');
 const { PlanSnapshotEntity } = require('../../src/models/plan-snapshot.model');
@@ -173,19 +173,29 @@ describe('Task Models', () => {
 });
 
 describe('Coach Models', () => {
-  describe('coachActionSchema', () => {
-    test('accepts valid coach action', () => {
-      const result = coachActionSchema.safeParse({ action: 'CHAT_MESSAGE', payload: { goal_id: '550e8400-e29b-41d4-a716-446655440000' } });
+  describe('coachRequestSchema', () => {
+    test('accepts valid CHAT_MESSAGE action', () => {
+      const result = coachRequestSchema.safeParse({ action: 'CHAT_MESSAGE', payload: { message: 'Halo coach' } });
+      expect(result.success).toBe(true);
+    });
+
+    test('accepts valid CHECK_IN action', () => {
+      const result = coachRequestSchema.safeParse({ action: 'CHECK_IN', payload: { mood: 'great' } });
+      expect(result.success).toBe(true);
+    });
+
+    test('accepts valid COMPLETE_TASK action', () => {
+      const result = coachRequestSchema.safeParse({ action: 'COMPLETE_TASK', payload: { taskId: '550e8400-e29b-41d4-a716-446655440000' } });
       expect(result.success).toBe(true);
     });
 
     test('rejects invalid action', () => {
-      const result = coachActionSchema.safeParse({ action: 'INVALID' });
+      const result = coachRequestSchema.safeParse({ action: 'INVALID' });
       expect(result.success).toBe(false);
     });
 
     test('rejects missing action', () => {
-      const result = coachActionSchema.safeParse({});
+      const result = coachRequestSchema.safeParse({});
       expect(result.success).toBe(false);
     });
   });

@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const config = require('./config');
 const { requestLogger } = require('./middleware/requestLogger');
@@ -20,6 +21,17 @@ const coachRoutes = require('./routes/coach');
 
 const app = express();
 app.use(cors({ origin: config.allowedOrigins, credentials: true }));
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ['\'self\''],
+      imgSrc: ['\'self\'', 'data:', 'blob:'],
+      fontSrc: ['\'self\'', 'https:', 'data:'],
+      styleSrc: ['\'self\'', '\'unsafe-inline\''],
+      scriptSrc: ['\'self\''],
+    },
+  },
+}));
 app.use(express.json());
 app.use(cookieParser());
 app.use(requestLogger);

@@ -2,7 +2,7 @@
 
 Dokumen ini berisi hasil pengujian fitur kalender, navigasi minggu, manajemen task, progress snapshot, overdue detection, dan flow AI reschedule.
 
-Generated: 2026-05-23T07:07:44.831Z
+Generated: 2026-05-24T09:33:39.631Z
 
 ## Setup Guide
 
@@ -41,7 +41,7 @@ Environment yang dipakai script:
 | --- | --- |
 | `API_BASE_URL` | `http://localhost:3000/api` |
 | `APP_BASE_URL` | `http://localhost:5173` |
-| `CHROME_PATH` | `C:\Program Files\Google\Chrome\Application\chrome.exe` |
+| `CHROME_PATH` | `/usr/bin/chromium-browser` |
 
 ## Before Test
 
@@ -66,12 +66,12 @@ Environment yang dipakai script:
 
 | TC | Status | Pengujian | Evidence | Screenshot |
 | --- | --- | --- | --- | --- |
-| SETUP | PASS | Membuat user, goal, dan data kalender sementara | User tc01-tc07-ui-1779520043151@example.com, goal 057f3826-e85c-4fba-b9c0-21e3afc16a20. | - |
-| TC-03 | PASS | Membuat tugas manual dan memastikan data tersimpan di database | Task 9e12eb63-c51a-4374-88f5-828b07769f86 tersimpan dan terbaca ulang via API dengan source=manual. | - |
-| TC-04 | PASS | Membuat tugas berdasarkan rekomendasi/saran AI | Recommendation 2bc80371-9152-4739-91eb-2b996f584110 diterima dan 5 task AI tersimpan. | - |
-| TC-05 | PASS | Mengubah status todo ke done dan memvalidasi progress snapshot | Task 9e12eb63-c51a-4374-88f5-828b07769f86 menjadi done; progress 2026-W21 completed_hours=0.7. | - |
-| TC-06 | PASS | Memastikan sistem mendeteksi tugas yang melewati tenggat waktu | Task 608c2148-e543-40cd-9c1f-6e310abdb32a terdeteksi overdue karena planned_date=2026-05-21T17:00:00.000Z. | - |
-| TC-07 | PASS | Reschedule otomatis via AI untuk overdue, lalu Accept dan Reject saran | Overdue task dipindah ke 2026-05-24T17:00:00.000Z; Accept membuat 1 task; Reject tidak menambah task. | - |
+| SETUP | PASS | Membuat user, goal, dan data kalender sementara | User tc01-tc07-ui-1779615186214@example.com, goal b121a82e-a661-40e5-9831-7c54cf565846. | - |
+| TC-03 | PASS | Membuat tugas manual dan memastikan data tersimpan di database | Task 9e2dc3de-4dd7-4763-8d83-d8e034508a99 tersimpan dan terbaca ulang via API dengan source=manual. | - |
+| TC-04 | PASS | Membuat tugas berdasarkan rekomendasi/saran AI | Recommendation ded63bd0-a721-4a0e-858b-332777e5d34b diterima dan 5 task AI tersimpan. | - |
+| TC-05 | PASS | Mengubah status todo ke done dan memvalidasi progress snapshot | Task 9e2dc3de-4dd7-4763-8d83-d8e034508a99 menjadi done; progress 2026-W21 completed_hours=0.7. | - |
+| TC-06 | PASS | Memastikan sistem mendeteksi tugas yang melewati tenggat waktu | Task 14edb069-32a1-4f56-a096-8de134f50e4d terdeteksi overdue karena planned_date=2026-05-22T17:00:00.000Z. | - |
+| TC-07 | PASS | Reschedule otomatis via AI untuk overdue, lalu Accept dan Reject saran | Overdue task dipindah ke 2026-05-24T17:00:00.000Z; Accept membuat 1 task. Reject 6ec2c836-1641-4527-859b-e661ef02494b berhasil; tidak ada task baru. | - |
 | TC-01 | PASS | Tugas muncul di slot waktu kalender mingguan sesuai timestamp | Task pagi, siang, dan malam tampil di tampilan minggu sesuai planned_date/planned_slot. | [lihat screenshot](assets/images/tc01-tc07-calendar-task-ai/01-tc01-weekly-slots.png) |
 | TC-02 | PASS | Navigasi minggu Next/Previous memuat data yang benar | Minggu berikutnya menampilkan task TC-02, lalu minggu sebelumnya kembali menampilkan task TC-01. | [lihat screenshot](assets/images/tc01-tc07-calendar-task-ai/02-tc02-next-week.png)<br>[lihat screenshot](assets/images/tc01-tc07-calendar-task-ai/03-tc02-previous-week.png) |
 | TC-03-UI | PASS | Bukti UI task manual | Task manual TC-03 terlihat pada kalender. | [lihat screenshot](assets/images/tc01-tc07-calendar-task-ai/04-tc03-manual-task.png) |
@@ -130,4 +130,4 @@ Environment yang dipakai script:
 
 - Screenshot diambil sebagai satu tangkapan layar utuh per langkah menggunakan browser headless.
 - Validasi data kritikal tetap dilakukan lewat API/database flow agar hasilnya tidak bergantung pada posisi scroll UI.
-- Data testing memakai user sementara: `tc01-tc07-ui-1779520043151@example.com`.
+- Data testing memakai user sementara: `tc01-tc07-ui-1779615186214@example.com`.

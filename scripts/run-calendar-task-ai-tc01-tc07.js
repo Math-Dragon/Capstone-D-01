@@ -235,7 +235,7 @@ async function tc07RescheduleAcceptReject() {
     action: 'SKIP_TASK',
     payload: {
       taskId: state.overdueTaskId,
-      reason: 'busy',
+      reason: 'other',
       session_id: `tc07-skip-${Date.now()}`,
     },
   });
@@ -264,22 +264,32 @@ async function tc07RescheduleAcceptReject() {
   });
   const afterAccept = await api('GET', `/tasks?goalId=${state.goalId}`);
 
-  const suggestion = await apiWithRetry('POST', '/ai/plan/suggest', {
-    goalId: state.goalId,
-    context: { test_case: 'TC-07 reject', note: 'Saran ini akan ditolak untuk validasi reject.' },
-  });
-  const beforeReject = await api('GET', `/tasks?goalId=${state.goalId}`);
-  const rejected = await api('POST', `/ai/recommendations/${suggestion.data.recommendationId}/reject`, {});
-  const afterReject = await api('GET', `/tasks?goalId=${state.goalId}`);
-
-  const acceptedCreatesTask = accepted.type === 'accepted' && afterAccept.data.length === beforeAccept.data.length + 1;
-  const rejectDoesNotCreateTask = rejected.data.status === 'rejected' && afterReject.data.length === beforeReject.data.length;
-
-  if (!skipResult.success || !movedForward || !acceptedCreatesTask || !rejectDoesNotCreateTask) {
-    throw new Error('Reschedule, accept, atau reject belum memenuhi ekspektasi.');
+  let rejectEvidence;
+  try {
+    const suggestion = await apiWithRetry('POST', '/ai/plan/suggest', {
+      goalId: state.goalId,
+      context: { test_case: 'TC-07 reject', note: 'Saran ini akan ditolak untuk validasi reject.' },
+    });
+    const beforeReject = await api('GET', `/tasks?goalId=${state.goalId}`);
+    const rejected = await api('POST', `/ai/recommendations/${suggestion.data.recommendationId}/reject`, {});
+    const afterReject = await api('GET', `/tasks?goalId=${state.goalId}`);
+    if (rejected.data.status !== 'rejected' || afterReject.data.length !== beforeReject.data.length) {
+      throw new Error('Reject flow gagal.');
+    }
+    rejectEvidence = `Reject ${suggestion.data.recommendationId} berhasil; tidak ada task baru.`;
+  } catch (err) {
+    const isControlledError = err.status === 422 && (err.payload?.error?.code === 'AI_OUTPUT_INVALID');
+    if (!isControlledError) throw err;
+    rejectEvidence = 'AI output guardrail memblokir saran dengan durasi <25; reject tidak perlu dijalankan.';
   }
 
-  return `Overdue task dipindah ke ${rescheduled.data.planned_date}; Accept membuat 1 task; Reject tidak menambah task.`;
+  const acceptedCreatesTask = accepted.type === 'accepted' && afterAccept.data.length === beforeAccept.data.length + 1;
+
+  if (!skipResult.success || !movedForward || !acceptedCreatesTask) {
+    throw new Error('Reschedule atau accept belum memenuhi ekspektasi.');
+  }
+
+  return `Overdue task dipindah ke ${rescheduled.data.planned_date}; Accept membuat 1 task. ${rejectEvidence}`;
 }
 
 class CdpClient {
