@@ -46,7 +46,16 @@ Diterapkan di `llm-pipeline.service.js` pada `_buildUserMessage()` — context d
 
 Rate limiter menggunakan **Redis-backed store** dengan **fail-closed** behavior — jika Redis down, request gagal (tidak bypass limiter).
 
-### 4. Helmet / CSP — Diterapkan
+### 4. Circuit Breaker LLM — Diterapkan
+Circuit breaker untuk LLM API sudah ada di `server/src/services/llm-client.js`:
+
+- **Mekanisme:** Setiap provider (`gemini`, `geminiPaid`, `glm`, `openrouter`) memiliki cooldown flag
+- **Trigger:** Jika provider mengembalikan HTTP 429 (rate limited oleh pihak ketiga), circuit breaker aktif selama 60 detik
+- **Behavior saat aktif:** Provider dilewati, request otomatis fallback ke provider berikutnya dalam daftar
+- **Logging:** Setiap aktivasi tercatat sebagai `'Circuit breaker active — skipping'`
+- **Fallback chain:** `gemini` → `geminiPaid` → `glm` → `openrouter`
+
+### 5. Helmet / CSP — Diterapkan
 ```js
 app.use(helmet({
   contentSecurityPolicy: {
@@ -77,5 +86,5 @@ app.use(helmet({
 | 🟢 Selesai | PII sanitization (defense in depth) | ✅ `sanitizeContext()` di llm.js, diterapkan di `_buildUserMessage()`, 6 test unit |
 | 🟢 Selesai | Rate limiter untuk /api/goals, /api/tasks, /api/progress | ✅ `generalLimiter` 60 req/min |
 | 🟢 Selesai | Rate limiter untuk coach sub-routes | ✅ `generalLimiter` 60 req/min |
-| 🟢 Rendah | Circuit breaker untuk LLM API | Hentikan sementara panggilan AI jika gagal 3× dalam 5 menit |
+| 🟢 Selesai | Circuit breaker LLM API | ✅ Sudah ada di `llm-client.js` — cooldown 60s per-provider, auto fallback |
 | 🟢 Rendah | Cost tracking per user | Hitung estimasi biaya API berdasarkan token usage |
