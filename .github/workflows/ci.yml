@@ -32,12 +32,16 @@ jobs:
       LLM_PROVIDER: mock
       NODE_ENV: test
       REDIS_URL: redis://localhost:6379
+    defaults:
+      run:
+        working-directory: ./team
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Secret scan
+        working-directory: .
         run: |
           if grep -RInE 'AIza[0-9A-Za-z_-]{35}|(^|[^A-Za-z0-9_])sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9_]{30,}|-----BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE KEY-----' \
             --exclude-dir=.git \
