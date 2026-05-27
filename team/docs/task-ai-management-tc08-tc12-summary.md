@@ -61,3 +61,13 @@ Pengujian tambahan ini saya sarankan karena project AI learning planner tidak cu
 - provider AI sedang error atau quota habis.
 
 Dengan TC-08 sampai TC-12, coverage Manajemen Tugas & AI menjadi lebih kuat karena mencakup happy path, edge case, keamanan ownership, dan fallback behavior.
+
+## Tambahan Scope Work Scope 2
+
+Detail metrik acceptance rate saran AI untuk TC-008 tersedia di:
+
+```text
+docs/ai-acceptance-rate.md
+```
+
+Dokumen tersebut menjelaskan rumus `accepted / (accepted + rejected)`, endpoint observability, lokasi implementasi, dan cara validasi manual.

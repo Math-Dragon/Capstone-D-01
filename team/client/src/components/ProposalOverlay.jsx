@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import useFocusTrap from '../hooks/useFocusTrap';
+import RationaleDisplay from './RationaleDisplay';
 
 const DIFF_STYLES = {
   added: { bg: 'bg-green-50 border-green-200', prefix: '+', text: 'text-green-800' },
@@ -52,9 +53,7 @@ export default function ProposalOverlay({ proposal, onAccept, onReject, acceptin
                     <span className="text-xs text-primary-400">{task.duration_estimate}m</span>
                   </div>
                   <p className={`text-sm font-medium mt-1 ${style.text}`}>{task.title}</p>
-                  {task.rationale && (
-                    <p className="text-xs text-primary-400 mt-0.5">{task.rationale}</p>
-                  )}
+                  <RationaleDisplay rationale={task.rationale} compact className="mt-2" />
                 </div>
               );
             })}
