@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/202</span>
+                <span class='fraction'>0/193</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/202</span>
+                <span class='fraction'>0/193</span>
             </div>
         
             
@@ -273,16 +273,7 @@
 <a name='L208'></a><a href='#L208'>208</a>
 <a name='L209'></a><a href='#L209'>209</a>
 <a name='L210'></a><a href='#L210'>210</a>
-<a name='L211'></a><a href='#L211'>211</a>
-<a name='L212'></a><a href='#L212'>212</a>
-<a name='L213'></a><a href='#L213'>213</a>
-<a name='L214'></a><a href='#L214'>214</a>
-<a name='L215'></a><a href='#L215'>215</a>
-<a name='L216'></a><a href='#L216'>216</a>
-<a name='L217'></a><a href='#L217'>217</a>
-<a name='L218'></a><a href='#L218'>218</a>
-<a name='L219'></a><a href='#L219'>219</a>
-<a name='L220'></a><a href='#L220'>220</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L211'></a><a href='#L211'>211</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -347,10 +338,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -367,11 +354,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -550,7 +532,7 @@
 <span class="cstat-no" title="statement not covered" >  const handleComplete = useCallback(async (task) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    setActionLoading(task.id);</span>
 <span class="cstat-no" title="statement not covered" >    try {</span>
-<span class="cstat-no" title="statement not covered" >      const result = await dispatchTaskAction('COMPLETE_TASK', { taskId: task.id });</span>
+<span class="cstat-no" title="statement not covered" >      await api.patch(`/tasks/${task.id}/status`, { status: 'done' });</span>
 <span class="cstat-no" title="statement not covered" >      onUpdateTasks((prev) =&gt;</span>
 <span class="cstat-no" title="statement not covered" >        (Array.isArray(prev) ? prev : []).map((t) =&gt;</span>
 <span class="cstat-no" title="statement not covered" >          t.id === task.id ? { ...t, status: 'done' } : t</span>
@@ -558,18 +540,14 @@
 <span class="cstat-no" title="statement not covered" >      );</span>
 <span class="cstat-no" title="statement not covered" >      addToast('Tugas selesai!', 'success');</span>
 <span class="cstat-no" title="statement not covered" >      notifyMutation();</span>
-<span class="cstat-no" title="statement not covered" >      if (result?.plan?.tasks?.length &gt; 0) {</span>
-<span class="cstat-no" title="statement not covered" >        setProposal(result.plan);</span>
-<span class="cstat-no" title="statement not covered" >        persistProposal(result.plan);</span>
-<span class="cstat-no" title="statement not covered" >      }</span>
 <span class="cstat-no" title="statement not covered" >      setActiveTask(task);</span>
 <span class="cstat-no" title="statement not covered" >      setActiveModal('feedback');</span>
-<span class="cstat-no" title="statement not covered" >    } catch (err) {</span>
+<span class="cstat-no" title="statement not covered" >    } catch {</span>
 <span class="cstat-no" title="statement not covered" >      addToast('Gagal menyelesaikan tugas.', 'error');</span>
 <span class="cstat-no" title="statement not covered" >    } finally {</span>
 <span class="cstat-no" title="statement not covered" >      setActionLoading(null);</span>
 <span class="cstat-no" title="statement not covered" >    }</span>
-<span class="cstat-no" title="statement not covered" >  }, [dispatchTaskAction, onUpdateTasks, addToast]);</span>
+<span class="cstat-no" title="statement not covered" >  }, [onUpdateTasks, addToast]);</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  const handleSkip = useCallback((task) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    setActiveTask(task);</span>
@@ -586,33 +564,28 @@
 <span class="cstat-no" title="statement not covered" >    setActiveModal('feedback');</span>
 <span class="cstat-no" title="statement not covered" >  }, []);</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  const confirmSkip = useCallback(async (reason, note) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  const confirmSkip = useCallback(async (reason, _note) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    if (!activeTask) return;</span>
 <span class="cstat-no" title="statement not covered" >    setActionLoading(activeTask.id);</span>
 <span class="cstat-no" title="statement not covered" >    try {</span>
-<span class="cstat-no" title="statement not covered" >      const result = await dispatchTaskAction('SKIP_TASK', {</span>
-<span class="cstat-no" title="statement not covered" >        taskId: activeTask.id,</span>
-<span class="cstat-no" title="statement not covered" >        reason: reason || 'unspecified',</span>
-<span class="cstat-no" title="statement not covered" >        note,</span>
+<span class="cstat-no" title="statement not covered" >      await api.patch(`/tasks/${activeTask.id}/status`, {</span>
+<span class="cstat-no" title="statement not covered" >        status: 'skipped',</span>
+<span class="cstat-no" title="statement not covered" >        skip_reason: reason || undefined,</span>
 <span class="cstat-no" title="statement not covered" >      });</span>
 <span class="cstat-no" title="statement not covered" >      onUpdateTasks((prev) =&gt;</span>
 <span class="cstat-no" title="statement not covered" >        (Array.isArray(prev) ? prev : []).map((t) =&gt;</span>
 <span class="cstat-no" title="statement not covered" >          t.id === activeTask.id ? { ...t, status: 'skipped' } : t</span>
 <span class="cstat-no" title="statement not covered" >        )</span>
 <span class="cstat-no" title="statement not covered" >      );</span>
-<span class="cstat-no" title="statement not covered" >      addToast('Tugas dilewati. Coach akan menyesuaikan.', 'warning');</span>
+<span class="cstat-no" title="statement not covered" >      addToast('Tugas dilewati.', 'warning');</span>
 <span class="cstat-no" title="statement not covered" >      notifyMutation();</span>
-<span class="cstat-no" title="statement not covered" >      if (result?.plan?.tasks?.length &gt; 0) {</span>
-<span class="cstat-no" title="statement not covered" >        setProposal(result.plan);</span>
-<span class="cstat-no" title="statement not covered" >        persistProposal(result.plan);</span>
-<span class="cstat-no" title="statement not covered" >      }</span>
 <span class="cstat-no" title="statement not covered" >      closeModal();</span>
 <span class="cstat-no" title="statement not covered" >    } catch (err) {</span>
 <span class="cstat-no" title="statement not covered" >      addToast('Gagal melewati tugas.', 'error');</span>
 <span class="cstat-no" title="statement not covered" >    } finally {</span>
 <span class="cstat-no" title="statement not covered" >      setActionLoading(null);</span>
 <span class="cstat-no" title="statement not covered" >    }</span>
-<span class="cstat-no" title="statement not covered" >  }, [activeTask, dispatchTaskAction, onUpdateTasks, addToast, closeModal]);</span>
+<span class="cstat-no" title="statement not covered" >  }, [activeTask, onUpdateTasks, addToast, closeModal]);</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  const confirmModify = useCallback(async (changes) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    if (!activeTask) return;</span>
@@ -727,7 +700,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-19T03:26:26.029Z
+                at 2026-05-28T22:13:02.918Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

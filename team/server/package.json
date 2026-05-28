@@ -56,6 +56,11 @@
     ],
     "setupFilesAfterEnv": [
       "<rootDir>/tests/setup.js"
-    ]
+    ],
+    "coverageThreshold": {
+      "global": {
+        "lines": 50
+      }
+    }
   }
 }
