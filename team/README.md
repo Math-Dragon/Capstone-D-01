@@ -211,6 +211,8 @@ Ringkasan:
 
 - [Problem Framing](docs/problem-framing.md)
 - [AI Gemini Readiness](docs/ai-gemini-readiness.md)
+- [AI Acceptance Rate](docs/ai-acceptance-rate.md)
+- [Work Scope 2 - AI Feature & Validation](docs/work-scope-2-ai-feature-validation.md)
 - [Task & AI TC-03 sampai TC-07](docs/task-ai-management-tc03-tc07-summary.md)
 - [Task & AI TC-08 sampai TC-12](docs/task-ai-management-tc08-tc12-summary.md)
 - [Performance & Security TC-10 sampai TC-24](docs/performance-security-tc10-tc24-summary.md)

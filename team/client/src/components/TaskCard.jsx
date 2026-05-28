@@ -1,5 +1,6 @@
 import { useState, memo } from 'react';
 import { TASK_TYPE_PALETTE, SLOT_LABELS } from '../utils/constants';
+import RationaleDisplay from './RationaleDisplay';
 
 const PRIORITY_DOT = { high: 'bg-red-500', medium: 'bg-amber-400', low: 'bg-gray-300' };
 
@@ -94,9 +95,7 @@ const TaskCard = memo(function TaskCard({
             Why this task?
           </button>
           {rationaleOpen && (
-            <p id={`rationale-${task.id}`} className="text-xs text-primary-500 mt-1 pl-4 border-l-2 border-primary-100">
-              {task.rationale}
-            </p>
+            <RationaleDisplay id={`rationale-${task.id}`} rationale={task.rationale} compact className="mt-1 ml-1" />
           )}
         </div>
       )}

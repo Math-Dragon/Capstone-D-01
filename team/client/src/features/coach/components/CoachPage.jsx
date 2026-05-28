@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-do
 import CoachObservability from './CoachObservability';
 import AdaptationBanner from '../../../components/AdaptationBanner';
 import AdjustmentPanel from '../../../components/AdjustmentPanel';
+import RationaleDisplay from '../../../components/RationaleDisplay';
 import useFocusTrap from '../../../hooks/useFocusTrap';
 
 function TypingIndicator() {
@@ -339,7 +340,7 @@ function TaskCard({ task, onDecide, onViolationAccept }) {
           </div>
         );
       })()}
-      {task.rationale && <p className="text-xs text-primary-400 italic mb-3">{task.rationale}</p>}
+      <RationaleDisplay rationale={task.rationale} compact className="mb-3" />
       <div className="flex gap-2 justify-end">
         {task.status === 'pending' ? (
           <>

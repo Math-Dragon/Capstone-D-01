@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import useFocusTrap from '../hooks/useFocusTrap';
 import { lockScroll, unlockScroll } from '../utils/scrollLock';
 import { TASK_TYPE_PALETTE } from '../utils/constants';
+import RationaleDisplay from './RationaleDisplay';
 
 const SLOT_LABELS = { morning: 'Pagi', afternoon: 'Siang', evening: 'Malam' };
 const TYPE_COLORS = Object.fromEntries(
@@ -133,7 +134,7 @@ export default function TaskDetailModal({ task, isOpen, onClose, onSaveNotes }) 
             <div className="space-y-2">
               {task.rationale && (
                 <CollapsibleSection label="Alasan">
-                  <p>{task.rationale}</p>
+                  <RationaleDisplay rationale={task.rationale} />
                 </CollapsibleSection>
               )}
               {task.completion_criteria && (
