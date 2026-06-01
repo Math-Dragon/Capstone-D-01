@@ -81,6 +81,17 @@ describe('TaskCard', () => {
     expect(onClickTitle).toHaveBeenCalledWith(baseTask);
   });
 
+  it('opens the task detail from keyboard on the task title', () => {
+    const onClickTitle = vi.fn();
+    render(<TaskCard task={baseTask} onClickTitle={onClickTitle} />);
+    const titleButton = screen.getByRole('button', { name: /Buka detail task Belajar React Hooks/i });
+
+    titleButton.focus();
+    fireEvent.keyDown(titleButton, { key: 'Enter' });
+
+    expect(onClickTitle).toHaveBeenCalledWith(baseTask);
+  });
+
   it('toggles rationale visibility', () => {
     render(<TaskCard task={baseTask} />);
     expect(screen.queryByText('Fokus pagi lebih baik untuk materi baru')).not.toBeInTheDocument();

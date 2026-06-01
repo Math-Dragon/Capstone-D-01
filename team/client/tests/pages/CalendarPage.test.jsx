@@ -248,6 +248,21 @@ describe('CalendarPage', () => {
     expect(screen.getByText('Current week morning task')).toBeInTheDocument();
   });
 
+  it('moves calendar focus with arrow keys and opens the focused day', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderPage();
+
+    await user.click(await screen.findByRole('tab', { name: 'Minggu' }));
+    const monday = screen.getByRole('button', { name: /Sen 18/i });
+    monday.focus();
+
+    fireEvent.keyDown(monday, { key: 'ArrowRight' });
+    expect(screen.getByRole('button', { name: /Sel 19/i })).toHaveFocus();
+
+    fireEvent.keyDown(screen.getByRole('button', { name: /Sel 19/i }), { key: 'Enter' });
+    expect(screen.getByRole('tab', { name: 'Hari' })).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('reschedules a task by dragging it to another day', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderPage();

@@ -55,11 +55,21 @@ const TaskCard = memo(function TaskCard({
       </div>
 
       {/* Title */}
-      <h3
-        className={`font-medium text-sm cursor-pointer hover:underline ${isDone ? 'line-through text-primary-400' : 'text-primary-900'}`}
-        onClick={() => onClickTitle?.(task)}
-      >
-        {task.title}
+      <h3>
+        <button
+          type="button"
+          className={`block w-full text-left font-medium text-sm hover:underline focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 rounded ${isDone ? 'line-through text-primary-400' : 'text-primary-900'}`}
+          onClick={() => onClickTitle?.(task)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              onClickTitle?.(task);
+            }
+          }}
+          aria-label={`Buka detail task ${task.title}`}
+        >
+          {task.title}
+        </button>
       </h3>
 
       {/* Description */}
