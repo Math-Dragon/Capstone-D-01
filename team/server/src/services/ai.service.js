@@ -6,6 +6,7 @@ const { isMock, callWithRetry } = require('./llm-client');
 const repos = require('../repositories');
 const db = require('../db');
 const logger = require('../utils/logger');
+const { recordAIUsage } = require('../utils/metrics');
 const { createTaskSchema } = require('../models/task.model');
 
 class AIService {
@@ -99,7 +100,23 @@ class AIService {
     ].join('\n');
     let raw;
     try {
-      raw = await callWithRetry(userMessage, { maxRetries: 3, label: 'ai.suggestPlan' });
+      const result = await callWithRetry(userMessage, { maxRetries: 3, label: 'ai.suggestPlan' });
+      raw = typeof result === 'string' ? result : result.content;
+      const successAttempt = typeof result === 'string'
+        ? null
+        : result.attempts?.find((attempt) => attempt.status === 'success' && attempt.usage);
+      if (successAttempt) {
+        recordAIUsage({
+          type: 'ai.suggestPlan',
+          status: 'success',
+          provider: successAttempt.source,
+          model: successAttempt.model || 'unknown',
+          promptTokens: successAttempt.usage.prompt_tokens,
+          completionTokens: successAttempt.usage.completion_tokens,
+          totalTokens: successAttempt.usage.total_tokens,
+          latencyMs: successAttempt.duration_ms,
+        });
+      }
     } catch (err) {
       if (err.name === 'AbortError') {
         const e = new Error('AI request timed out. Please try again.');

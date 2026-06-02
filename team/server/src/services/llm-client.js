@@ -219,10 +219,10 @@ async function callWithRetry(userMessage, { maxRetries = 1, label = 'llm', timeo
 
   const attempts = [];
 
-  function makeTracker(source, callFn) {
+  function makeTracker(source, model, callFn) {
     return async (attemptNum) => {
       const start = Date.now();
-      const meta = { attempt: attemptNum, timestamp: new Date().toISOString(), source };
+      const meta = { attempt: attemptNum, timestamp: new Date().toISOString(), source, model };
       try {
         const result = await callFn();
         meta.status = 'success';
@@ -243,17 +243,17 @@ async function callWithRetry(userMessage, { maxRetries = 1, label = 'llm', timeo
 
   if (config.llmProvider === 'ollama') {
     const content = await withRetry(
-      makeTracker('ollama', () => callOllama(userMessage, timeoutMs, temperature)),
+      makeTracker('ollama', config.ollamaModel, () => callOllama(userMessage, timeoutMs, temperature)),
       { maxAttempts: maxRetries, delayMs: 500, maxDelayMs: 8000, shouldRetry: isRetryable, label: `${label}:ollama` }
     );
     return { content, attempts };
   }
 
   const providers = [
-    { name: 'gemini',     call: callGemini,     get429: () => _gemini429,     set429: (v) => { _gemini429 = v; },     key: config.geminiKey },
-    { name: 'geminiPaid', call: callGeminiPaid,  get429: () => _geminiPaid429, set429: (v) => { _geminiPaid429 = v; }, key: config.geminiPaidKey },
-    { name: 'glm',        call: callGlm,         get429: () => _onCooldown(_glmCooldownUntil),        set429: (v) => { _glmCooldownUntil = v ? _startCooldown() : _clearCooldown(); },        key: config.glmKey,        timeout: 45000 },
-    { name: 'openrouter', call: callOpenRouter,   get429: () => _onCooldown(_openrouterCooldownUntil), set429: (v) => { _openrouterCooldownUntil = v ? _startCooldown() : _clearCooldown(); }, key: config.openrouterKey, timeout: 45000 },
+    { name: 'gemini',     model: config.geminiModel,     call: callGemini,     get429: () => _gemini429,     set429: (v) => { _gemini429 = v; },     key: config.geminiKey },
+    { name: 'geminiPaid', model: config.geminiPaidModel, call: callGeminiPaid,  get429: () => _geminiPaid429, set429: (v) => { _geminiPaid429 = v; }, key: config.geminiPaidKey },
+    { name: 'glm',        model: config.glmModel,        call: callGlm,         get429: () => _onCooldown(_glmCooldownUntil),        set429: (v) => { _glmCooldownUntil = v ? _startCooldown() : _clearCooldown(); },        key: config.glmKey,        timeout: 45000 },
+    { name: 'openrouter', model: config.openrouterModel, call: callOpenRouter,   get429: () => _onCooldown(_openrouterCooldownUntil), set429: (v) => { _openrouterCooldownUntil = v ? _startCooldown() : _clearCooldown(); }, key: config.openrouterKey, timeout: 45000 },
   ];
 
   let lastErr;
@@ -266,7 +266,7 @@ async function callWithRetry(userMessage, { maxRetries = 1, label = 'llm', timeo
     try {
       const effectiveTimeout = provider.timeout || timeoutMs;
       const content = await withRetry(
-        makeTracker(provider.name, () => provider.call(userMessage, effectiveTimeout, temperature)),
+        makeTracker(provider.name, provider.model, () => provider.call(userMessage, effectiveTimeout, temperature)),
         { maxAttempts: maxRetries, delayMs: 500, maxDelayMs: 8000, shouldRetry: isRetryable, label: `${label}:${provider.name}` }
       );
       return { content, attempts };

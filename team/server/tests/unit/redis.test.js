@@ -1,6 +1,40 @@
+const mockStore = new Map();
+
+const mockRedisClient = {
+  isOpen: false,
+  on: jest.fn(),
+  connect: jest.fn(async function connect() {
+    mockRedisClient.isOpen = true;
+  }),
+  quit: jest.fn(async function quit() {
+    mockRedisClient.isOpen = false;
+    mockStore.clear();
+  }),
+  ping: jest.fn(async () => 'PONG'),
+  set: jest.fn(async (key, value) => {
+    mockStore.set(key, { value, ttl: null });
+  }),
+  setEx: jest.fn(async (key, ttl, value) => {
+    mockStore.set(key, { value, ttl });
+  }),
+  get: jest.fn(async (key) => mockStore.get(key)?.value || null),
+  del: jest.fn(async (key) => {
+    mockStore.delete(key);
+  }),
+  ttl: jest.fn(async (key) => mockStore.get(key)?.ttl || -2),
+};
+
+jest.mock('redis', () => ({
+  createClient: jest.fn(() => mockRedisClient),
+}));
+
 const { redisClient, connectRedis, closeRedis } = require('../../src/services/redis');
 
 describe('Redis Service', () => {
+  beforeEach(() => {
+    mockStore.clear();
+  });
+
   beforeAll(async () => {
     await connectRedis();
   });
