@@ -56,5 +56,6 @@ module.exports = {
   redisUrl: process.env.REDIS_URL,
   allowedOrigins,
   metricsApiKey: process.env.METRICS_API_KEY || '',
+  adminEmails: (process.env.ADMIN_EMAILS || '').split(',').map(s => s.trim()).filter(Boolean),
   firebaseProjectId: process.env.FIREBASE_PROJECT_ID || 'auth-aiweb',
 };

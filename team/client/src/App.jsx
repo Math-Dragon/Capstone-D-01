@@ -20,6 +20,7 @@ const GoalDetailPage = lazy(() => import('./pages/GoalDetailPage'));
 const CalendarPage = lazy(() => import('./pages/CalendarPage'));
 const ProgressPage = lazy(() => import('./pages/ProgressPage'));
 const CoachPage = lazy(() => import('./features/coach/components/CoachPage'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
 
 function RootPage() {
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
@@ -45,6 +46,7 @@ export default function App() {
                       <Route path="calendar" element={<ProtectedRoute><CheckInGateway><CalendarPage /></CheckInGateway></ProtectedRoute>} />
                       <Route path="progress" element={<ProtectedRoute><CheckInGateway><ProgressPage /></CheckInGateway></ProtectedRoute>} />
                       <Route path="coach" element={<ProtectedRoute><CheckInGateway><CoachPage /></CheckInGateway></ProtectedRoute>} />
+                      <Route path="admin" element={<ProtectedRoute><CheckInGateway><AdminPage /></CheckInGateway></ProtectedRoute>} />
                     </Route>
                   </Routes>
                 </Suspense>
