@@ -11,6 +11,7 @@ import ProposalOverlay from '../components/ProposalOverlay';
 import ModifyTaskModal from '../components/ModifyTaskModal';
 import SkipTaskModal from '../components/SkipTaskModal';
 import FeedbackModal from '../components/FeedbackModal';
+import { Skeleton, SkeletonList } from '../components/ui/Skeleton';
 import { onDataChanged } from '../utils/invalidation';
 import { SLOT_ORDER } from '../utils/constants';
 
@@ -159,14 +160,22 @@ export default function GoalDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20" role="status" aria-live="polite">
-        <div className="flex flex-col items-center gap-3">
-        <svg className="animate-spin h-8 w-8 text-primary-500" viewBox="0 0 24 24" aria-hidden="true">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-        </svg>
-        <p className="text-sm font-medium text-primary-500">Memuat detail target...</p>
+      <div role="status" aria-live="polite" aria-busy="true">
+        <Skeleton className="h-4 w-24 mb-4" />
+        <div className="card p-6 mb-6 space-y-4">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-48" />
+          <Skeleton className="h-4 w-full" />
         </div>
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="card p-4 text-center space-y-2">
+              <Skeleton className="h-8 w-16 mx-auto" />
+              <Skeleton className="h-3 w-12 mx-auto" />
+            </div>
+          ))}
+        </div>
+        <SkeletonList count={4} />
       </div>
     );
   }
@@ -258,7 +267,7 @@ export default function GoalDetailPage() {
       </div>
 
       {/* Progress Summary */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-4 mb-6" aria-live="polite" aria-atomic="true">
         <div className="card p-4 text-center">
           <div className="text-2xl font-bold text-primary-900">{progressPct}%</div>
           <div className="text-xs text-primary-400 mt-1">Progres</div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Skeleton, SkeletonCard } from '../components/ui/Skeleton';
 import api from '../services/api';
 import { useAuth } from '../features/auth/hooks/useAuth';
 import { onDataChanged } from '../utils/invalidation';
@@ -174,14 +175,27 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-32" role="status" aria-live="polite">
-        <div className="flex flex-col items-center gap-4">
-          <svg className="animate-spin h-10 w-10 text-primary-500" viewBox="0 0 24 24" aria-hidden="true">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-          </svg>
-          <p className="text-sm text-primary-400 font-medium">Memuat dashboard...</p>
+      <div className="space-y-8" role="status" aria-live="polite" aria-busy="true">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-50 via-white to-accent-50/40 border border-primary-100/60 p-6 sm:p-8">
+          <div className="flex gap-6">
+            <div className="flex-1 space-y-3">
+              <Skeleton className="h-8 w-64" />
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-4 w-56" />
+            </div>
+            <Skeleton variant="circular" className="h-24 w-24" />
+          </div>
         </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+        <div className="grid lg:grid-cols-2 gap-6">
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+        <SkeletonCard />
       </div>
     );
   }
@@ -227,7 +241,7 @@ export default function DashboardPage() {
       </section>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-live="polite" aria-atomic="true">
         {STAT_CARDS.map(stat => (
           <div
             key={stat.label}
@@ -394,7 +408,7 @@ export default function DashboardPage() {
       </section>
 
       {/* Up Next Today */}
-      <section className="bg-white rounded-2xl border border-primary-100/80 p-6 shadow-sm">
+      <section className="bg-white rounded-2xl border border-primary-100/80 p-6 shadow-sm" aria-live="polite" aria-atomic="true">
         <div className="flex items-center justify-between mb-1">
           <h3 className="font-bold text-primary-900">Up Next Today</h3>
           <span className="text-[10px] text-primary-400 font-semibold tracking-widest uppercase">

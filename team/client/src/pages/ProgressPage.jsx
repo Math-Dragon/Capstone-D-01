@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Skeleton, SkeletonCard } from '../components/ui/Skeleton';
 import api from '../services/api';
 
 const TASK_TYPE_META = {
@@ -101,13 +102,18 @@ export default function ProgressPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20" role="status" aria-live="polite">
-        <div className="flex flex-col items-center gap-3">
-        <svg className="animate-spin h-8 w-8 text-primary-500" viewBox="0 0 24 24" aria-hidden="true">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-        </svg>
-        <p className="text-sm font-medium text-primary-500">Memuat progres...</p>
+      <div role="status" aria-live="polite" aria-busy="true">
+        <div className="mb-8">
+          <Skeleton className="h-8 w-48 mb-2" />
+          <Skeleton className="h-4 w-56" />
+        </div>
+        <div className="card p-8 mb-6 flex justify-center">
+          <Skeleton variant="circular" className="h-32 w-32" />
+        </div>
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
         </div>
       </div>
     );
@@ -145,7 +151,7 @@ export default function ProgressPage() {
       )}
 
       {/* Progress Ring */}
-      <div className="card p-8 mb-6">
+      <div className="card p-8 mb-6" aria-live="polite" aria-atomic="true">
         <div className="text-center">
           <ProgressRing percent={computed.pct} />
         </div>

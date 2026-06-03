@@ -61,6 +61,27 @@ describe('taskService.getById', () => {
   });
 });
 
+describe('taskService.update — reschedule', () => {
+  test('updates planned_date and planned_slot when rescheduling', async () => {
+    repos.task.findByIdAndUser.mockResolvedValue({ id: 't1', status: 'todo', planned_date: '2026-05-04', planned_slot: 'morning' });
+    repos.task.update.mockResolvedValue({ id: 't1', status: 'todo', planned_date: '2026-05-06', planned_slot: 'afternoon' });
+
+    const result = await taskService.update('u1', 't1', { planned_date: '2026-05-06', planned_slot: 'afternoon' });
+
+    expect(result.planned_date).toBe('2026-05-06');
+    expect(result.planned_slot).toBe('afternoon');
+    expect(repos.task.update).toHaveBeenCalledWith('t1', { planned_date: '2026-05-06', planned_slot: 'afternoon' });
+  });
+
+  test('does not recalculate progress when only date changes', async () => {
+    repos.task.findByIdAndUser.mockResolvedValue({ id: 't1', status: 'todo', planned_date: '2026-05-04' });
+    repos.task.update.mockResolvedValue({ id: 't1', status: 'todo', planned_date: '2026-05-06' });
+
+    await taskService.update('u1', 't1', { planned_date: '2026-05-06' });
+    expect(repos.progress.upsert).not.toHaveBeenCalled();
+  });
+});
+
 describe('taskService.update', () => {
   test('sets completed_at when status changes to done', async () => {
     repos.task.findByIdAndUser.mockResolvedValue({ id: 't1', status: 'todo' });
