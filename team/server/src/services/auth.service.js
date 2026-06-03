@@ -81,7 +81,7 @@ class AuthService {
     return {
       accessToken,
       refreshToken,
-      user: { id: user.id, email: user.email, profile },
+      user: { id: user.id, email: user.email, profile, isAdmin: config.adminEmails.includes(user.email) },
     };
   }
 
@@ -147,7 +147,7 @@ class AuthService {
     return {
       accessToken,
       refreshToken,
-      user: { id: user.id, email: user.email, profile },
+      user: { id: user.id, email: user.email, profile, isAdmin: config.adminEmails.includes(user.email) },
     };
   }
 

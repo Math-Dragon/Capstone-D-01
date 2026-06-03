@@ -31,7 +31,7 @@ export default function AuditTrail({ logs, actionCounts }) {
   const [filterAction, setFilterAction] = useState('');
 
   if (!logs || logs.length === 0) {
-    return <p className="text-xs text-primary-400 italic">No audit records yet.</p>;
+    return <p className="text-xs text-primary-400 italic">Belum ada catatan audit.</p>;
   }
 
   const entries = Array.isArray(logs) ? logs : [];
@@ -89,7 +89,7 @@ export default function AuditTrail({ logs, actionCounts }) {
 
       <div className="space-y-1 max-h-64 overflow-auto">
         {filtered.length === 0 ? (
-          <p className="text-[10px] text-primary-400 italic text-center py-4">No matching records.</p>
+          <p className="text-[10px] text-primary-400 italic text-center py-4">Tidak ada record yang cocok.</p>
         ) : (
           filtered.map((log) => {
             const meta = ACTION_LABELS[log.action] || { label: log.action, color: 'bg-gray-100 text-gray-600' };

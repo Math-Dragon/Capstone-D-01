@@ -29,7 +29,7 @@ export default function ObservabilityMetrics({ student, recommendations }) {
   const hasRec = recommendations && Object.keys(recommendations).length > 0;
 
   if (!hasStudent && !hasRec) {
-    return <p className="text-xs text-primary-400 italic">No metrics yet.</p>;
+    return <p className="text-xs text-primary-400 italic">Belum ada metrik.</p>;
   }
 
   return (
@@ -37,7 +37,7 @@ export default function ObservabilityMetrics({ student, recommendations }) {
       {hasStudent && (
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-wide text-primary-400 mb-1.5">
-            Student Metrics
+            Metrik Siswa
           </div>
           <div className="space-y-1">
             <MetricRow label="streak_days" value={student.streak_days} bar />
@@ -54,7 +54,7 @@ export default function ObservabilityMetrics({ student, recommendations }) {
       {hasRec && (
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-wide text-primary-400 mb-1.5">
-            AI Recommendations
+            Rekomendasi AI
           </div>
           <div className="space-y-1">
             <MetricRow label="ai_tasks_suggested" value={recommendations.ai_tasks_suggested_total} bar />

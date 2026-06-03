@@ -12,7 +12,7 @@ import ProposalOverlay from '../components/ProposalOverlay';
 import ModifyTaskModal from '../components/ModifyTaskModal';
 import SkipTaskModal from '../components/SkipTaskModal';
 import FeedbackModal from '../components/FeedbackModal';
-import { SkeletonList } from '../components/ui/Skeleton';
+import { Skeleton, SkeletonList } from '../components/ui/Skeleton';
 import { onDataChanged } from '../utils/invalidation';
 import { SLOT_ORDER, TASK_TYPE_PALETTE } from '../utils/constants';
 import { formatDuration } from '../utils/helpers';

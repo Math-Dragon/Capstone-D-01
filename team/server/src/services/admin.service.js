@@ -1,25 +1,26 @@
 const db = require('../db');
 const repos = require('../repositories');
-const { getAIUsageSnapshot } = require('../utils/metrics');
+const { getAIUsageSnapshot, updateAcceptanceRate } = require('../utils/metrics');
 
-async function getAdminMetrics() {
+async function getAdminMetrics(filters = {}) {
   const snapshot = getAIUsageSnapshot();
 
   const recMetrics = await repos.aiRec.computeAllMetrics().catch(() => ({
     suggested: 0, accepted: 0, rejected: 0, pending: 0,
   }));
 
-  const byProviderResult = await db.query(`
-    SELECT
-      provider,
-      COUNT(*)::int AS calls,
-      COALESCE(SUM((metadata->>'prompt_tokens')::int), 0)::int AS tokens
-    FROM audit_logs
-    WHERE action = 'COACH_LLM_CALL'
-      AND metadata->>'provider' IS NOT NULL
-    GROUP BY provider
-    ORDER BY calls DESC
-  `).catch(() => ({ rows: [] }));
+  const { activity_limit = 10, activity_offset = 0, search, action, dateFrom, dateTo } = filters;
+
+  const byDayConditions = ['1=1'];
+  const byDayParams = [];
+  if (dateFrom) {
+    byDayConditions.push(`created_at >= $${byDayParams.length + 1}::timestamp`);
+    byDayParams.push(dateFrom);
+  }
+  if (dateTo) {
+    byDayConditions.push(`created_at <= $${byDayParams.length + 1}::timestamp + interval '1 day'`);
+    byDayParams.push(dateTo);
+  }
 
   const byDayResult = await db.query(`
     SELECT
@@ -27,19 +28,57 @@ async function getAdminMetrics() {
       COUNT(*)::int AS requests,
       COUNT(*) FILTER (WHERE action LIKE '%ERROR%' OR action LIKE '%REJECTED%')::int AS errors
     FROM audit_logs
-    WHERE created_at >= NOW() - INTERVAL '30 days'
+    WHERE ${byDayConditions.join(' AND ')}
     GROUP BY DATE(created_at)
     ORDER BY date DESC
-  `).catch(() => ({ rows: [] }));
+  `, byDayParams).catch(() => ({ rows: [] }));
+
+  const recentConditions = ['1=1'];
+  const recentParams = [];
+  let paramIndex = 1;
+
+  if (search) {
+    recentConditions.push(`(user_id::text LIKE $${paramIndex} OR action ILIKE $${paramIndex})`);
+    recentParams.push(`%${search}%`);
+    paramIndex++;
+  }
+  if (action) {
+    recentConditions.push(`action = $${paramIndex}`);
+    recentParams.push(action);
+    paramIndex++;
+  }
+  if (dateFrom) {
+    recentConditions.push(`created_at >= $${paramIndex}::timestamp`);
+    recentParams.push(dateFrom);
+    paramIndex++;
+  }
+  if (dateTo) {
+    recentConditions.push(`created_at <= $${paramIndex}::timestamp + interval '1 day'`);
+    recentParams.push(dateTo);
+    paramIndex++;
+  }
+
+  const countResult = await db.query(`
+    SELECT COUNT(*)::int AS total
+    FROM audit_logs
+    WHERE ${recentConditions.join(' AND ')}
+  `, recentParams).catch(() => ({ rows: [{ total: 0 }] }));
+
+  const total = countResult.rows[0]?.total || 0;
+
+  recentParams.push(activity_limit);
+  recentParams.push(activity_offset);
 
   const recentResult = await db.query(`
     SELECT id, user_id, action, metadata, created_at
     FROM audit_logs
+    WHERE ${recentConditions.join(' AND ')}
     ORDER BY created_at DESC
-    LIMIT 50
-  `).catch(() => ({ rows: [] }));
+    LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+  `, recentParams).catch(() => ({ rows: [] }));
 
   const totalDecided = recMetrics.accepted + recMetrics.rejected;
+  updateAcceptanceRate(recMetrics.accepted, recMetrics.rejected);
   const summary = {
     totalCalls: snapshot.totals.requests,
     totalTokens: {
@@ -52,7 +91,7 @@ async function getAdminMetrics() {
   };
 
   const byProvider = snapshot.by_provider_model
-    ? Object.entries(snapshot.by_provider_model).map(([key, val]) => ({
+    ? Object.entries(snapshot.by_provider_model).map(([_key, val]) => ({
         provider: val.provider,
         model: val.model,
         calls: val.requests,
@@ -75,7 +114,7 @@ async function getAdminMetrics() {
     metadata: row.metadata,
   }));
 
-  return { summary, byProvider, byDay, recentActivity };
+  return { summary, byProvider, byDay, recentActivity, total };
 }
 
 module.exports = { getAdminMetrics };

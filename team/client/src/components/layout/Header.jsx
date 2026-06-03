@@ -14,8 +14,6 @@ export function Header() {
     return 'U';
   }, [user]);
 
-  const adminEnabled = import.meta.env.VITE_ADMIN_ENABLED === 'true';
-
   const navLinks = isAuthenticated
     ? [
         { path: '/', label: 'Dashboard' },
@@ -23,7 +21,7 @@ export function Header() {
         { path: '/calendar', label: 'Kalender' },
         { path: '/progress', label: 'Progress' },
         { path: '/coach', label: 'Coach' },
-        ...(adminEnabled ? [{ path: '/admin', label: 'Admin' }] : []),
+        ...(user?.isAdmin ? [{ path: '/admin', label: 'Admin' }] : []),
       ]
     : [];
 

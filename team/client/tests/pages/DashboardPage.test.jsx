@@ -31,7 +31,7 @@ describe('DashboardPage', () => {
   it('shows loading state', () => {
     api.get.mockReturnValue(new Promise(() => {}));
     renderPage();
-    expect(screen.getByText('Memuat dashboard...')).toBeInTheDocument();
+    expect(document.querySelector('[aria-busy="true"]')).toBeInTheDocument();
   });
 
   it('shows error state on API failure', async () => {

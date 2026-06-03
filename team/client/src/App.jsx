@@ -6,6 +6,7 @@ import { CoachProvider } from './features/coach/context/CoachContext';
 import Layout from './layouts/MainLayout';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 import CheckInGateway from './components/CheckInGateway';
 import { SkeletonList } from './components/ui/Skeleton';
 import { GoalsProvider } from './features/goals/context/GoalsContext';
@@ -46,7 +47,7 @@ export default function App() {
                       <Route path="calendar" element={<ProtectedRoute><CheckInGateway><CalendarPage /></CheckInGateway></ProtectedRoute>} />
                       <Route path="progress" element={<ProtectedRoute><CheckInGateway><ProgressPage /></CheckInGateway></ProtectedRoute>} />
                       <Route path="coach" element={<ProtectedRoute><CheckInGateway><CoachPage /></CheckInGateway></ProtectedRoute>} />
-                      <Route path="admin" element={<ProtectedRoute><CheckInGateway><AdminPage /></CheckInGateway></ProtectedRoute>} />
+                      <Route path="admin" element={<AdminRoute><CheckInGateway><AdminPage /></CheckInGateway></AdminRoute>} />
                     </Route>
                   </Routes>
                 </Suspense>

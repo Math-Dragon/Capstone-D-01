@@ -2,8 +2,13 @@ const path = require('path');
 
 const envPaths = [
   path.resolve(process.cwd(), '.env'),
+  path.resolve(__dirname, '../../.env'),
   path.resolve(__dirname, '../../../.env'),
 ];
+
+if (process.env.NODE_ENV === 'test') {
+  envPaths.unshift(path.resolve(__dirname, '../../../.env.test'));
+}
 
 for (const p of envPaths) {
   require('dotenv').config({ path: p });

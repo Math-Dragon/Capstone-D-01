@@ -27,7 +27,7 @@ vi.mock('../../../src/features/coach/hooks/useCoach', () => ({
   useCoach: () => coachState.value,
 }));
 
-vi.mock('../../../src/features/coach/components/CoachObservability', () => ({
+vi.mock('../../../src/features/coach/components/CoachObservabilityDrawer', () => ({
   default: () => null,
 }));
 
@@ -59,5 +59,33 @@ describe('CoachPage accessibility states', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Server sibuk');
     expect(screen.getByRole('button', { name: /Coba Lagi/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Ubah Formulir/i })).toBeInTheDocument();
+  });
+
+  it('renders recommendation mode with decide actions', () => {
+    const recommendation = {
+      tasks: [
+        { task_id: 't1', title: 'Belajar React', duration_estimate: 45, planned_slot: 'morning', status: 'pending' },
+        { task_id: 't2', title: 'Latihan Soal', duration_estimate: 30, planned_slot: 'afternoon', status: 'pending' },
+      ],
+      summary: 'Rencana belajar minggu ini',
+    };
+    renderPage({ mode: 'recommendation', recommendation });
+
+    expect(screen.getByText('Rencana belajar minggu ini')).toBeInTheDocument();
+    expect(screen.getByText('Belajar React')).toBeInTheDocument();
+    expect(screen.getByText('Latihan Soal')).toBeInTheDocument();
+  });
+
+  it('renders trimmed tasks notification', () => {
+    renderPage({ trimmedTasks: { count: 3 } });
+
+    expect(screen.getByText(/3 tugas dipangkas/)).toBeInTheDocument();
+  });
+
+  it('renders chat input when not in loading/recommendation/error mode', () => {
+    renderPage({ mode: 'chat', messages: [{ id: 'm1', role: 'coach', content: 'Halo!', timestamp: new Date().toISOString() }] });
+
+    expect(screen.getByLabelText('Tulis pesan untuk coach')).toBeInTheDocument();
+    expect(screen.getByLabelText('Kirim pesan')).toBeInTheDocument();
   });
 });

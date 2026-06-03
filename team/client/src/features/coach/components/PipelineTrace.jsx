@@ -6,7 +6,7 @@ const STATUS_STYLES = {
 
 export default function PipelineTrace({ trace }) {
   if (!trace || !trace.attempts || trace.attempts.length === 0) {
-    return <p className="text-xs text-primary-400 italic">No pipeline data yet.</p>;
+    return <p className="text-xs text-primary-400 italic">Belum ada data pipeline.</p>;
   }
 
   const successCount = trace.attempts.filter(a => a.status === 'success').length;
@@ -16,9 +16,9 @@ export default function PipelineTrace({ trace }) {
     <div className="space-y-2">
       <div className="flex items-center justify-between text-[10px] px-3 py-2 bg-primary-50 rounded-lg">
         <span className="text-primary-500 font-medium">
-          {trace.attempts.length} attempt{trace.attempts.length > 1 ? 's' : ''}
-          {successCount > 0 && <span className="text-green-600 ml-1">· {successCount} ok</span>}
-          {failCount > 0 && <span className="text-red-500 ml-1">· {failCount} fail</span>}
+          {trace.attempts.length} percobaan
+          {successCount > 0 && <span className="text-green-600 ml-1">· {successCount} berhasil</span>}
+          {failCount > 0 && <span className="text-red-500 ml-1">· {failCount} gagal</span>}
         </span>
         <span className="font-mono font-semibold text-primary-800">
           {trace.duration_ms != null
@@ -60,7 +60,7 @@ export default function PipelineTrace({ trace }) {
             )}
             {a.error && (
               <details className="mt-1.5">
-                <summary className="text-[10px] cursor-pointer text-red-600 font-medium">Error detail</summary>
+                <summary className="text-[10px] cursor-pointer text-red-600 font-medium">Detail error</summary>
                 <pre className="mt-1 text-[9px] bg-white p-2 rounded border overflow-auto max-h-32 font-mono whitespace-pre-wrap">
                   {typeof a.error === 'string' ? a.error : JSON.stringify(a.error, null, 2)}
                 </pre>
