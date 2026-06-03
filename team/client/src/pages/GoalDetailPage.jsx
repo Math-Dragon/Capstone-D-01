@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useGoals } from '../features/goals/hooks/useGoals';
@@ -61,6 +61,20 @@ export default function GoalDetailPage() {
     },
   });
 
+  const loadGoal = useCallback(async (signal) => {
+    setLoading(true);
+    try {
+      const data = await api.get(`/goals/${id}`, { signal });
+      setGoal(data);
+      setError(null);
+    } catch (err) {
+      if (err.name === 'CanceledError' || err.message === 'canceled') return;
+      setError(err.message || 'Gagal memuat target.');
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, [id]);
+
   const startEditing = () => {
     setEditTitle(goal.title);
     setEditDescription(goal.description || '');
@@ -101,21 +115,9 @@ export default function GoalDetailPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    const { signal } = controller;
-    async function load() {
-      try {
-        const data = await api.get(`/goals/${id}`, { signal });
-        setGoal(data);
-        setLoading(false);
-      } catch (err) {
-        if (err.name === 'CanceledError' || err.message === 'canceled') return;
-        setError(err.message);
-        setLoading(false);
-      }
-    }
-    load();
+    loadGoal(controller.signal);
     return () => controller.abort();
-  }, [id]);
+  }, [loadGoal]);
 
   useEffect(() => {
     return onDataChanged(async () => {
@@ -157,11 +159,14 @@ export default function GoalDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <svg className="animate-spin h-8 w-8 text-primary-400" viewBox="0 0 24 24">
+      <div className="flex items-center justify-center py-20" role="status" aria-live="polite">
+        <div className="flex flex-col items-center gap-3">
+        <svg className="animate-spin h-8 w-8 text-primary-500" viewBox="0 0 24 24" aria-hidden="true">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
         </svg>
+        <p className="text-sm font-medium text-primary-500">Memuat detail target...</p>
+        </div>
       </div>
     );
   }
@@ -172,9 +177,13 @@ export default function GoalDetailPage() {
         <Link to="/goals" className="text-sm text-primary-400 hover:text-primary-600 mb-4 inline-block">
           ← Kembali ke Target
         </Link>
-        <div className="card p-8 text-center">
-          <p className="text-red-500 mb-4">{error || 'Target tidak ditemukan'}</p>
-          <Link to="/goals" className="btn-secondary">Kembali</Link>
+        <div className="card p-8 text-center" role="alert" aria-live="assertive">
+          <p className="text-red-600 font-semibold mb-2">{error || 'Target tidak ditemukan'}</p>
+          <p className="text-primary-500 text-sm mb-4">Periksa koneksi atau kembali ke daftar target jika target sudah tidak tersedia.</p>
+          <div className="flex justify-center gap-3 flex-wrap">
+            <button type="button" onClick={() => loadGoal()} className="btn-primary">Coba Lagi</button>
+            <Link to="/goals" className="btn-secondary">Kembali</Link>
+          </div>
         </div>
       </div>
     );
@@ -266,7 +275,7 @@ export default function GoalDetailPage() {
 
       {/* Task List — grouped by date → slot */}
       {tasks.length === 0 ? (
-        <div className="card p-8 text-center">
+        <div className="card p-8 text-center" role="status" aria-live="polite">
           <div className="text-4xl mb-3">📝</div>
           <h3 className="text-lg font-semibold text-primary-900 mb-2">Belum ada tugas</h3>
           <p className="text-primary-400 mb-4">Gunakan Coach untuk mendapatkan rekomendasi rencana belajar.</p>

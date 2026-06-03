@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+<<<<<<< HEAD
 
 vi.mock('../../src/components/AdjustmentPanel', () => ({
   default: () => null,
@@ -12,6 +13,23 @@ vi.mock('../../src/services/api', () => ({
 
 vi.mock('../../src/features/goals/hooks/useGoals', () => ({
   useGoals: () => ({ update: vi.fn(), remove: vi.fn() }),
+=======
+import GoalDetailPage from '../../src/pages/GoalDetailPage';
+import api from '../../src/services/api';
+
+vi.mock('../../src/services/api', () => ({
+  default: {
+    get: vi.fn(),
+    patch: vi.fn(),
+  },
+}));
+
+vi.mock('../../src/features/goals/hooks/useGoals', () => ({
+  useGoals: () => ({
+    update: vi.fn(),
+    remove: vi.fn(),
+  }),
+>>>>>>> 5a9e65de3c47587a95363cc9164a497d76e2fa29
 }));
 
 vi.mock('../../src/hooks/useTaskActions', () => ({
@@ -19,7 +37,11 @@ vi.mock('../../src/hooks/useTaskActions', () => ({
     proposal: null,
     activeModal: null,
     activeTask: null,
+<<<<<<< HEAD
     actionLoading: false,
+=======
+    actionLoading: null,
+>>>>>>> 5a9e65de3c47587a95363cc9164a497d76e2fa29
     proposalAccepting: false,
     handleComplete: vi.fn(),
     handleSkip: vi.fn(),
@@ -34,6 +56,7 @@ vi.mock('../../src/hooks/useTaskActions', () => ({
   }),
 }));
 
+<<<<<<< HEAD
 vi.mock('../../src/utils/invalidation', () => ({
   onDataChanged: () => () => {},
 }));
@@ -53,6 +76,19 @@ const mockGoal = {
 function renderPage(goalId = 'goal-1') {
   return render(
     <MemoryRouter initialEntries={[`/goals/${goalId}`]}>
+=======
+vi.mock('../../src/components/AdjustmentPanel', () => ({ default: () => <div /> }));
+vi.mock('../../src/components/ModifyTaskModal', () => ({ default: () => null }));
+vi.mock('../../src/components/SkipTaskModal', () => ({ default: () => null }));
+vi.mock('../../src/components/FeedbackModal', () => ({ default: () => null }));
+vi.mock('../../src/components/TaskDetailModal', () => ({ default: () => null }));
+vi.mock('../../src/components/ProposalOverlay', () => ({ default: () => null }));
+vi.mock('../../src/utils/invalidation', () => ({ onDataChanged: () => () => {} }));
+
+function renderPage() {
+  return render(
+    <MemoryRouter initialEntries={['/goals/goal-1']}>
+>>>>>>> 5a9e65de3c47587a95363cc9164a497d76e2fa29
       <Routes>
         <Route path="/goals/:id" element={<GoalDetailPage />} />
       </Routes>
@@ -60,6 +96,7 @@ function renderPage(goalId = 'goal-1') {
   );
 }
 
+<<<<<<< HEAD
 describe('GoalDetailPage', () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -144,5 +181,39 @@ describe('GoalDetailPage', () => {
     await waitFor(() => {
       expect(screen.getByText((content) => content.includes('Hapus Goal'))).toBeInTheDocument();
     });
+=======
+describe('GoalDetailPage accessibility states', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('announces loading state', () => {
+    api.get.mockReturnValue(new Promise(() => {}));
+
+    renderPage();
+
+    expect(screen.getByRole('status')).toHaveTextContent('Memuat detail target');
+  });
+
+  it('announces error state with retry action and help text', async () => {
+    api.get.mockRejectedValue(new Error('Network error'));
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Network error');
+    });
+    expect(screen.getByRole('button', { name: /Coba Lagi/i })).toBeInTheDocument();
+    expect(screen.getByText(/Periksa koneksi/i)).toBeInTheDocument();
+  });
+
+  it('announces empty task state', async () => {
+    api.get.mockResolvedValue({ id: 'goal-1', title: 'Belajar React', status: 'active', tasks: [] });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Belajar React')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('Belum ada tugas');
+>>>>>>> 5a9e65de3c47587a95363cc9164a497d76e2fa29
   });
 });

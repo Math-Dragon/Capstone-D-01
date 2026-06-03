@@ -32,8 +32,9 @@ export default function GoalsPage() {
     return (
       <div>
         <h2 className="text-2xl font-bold text-primary-900 mb-8">Target Belajar</h2>
-        <div className="card p-8 text-center">
-          <p className="text-red-500 mb-4">{error}</p>
+        <div className="card p-8 text-center" role="alert" aria-live="assertive">
+          <p className="text-red-600 font-semibold mb-2">{error}</p>
+          <p className="text-primary-500 text-sm mb-4">Data target belum bisa dimuat. Periksa koneksi, lalu coba lagi.</p>
           <button onClick={refresh} className="btn-secondary">Coba Lagi</button>
         </div>
       </div>
@@ -77,9 +78,11 @@ export default function GoalsPage() {
       </div>
 
       {loading ? (
-        <SkeletonList count={6} />
+        <div role="status" aria-live="polite" aria-label="Memuat daftar goal">
+          <SkeletonList count={6} />
+        </div>
       ) : filteredGoals.length === 0 && goals.length > 0 ? (
-        <div className="card p-12 text-center">
+        <div className="card p-12 text-center" role="status" aria-live="polite">
           <div className="text-5xl mb-4">🔍</div>
           <h3 className="text-xl font-semibold text-primary-900 mb-2">Tidak ada goal yang cocok</h3>
           <p className="text-primary-500 mb-6">Coba ubah kata kunci atau filter status.</p>
@@ -91,7 +94,7 @@ export default function GoalsPage() {
           </button>
         </div>
       ) : goals.length === 0 ? (
-        <div className="card p-12 text-center">
+        <div className="card p-12 text-center" role="status" aria-live="polite">
           <div className="text-5xl mb-4">🎯</div>
           <h3 className="text-xl font-semibold text-primary-900 mb-2">Belum ada target belajar</h3>
           <p className="text-primary-500 mb-6">Mulai dengan membuat target belajar pertamamu.</p>

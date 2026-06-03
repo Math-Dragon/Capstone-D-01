@@ -1,3 +1,9 @@
+jest.resetModules();
+jest.doMock('../../src/db', () => ({
+  isHealthy: jest.fn(async () => true),
+  pool: { query: jest.fn(), end: jest.fn() },
+}));
+
 const request = require('supertest');
 const app = require('../../src/app');
 

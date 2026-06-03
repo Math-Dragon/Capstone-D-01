@@ -1,7 +1,7 @@
 const db = require('../../db');
 const repos = require('../../repositories');
 const logger = require('../../utils/logger');
-const { aiRequestCount } = require('../../utils/metrics');
+const { aiRequestCount, recordAIUsage } = require('../../utils/metrics');
 const { scheduleTasks } = require('../scheduler.service');
 const gate = require('./gate.service');
 const staticResponse = require('./static-response.service');
@@ -131,7 +131,21 @@ class DispatchService {
       }
     }
 
-    aiRequestCount.inc({ type: `coach.${effectiveSessionType}`, status: 'success' });
+    const usageMeta = this._llmUsageMeta(llmMeta);
+    if (usageMeta) {
+      recordAIUsage({
+        type: `coach.${effectiveSessionType}`,
+        status: 'success',
+        provider: usageMeta.provider,
+        model: usageMeta.model,
+        promptTokens: usageMeta.prompt_tokens,
+        completionTokens: usageMeta.completion_tokens,
+        totalTokens: usageMeta.total_tokens,
+        latencyMs: usageMeta.latency_ms,
+      });
+    } else {
+      aiRequestCount.inc({ type: `coach.${effectiveSessionType}`, status: 'success' });
+    }
 
     if (effectiveSessionType === 'task_action') {
       const message = validated.message || 'Tindakan dicatat.';
@@ -567,6 +581,7 @@ class DispatchService {
     if (!success || !success.usage) return undefined;
     return {
       provider: success.source,
+      model: success.model || 'unknown',
       prompt_tokens: success.usage.prompt_tokens,
       completion_tokens: success.usage.completion_tokens,
       total_tokens: success.usage.total_tokens,

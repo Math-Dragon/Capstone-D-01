@@ -174,9 +174,9 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-32">
+      <div className="flex items-center justify-center py-32" role="status" aria-live="polite">
         <div className="flex flex-col items-center gap-4">
-          <svg className="animate-spin h-10 w-10 text-primary-400" viewBox="0 0 24 24">
+          <svg className="animate-spin h-10 w-10 text-primary-500" viewBox="0 0 24 24" aria-hidden="true">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
           </svg>
@@ -188,9 +188,10 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
+      <div className="flex flex-col items-center justify-center py-20" role="alert" aria-live="assertive">
         <div className="text-4xl mb-4">⚠️</div>
-        <p className="text-primary-500 mb-4 text-center">{error}</p>
+        <p className="text-primary-700 mb-2 text-center font-semibold">{error}</p>
+        <p className="text-primary-500 mb-4 text-center text-sm">Periksa koneksi, lalu coba muat ulang data dashboard.</p>
         <button onClick={() => { setError(null); setLoading(true); loadData(); }} className="btn-primary">
           Coba Lagi
         </button>
@@ -260,8 +261,11 @@ export default function DashboardPage() {
           </div>
           <p className="text-xs text-primary-400 mb-6">Tasks completed per day</p>
           {totalCount === 0 ? (
-            <div className="flex items-center justify-center h-[220px] rounded-xl bg-primary-50/50">
-              <p className="text-sm text-primary-400">No task data yet</p>
+            <div className="flex items-center justify-center h-[220px] rounded-xl bg-primary-50/50" role="status">
+              <div className="text-center">
+                <p className="text-sm text-primary-500">No task data yet</p>
+                <p className="text-xs text-primary-500 mt-1">Tambahkan task agar grafik mingguan bisa dihitung.</p>
+              </div>
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
@@ -292,8 +296,11 @@ export default function DashboardPage() {
           </div>
           <p className="text-xs text-primary-400 mb-6">Task importance ratio</p>
           {totalCount === 0 ? (
-            <div className="flex items-center justify-center h-[220px] rounded-xl bg-primary-50/50">
-              <p className="text-sm text-primary-400">No task data yet</p>
+            <div className="flex items-center justify-center h-[220px] rounded-xl bg-primary-50/50" role="status">
+              <div className="text-center">
+                <p className="text-sm text-primary-500">No task data yet</p>
+                <p className="text-xs text-primary-500 mt-1">Isi prioritas task untuk melihat distribusinya.</p>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center">
@@ -430,13 +437,13 @@ export default function DashboardPage() {
               })}
             </div>
           ) : allTodayDone ? (
-            <div className="flex flex-col items-center justify-center py-10 rounded-xl bg-gradient-to-b from-green-50 to-white border border-green-100">
+            <div className="flex flex-col items-center justify-center py-10 rounded-xl bg-gradient-to-b from-green-50 to-white border border-green-100" role="status">
               <span className="text-4xl mb-3">🎉</span>
               <p className="text-lg font-bold text-primary-900">Semua tugas hari ini selesai!</p>
               <p className="text-sm text-primary-400 mt-1">Great work today!</p>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-10 rounded-xl bg-primary-50/60 border border-primary-100">
+            <div className="flex flex-col items-center justify-center py-10 rounded-xl bg-primary-50/60 border border-primary-100" role="status">
               <span className="text-4xl mb-3">📋</span>
               <p className="text-primary-500 font-medium mb-1">Tidak ada tugas hari ini.</p>
               <Link to="/coach" className="text-sm font-semibold text-primary-500 underline hover:text-primary-700 transition-colors">

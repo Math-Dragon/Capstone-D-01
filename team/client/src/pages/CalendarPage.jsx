@@ -139,6 +139,10 @@ function getActiveTasksForDate(taskList, date) {
   return taskList.filter((task) => task.planned_date?.slice(0, 10) === date && isActiveTask(task));
 }
 
+function focusCalendarDate(date) {
+  document.querySelector(`[data-calendar-date="${date}"]`)?.focus();
+}
+
 function buildPlanEditAdvice({ type, task, date, slot, previousTasks, nextTasks }) {
   const targetTasksBefore = getActiveTasksForDate(previousTasks, date);
   const targetTasksAfter = getActiveTasksForDate(nextTasks, date);
@@ -516,13 +520,42 @@ export default function CalendarPage() {
     }
   };
 
+  const retryLoadTasks = () => {
+    loadTasks(undefined, { showLoading: true, clearOnError: true });
+  };
+
+  const handleCalendarKeyDown = (event, dates, index) => {
+    const date = dates[index];
+    const focusByIndex = (nextIndex) => {
+      event.preventDefault();
+      focusCalendarDate(dates[nextIndex]);
+    };
+
+    if (event.key === 'ArrowRight') {
+      focusByIndex(Math.min(index + 1, dates.length - 1));
+    } else if (event.key === 'ArrowLeft') {
+      focusByIndex(Math.max(index - 1, 0));
+    } else if (event.key === 'Home') {
+      focusByIndex(0);
+    } else if (event.key === 'End') {
+      focusByIndex(dates.length - 1);
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setSelectedDate(date);
+      setSubView('day');
+    }
+  };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <svg className="animate-spin h-8 w-8 text-primary-400" viewBox="0 0 24 24">
+      <div className="flex items-center justify-center py-20" role="status" aria-live="polite">
+        <div className="flex flex-col items-center gap-3">
+        <svg className="animate-spin h-8 w-8 text-primary-500" viewBox="0 0 24 24" aria-hidden="true">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
         </svg>
+        <p className="text-sm font-medium text-primary-500">Memuat kalender...</p>
+        </div>
       </div>
     );
   }
@@ -577,8 +610,17 @@ export default function CalendarPage() {
       </div>
 
       {calendarNotice && (
-        <div className="card p-3 mb-4 text-sm text-primary-700 bg-primary-50 border-primary-100" role="status">
-          {calendarNotice}
+        <div className="card p-3 mb-4 text-sm text-primary-700 bg-primary-50 border-primary-100" role="status" aria-live="polite">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-semibold">Info kalender</p>
+              <p>{calendarNotice}</p>
+              <p className="text-xs text-primary-500 mt-1">Jika data belum muncul, periksa koneksi atau login ulang.</p>
+            </div>
+            <button type="button" onClick={retryLoadTasks} className="btn-secondary shrink-0 text-xs px-3 py-2" aria-label="Coba lagi memuat kalender">
+              Coba Lagi
+            </button>
+          </div>
         </div>
       )}
 
@@ -766,9 +808,13 @@ export default function CalendarPage() {
 
           {/* Slot-grouped task list */}
           {todayTasks.active.length === 0 ? (
-            <div className="card p-8 text-center mb-6">
+            <div className="card p-8 text-center mb-6" role="status" aria-live="polite">
               <div className="text-3xl mb-3">✅</div>
-              <p className="text-primary-400">No tasks scheduled today. Enjoy your rest day.</p>
+              <h3 className="text-lg font-semibold text-primary-900 mb-2">Tidak ada tugas terjadwal</h3>
+              <p className="text-primary-500 mb-4">Hari ini masih kosong. Tambahkan task manual atau minta Coach membuat rencana baru.</p>
+              <button type="button" onClick={() => setManualFormOpen(true)} className="btn-secondary" aria-label="Buat task dari empty state kalender">
+                Buat task pertama
+              </button>
             </div>
           ) : (
             <div className="space-y-1 mb-6">
@@ -786,7 +832,14 @@ export default function CalendarPage() {
                           key={task.id}
                           draggable
                           role="listitem"
+                          tabIndex={0}
                           aria-label={`Pindahkan ${task.title}`}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              openTaskDetail(task);
+                            }
+                          }}
                           onDragStart={(event) => event.dataTransfer.setData('text/plain', task.id)}
                         >
                           <TaskCard
@@ -878,8 +931,10 @@ export default function CalendarPage() {
                 <button
                   key={date}
                   onClick={() => { setSelectedDate(selectedDate === date ? null : date); }}
+                  onKeyDown={(event) => handleCalendarKeyDown(event, weekDates, i)}
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={(event) => handleTaskDrop(event, date)}
+                  data-calendar-date={date}
                   className={`rounded-xl p-2 text-center transition-all duration-200 border ${
                     isSelected
                       ? 'border-primary-900 bg-primary-100 shadow-soft'
@@ -888,6 +943,8 @@ export default function CalendarPage() {
                       : 'border-primary-100 bg-white hover:border-primary-200'
                   }`}
                   aria-label={`${DAY_NAMES[i]} ${new Date(date + 'T00:00:00').getDate()}, ${completedCount} dari ${dayTasks.length} tugas selesai`}
+                  aria-pressed={isSelected}
+                  aria-current={isToday ? 'date' : undefined}
                 >
                   <div className={`text-[11px] font-medium mb-1 ${isSelected ? 'text-primary-900' : isToday ? 'text-accent-600' : 'text-primary-400'}`}>
                     {DAY_NAMES[i]}
@@ -941,7 +998,14 @@ export default function CalendarPage() {
                               key={task.id}
                               draggable
                               role="listitem"
+                              tabIndex={0}
                               aria-label={`Pindahkan ${task.title}`}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  openTaskDetail(task);
+                                }
+                              }}
                               onDragStart={(event) => event.dataTransfer.setData('text/plain', task.id)}
                             >
                               <TaskCard
@@ -1002,7 +1066,7 @@ export default function CalendarPage() {
           </div>
 
           <div className="grid grid-cols-7 gap-2 mb-6">
-            {monthDates.map((date) => {
+            {monthDates.map((date, i) => {
               const dayTasks = tasksByDate[date] || [];
               const isToday = date === todayStr;
               const isSelected = date === displayDate;
@@ -1013,8 +1077,10 @@ export default function CalendarPage() {
                 <button
                   key={date}
                   onClick={() => { setSelectedDate(date); setSubView('day'); }}
+                  onKeyDown={(event) => handleCalendarKeyDown(event, monthDates, i)}
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={(event) => handleTaskDrop(event, date)}
+                  data-calendar-date={date}
                   className={`min-h-20 rounded-xl p-2 text-left transition-all duration-200 border ${
                     isSelected
                       ? 'border-primary-900 bg-primary-100 shadow-soft'
@@ -1023,6 +1089,8 @@ export default function CalendarPage() {
                       : 'border-primary-100 bg-white hover:border-primary-200'
                   } ${isCurrentMonth ? '' : 'opacity-45'}`}
                   aria-label={`${formatLongDate(date)}, ${dayTasks.length} tugas`}
+                  aria-pressed={isSelected}
+                  aria-current={isToday ? 'date' : undefined}
                 >
                   <div className={`text-sm font-bold ${isToday ? 'text-accent-600' : 'text-primary-700'}`}>
                     {new Date(date + 'T00:00:00').getDate()}
