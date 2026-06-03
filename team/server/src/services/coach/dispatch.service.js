@@ -377,6 +377,7 @@ class DispatchService {
           targetGoalId = fallbackGoal.id;
         }
 
+        const taskRationale = Array.isArray(task.rationale) ? task.rationale : (task.rationale ? [task.rationale] : []);
         await repos.task.create({
           goal_id: targetGoalId,
           title: task.title,
@@ -393,14 +394,25 @@ class DispatchService {
         await repos.audit.create({
           user_id: userId,
           action: 'COACH_TASK_ACCEPTED',
-          metadata: { recommendation_id: recId, task_id: taskId },
+          metadata: {
+            recommendation_id: recId,
+            task_id: taskId,
+            rationale_factors: taskRationale,
+            confidence: task.confidence || null,
+          },
           session_id: sessionId,
         }, client);
       } else {
+        const taskRationale = Array.isArray(task.rationale) ? task.rationale : (task.rationale ? [task.rationale] : []);
         await repos.audit.create({
           user_id: userId,
           action: 'COACH_TASK_REJECTED',
-          metadata: { recommendation_id: recId, task_id: taskId },
+          metadata: {
+            recommendation_id: recId,
+            task_id: taskId,
+            rationale_factors: taskRationale,
+            confidence: task.confidence || null,
+          },
           session_id: sessionId,
         }, client);
       }

@@ -74,7 +74,8 @@ const LLMTaskSchema = z.object({
   priority: z.enum(['high', 'medium', 'low']).optional(),
   completion_criteria: z.string().optional(),
   prerequisites: z.array(z.string()).optional(),
-  rationale: z.string().trim().min(1),
+  rationale: z.union([z.string().trim().min(1), z.array(z.string().trim().min(1)).min(1)]),
+  confidence: z.enum(['high', 'medium', 'low']).optional(),
 });
 
 const VALID_TRANSITIONS = Object.freeze({
