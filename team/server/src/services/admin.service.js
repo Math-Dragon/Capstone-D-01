@@ -2,6 +2,11 @@ const db = require('../db');
 const repos = require('../repositories');
 const { getAIUsageSnapshot, updateAcceptanceRate } = require('../utils/metrics');
 
+function _pctChange(today, yesterday) {
+  if (!yesterday || yesterday === 0) return today > 0 ? 100 : 0;
+  return Math.round(((today - yesterday) / yesterday) * 100);
+}
+
 async function getAdminMetrics(filters = {}) {
   const snapshot = getAIUsageSnapshot();
 
@@ -9,7 +14,10 @@ async function getAdminMetrics(filters = {}) {
     suggested: 0, accepted: 0, rejected: 0, pending: 0,
   }));
 
-  const { activity_limit = 10, activity_offset = 0, search, action, dateFrom, dateTo } = filters;
+  const {
+    activity_limit = 10, activity_offset = 0,
+    search, action, dateFrom, dateTo, provider, model, status,
+  } = filters;
 
   const byDayConditions = ['1=1'];
   const byDayParams = [];
@@ -57,6 +65,21 @@ async function getAdminMetrics(filters = {}) {
     recentParams.push(dateTo);
     paramIndex++;
   }
+  if (provider) {
+    recentConditions.push(`metadata->>'provider' = $${paramIndex}`);
+    recentParams.push(provider);
+    paramIndex++;
+  }
+  if (model) {
+    recentConditions.push(`metadata->>'model' = $${paramIndex}`);
+    recentParams.push(model);
+    paramIndex++;
+  }
+  if (status === 'error') {
+    recentConditions.push('(action LIKE \'%ERROR%\' OR action LIKE \'%REJECTED%\')');
+  } else if (status === 'success') {
+    recentConditions.push('(action NOT LIKE \'%ERROR%\' AND action NOT LIKE \'%REJECTED%\')');
+  }
 
   const countResult = await db.query(`
     SELECT COUNT(*)::int AS total
@@ -70,7 +93,13 @@ async function getAdminMetrics(filters = {}) {
   recentParams.push(activity_offset);
 
   const recentResult = await db.query(`
-    SELECT id, user_id, action, metadata, created_at
+    SELECT id, user_id, action, metadata, created_at,
+      (metadata->>'input_tokens')::int AS input_tokens,
+      (metadata->>'output_tokens')::int AS output_tokens,
+      (metadata->>'total_tokens')::int AS total_tokens,
+      (metadata->>'latency_ms')::int AS latency_ms,
+      metadata->>'provider' AS provider,
+      metadata->>'model' AS model
     FROM audit_logs
     WHERE ${recentConditions.join(' AND ')}
     ORDER BY created_at DESC
@@ -112,9 +141,54 @@ async function getAdminMetrics(filters = {}) {
     action: row.action,
     user_id: row.user_id,
     metadata: row.metadata,
+    input_tokens: row.input_tokens,
+    output_tokens: row.output_tokens,
+    total_tokens: row.total_tokens,
+    latency_ms: row.latency_ms,
+    provider: row.provider,
+    model: row.model,
   }));
 
-  return { summary, byProvider, byDay, recentActivity, total };
+  const trendResult = await db.query(`
+    SELECT
+      COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours') AS today_calls,
+      COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '48 hours' AND created_at < NOW() - INTERVAL '24 hours') AS yesterday_calls,
+      COALESCE(SUM((metadata->>'total_tokens')::int) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours'), 0) AS today_tokens,
+      COALESCE(SUM((metadata->>'total_tokens')::int) FILTER (WHERE created_at >= NOW() - INTERVAL '48 hours' AND created_at < NOW() - INTERVAL '24 hours'), 0) AS yesterday_tokens,
+      COALESCE(SUM(
+        COALESCE((metadata->>'total_tokens')::int, 0) * 0.30 / 1000000.0
+      ) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours'), 0) AS today_cost,
+      COALESCE(SUM(
+        COALESCE((metadata->>'total_tokens')::int, 0) * 0.30 / 1000000.0
+      ) FILTER (WHERE created_at >= NOW() - INTERVAL '48 hours' AND created_at < NOW() - INTERVAL '24 hours'), 0) AS yesterday_cost
+    FROM audit_logs
+    WHERE involves_llm = true
+      AND action NOT LIKE '%ERROR%'
+  `, []).catch(() => ({ rows: [{}] }));
+
+  const tr = trendResult.rows[0] || {};
+
+  const acceptTrendResult = await db.query(`
+    SELECT
+      COUNT(*) FILTER (WHERE status IN ('accepted', 'rejected') AND created_at >= NOW() - INTERVAL '24 hours') AS today_decided,
+      COUNT(*) FILTER (WHERE status = 'accepted' AND created_at >= NOW() - INTERVAL '24 hours') AS today_accepted,
+      COUNT(*) FILTER (WHERE status IN ('accepted', 'rejected') AND created_at >= NOW() - INTERVAL '48 hours' AND created_at < NOW() - INTERVAL '24 hours') AS yesterday_decided,
+      COUNT(*) FILTER (WHERE status = 'accepted' AND created_at >= NOW() - INTERVAL '48 hours' AND created_at < NOW() - INTERVAL '24 hours') AS yesterday_accepted
+    FROM ai_recommendations
+  `, []).catch(() => ({ rows: [{}] }));
+
+  const ar = acceptTrendResult.rows[0] || {};
+  const todayAcceptRate = ar.today_decided > 0 ? (ar.today_accepted / ar.today_decided) * 100 : 0;
+  const yesterdayAcceptRate = ar.yesterday_decided > 0 ? (ar.yesterday_accepted / ar.yesterday_decided) * 100 : 0;
+
+  const trends = {
+    totalCalls: _pctChange(Number(tr.today_calls) || 0, Number(tr.yesterday_calls) || 0),
+    totalTokens: _pctChange(Number(tr.today_tokens) || 0, Number(tr.yesterday_tokens) || 0),
+    estimatedCostUsd: _pctChange(Number(tr.today_cost) || 0, Number(tr.yesterday_cost) || 0),
+    acceptRate: Math.round(todayAcceptRate - yesterdayAcceptRate),
+  };
+
+  return { summary, trends, byProvider, byDay, recentActivity, total };
 }
 
 module.exports = { getAdminMetrics };

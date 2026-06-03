@@ -163,6 +163,7 @@ class DispatchService {
         session_id: sessionId,
       });
 
+      const taskUsage = this._llmUsageMeta(llmMeta);
       await repos.audit.create({
         user_id: userId,
         action: 'COACH_LLM_CALL',
@@ -171,7 +172,8 @@ class DispatchService {
           trigger_action: payload.action,
           message_preview: message.slice(0, 120),
           has_plan_adjustment: !!validated.plan,
-          llm: this._llmUsageMeta(llmMeta),
+          ...taskUsage,
+          llm: taskUsage,
         },
         session_id: sessionId,
         involves_llm: true,
@@ -197,6 +199,7 @@ class DispatchService {
         session_id: sessionId,
       });
 
+      const chatUsage = this._llmUsageMeta(llmMeta);
       await repos.audit.create({
         user_id: userId,
         action: 'COACH_LLM_CALL',
@@ -204,7 +207,8 @@ class DispatchService {
           session_type: effectiveSessionType,
           message_preview: message.slice(0, 120),
           has_plan_adjustment: !!validated.plan,
-          llm: this._llmUsageMeta(llmMeta),
+          ...chatUsage,
+          llm: chatUsage,
         },
         session_id: sessionId,
         involves_llm: true,
@@ -290,6 +294,7 @@ class DispatchService {
     await responseFormatter.persistPlan(userId, validated);
 
     if (validated && validated.tasks) {
+      const planUsage = this._llmUsageMeta(llmMeta);
       await repos.audit.create({
         user_id: userId,
         action: 'COACH_LLM_CALL',
@@ -297,7 +302,8 @@ class DispatchService {
           session_type: effectiveSessionType,
           task_count: validated.tasks.length,
           summary: validated.summary,
-          llm: this._llmUsageMeta(llmMeta),
+          ...planUsage,
+          llm: planUsage,
         },
         session_id: sessionId,
         involves_llm: true,

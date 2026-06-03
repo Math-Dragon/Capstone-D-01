@@ -14,6 +14,9 @@ const metricsQuerySchema = z.object({
   action: z.string().max(50).optional(),
   dateFrom: z.string().max(20).optional(),
   dateTo: z.string().max(20).optional(),
+  provider: z.string().max(50).optional(),
+  model: z.string().max(50).optional(),
+  status: z.enum(['success', 'error']).optional(),
 });
 
 router.get('/metrics', authenticate, requireAdmin, generalLimiter, validate({ query: metricsQuerySchema }), async (req, res, next) => {
