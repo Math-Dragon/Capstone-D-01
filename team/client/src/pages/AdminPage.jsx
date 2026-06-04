@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '../services/api';
 import { KpiCard } from '../components/ui/KpiCard';
+import RequestTrendChart from '../components/RequestTrendChart';
 import ProviderHealthSection from '../components/ProviderHealthSection';
-import UsageOverTimeSection from '../components/UsageOverTimeSection';
 import ActivityLogFilters from '../components/ActivityLogFilters';
 import {
   ADMIN_ACTION_LABELS, ADMIN_ACTION_COLORS, ADMIN_STATUS_COLOR, ADMIN_PAGE_SIZES,
@@ -42,6 +41,7 @@ export default function AdminPage() {
   const [sortCol, setSortCol] = useState(null);
   const [sortDir, setSortDir] = useState(null);
   const [selectedRow, setSelectedRow] = useState(null);
+  const [period, setPeriod] = useState(30);
 
   const tableRef = useRef(null);
   const searchRef = useRef(null);
@@ -57,6 +57,7 @@ export default function AdminPage() {
       if (statusFilter) params.status = statusFilter;
       if (dateFrom) params.dateFrom = dateFrom;
       if (dateTo) params.dateTo = dateTo;
+      if (period) params.period = period;
       const res = await api.get('/admin/metrics', { signal, params });
       setData(res);
       setError(null);
@@ -67,7 +68,7 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, actionFilter, providerFilter, modelFilter, statusFilter, dateFrom, dateTo, page, pageSize]);
+  }, [search, actionFilter, providerFilter, modelFilter, statusFilter, dateFrom, dateTo, page, pageSize, period]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -188,7 +189,7 @@ export default function AdminPage() {
     );
   }
 
-  const { summary, trends, byDay } = data || {};
+  const { summary, trends, byDay, byDayAccept } = data || {};
   const acceptRate = summary ? Math.round(summary.acceptRate * 100) : 0;
 
   return (
@@ -221,26 +222,14 @@ export default function AdminPage() {
         <KpiCard label="Accept Rate" value={acceptRate} format="pct" trend={trends?.acceptRate} />
       </div>
 
-      {byDay && byDay.length > 0 && (
-        <div className="mb-8">
-          <h3 className="text-lg font-bold text-primary-900 mb-4">Request Trend</h3>
-          <div className="bg-white rounded-xl border border-primary-100 p-4 shadow-sm">
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={[...byDay].reverse()}>
-                <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#94a3b8" />
-                <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" />
-                <Tooltip />
-                <Line type="monotone" dataKey="requests" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} name="Requests" />
-                <Line type="monotone" dataKey="errors" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} name="Errors" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
+      <RequestTrendChart
+        byDay={byDay}
+        byDayAccept={byDayAccept}
+        period={period}
+        onPeriodChange={setPeriod}
+      />
 
       <ProviderHealthSection byProvider={data?.byProvider} />
-
-      <UsageOverTimeSection byDay={byDay} dateFrom={dateFrom} dateTo={dateTo} />
 
       <div className="mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
