@@ -138,8 +138,8 @@ class DispatchService {
         status: 'success',
         provider: usageMeta.provider,
         model: usageMeta.model,
-        promptTokens: usageMeta.prompt_tokens,
-        completionTokens: usageMeta.completion_tokens,
+        promptTokens: usageMeta.input_tokens,
+        completionTokens: usageMeta.output_tokens,
         totalTokens: usageMeta.total_tokens,
         latencyMs: usageMeta.latency_ms,
       });
@@ -600,10 +600,14 @@ class DispatchService {
     return {
       provider: success.source,
       model: success.model || 'unknown',
-      prompt_tokens: success.usage.prompt_tokens,
-      completion_tokens: success.usage.completion_tokens,
+      input_tokens: success.usage.prompt_tokens,
+      output_tokens: success.usage.completion_tokens,
       total_tokens: success.usage.total_tokens,
       latency_ms: success.duration_ms,
+      llm: {
+        prompt_tokens: success.usage.prompt_tokens,
+        completion_tokens: success.usage.completion_tokens,
+      },
     };
   }
 }
