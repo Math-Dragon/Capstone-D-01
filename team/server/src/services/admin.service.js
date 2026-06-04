@@ -17,10 +17,18 @@ async function getAdminMetrics(filters = {}) {
   const {
     activity_limit = 10, activity_offset = 0,
     search, action, dateFrom, dateTo, provider, model, status,
+    period = 30,
   } = filters;
+
+  const useWeekGrouping = Number(period) >= 90;
+  const dateExpr = useWeekGrouping ? "DATE_TRUNC('week', created_at)::date" : 'DATE(created_at)';
 
   const byDayConditions = ['1=1'];
   const byDayParams = [];
+
+  if (!dateFrom && !dateTo) {
+    byDayConditions.push(`created_at >= NOW() - INTERVAL '${period} days'`);
+  }
   if (dateFrom) {
     byDayConditions.push(`created_at >= $${byDayParams.length + 1}::timestamp`);
     byDayParams.push(dateFrom);
@@ -32,14 +40,53 @@ async function getAdminMetrics(filters = {}) {
 
   const byDayResult = await db.query(`
     SELECT
-      DATE(created_at) AS date,
+      ${dateExpr} AS date,
       COUNT(*)::int AS requests,
       COUNT(*) FILTER (WHERE action LIKE '%ERROR%' OR action LIKE '%REJECTED%')::int AS errors
     FROM audit_logs
     WHERE ${byDayConditions.join(' AND ')}
-    GROUP BY DATE(created_at)
+    GROUP BY ${dateExpr}
     ORDER BY date DESC
   `, byDayParams).catch(() => ({ rows: [] }));
+
+  const acceptByDayRecResult = await db.query(`
+    SELECT
+      ${dateExpr} AS date,
+      COUNT(*) FILTER (WHERE status = 'accepted')::int AS accepted,
+      COUNT(*) FILTER (WHERE status IN ('accepted', 'rejected'))::int AS decided
+    FROM ai_recommendations
+    WHERE ${byDayConditions.join(' AND ')}
+    GROUP BY ${dateExpr}
+    ORDER BY date DESC
+  `, byDayParams).catch(() => ({ rows: [] }));
+
+  const acceptByDayTaskResult = await db.query(`
+    SELECT
+      ${dateExpr} AS date,
+      COUNT(*) FILTER (WHERE action = 'COACH_TASK_ACCEPTED')::int AS accepted,
+      COUNT(*) FILTER (WHERE action IN ('COACH_TASK_ACCEPTED', 'COACH_TASK_REJECTED'))::int AS decided
+    FROM audit_logs
+    WHERE action IN ('COACH_TASK_ACCEPTED', 'COACH_TASK_REJECTED')
+      AND ${byDayConditions.join(' AND ')}
+    GROUP BY ${dateExpr}
+    ORDER BY date DESC
+  `, byDayParams).catch(() => ({ rows: [] }));
+
+  const acceptMap = {};
+  for (const row of acceptByDayRecResult.rows) {
+    acceptMap[row.date] = { recAccepted: row.accepted, recDecided: row.decided };
+  }
+  for (const row of acceptByDayTaskResult.rows) {
+    if (!acceptMap[row.date]) acceptMap[row.date] = { recAccepted: 0, recDecided: 0 };
+    acceptMap[row.date].taskAccepted = row.accepted;
+    acceptMap[row.date].taskDecided = row.decided;
+  }
+
+  const byDayAccept = Object.entries(acceptMap).map(([date, d]) => ({
+    date,
+    recRate: d.recDecided > 0 ? Number((d.recAccepted / d.recDecided).toFixed(4)) : null,
+    taskRate: d.taskDecided > 0 ? Number((d.taskAccepted / d.taskDecided).toFixed(4)) : null,
+  }));
 
   const recentConditions = ['1=1'];
   const recentParams = [];
@@ -188,7 +235,7 @@ async function getAdminMetrics(filters = {}) {
     acceptRate: Math.round(todayAcceptRate - yesterdayAcceptRate),
   };
 
-  return { summary, trends, byProvider, byDay, recentActivity, total };
+  return { summary, trends, byProvider, byDay, byDayAccept, recentActivity, total };
 }
 
 module.exports = { getAdminMetrics };

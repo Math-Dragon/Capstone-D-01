@@ -17,6 +17,7 @@ const metricsQuerySchema = z.object({
   provider: z.string().max(50).optional(),
   model: z.string().max(50).optional(),
   status: z.enum(['success', 'error']).optional(),
+  period: z.coerce.number().int().refine(v => [7, 30, 90].includes(v), { message: 'period must be 7, 30, or 90' }).optional(),
 });
 
 router.get('/metrics', authenticate, requireAdmin, generalLimiter, validate({ query: metricsQuerySchema }), async (req, res, next) => {
