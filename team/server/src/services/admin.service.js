@@ -141,12 +141,12 @@ async function getAdminMetrics(filters = {}) {
 
   const recentResult = await db.query(`
     SELECT id, user_id, action, metadata, created_at,
-      (metadata->>'input_tokens')::int AS input_tokens,
-      (metadata->>'output_tokens')::int AS output_tokens,
-      (metadata->>'total_tokens')::int AS total_tokens,
-      (metadata->>'latency_ms')::int AS latency_ms,
-      metadata->>'provider' AS provider,
-      metadata->>'model' AS model
+      COALESCE((metadata->>'input_tokens')::int, (metadata->>'prompt_tokens')::int, (metadata->'llm'->>'prompt_tokens')::int) AS input_tokens,
+      COALESCE((metadata->>'output_tokens')::int, (metadata->>'completion_tokens')::int, (metadata->'llm'->>'completion_tokens')::int) AS output_tokens,
+      COALESCE((metadata->>'total_tokens')::int, (metadata->'llm'->>'total_tokens')::int) AS total_tokens,
+      COALESCE((metadata->>'latency_ms')::int, (metadata->'llm'->>'latency_ms')::int) AS latency_ms,
+      COALESCE(metadata->>'provider', metadata->'llm'->>'provider') AS provider,
+      COALESCE(metadata->>'model', metadata->'llm'->>'model') AS model
     FROM audit_logs
     WHERE ${recentConditions.join(' AND ')}
     ORDER BY created_at DESC

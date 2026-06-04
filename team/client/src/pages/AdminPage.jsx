@@ -306,12 +306,12 @@ export default function AdminPage() {
                           <td className="px-3 py-3 text-xs font-mono text-primary-400 whitespace-nowrap">{new Date(a.timestamp).toLocaleString('id-ID')}</td>
                           <td className="px-3 py-3"><span className={`text-xs font-medium px-2 py-1 rounded whitespace-nowrap ${actionColor}`}>{actionMeta || a.action}</span></td>
                           <td className="px-3 py-3 text-xs text-primary-500 font-mono max-w-[100px] truncate" title={a.user_id}>{a.user_id || '\u2014'}</td>
-                          <td className="px-3 py-3 text-xs text-primary-500">{a.provider || '\u2014'}</td>
-                          <td className="px-3 py-3 text-xs text-primary-500 font-mono max-w-[120px] truncate" title={a.model}>{a.model || '\u2014'}</td>
-                          <td className="px-3 py-3 text-xs text-right text-primary-700 tabular-nums">{a.input_tokens?.toLocaleString() || '\u2014'}</td>
-                          <td className="px-3 py-3 text-xs text-right text-primary-700 tabular-nums">{a.output_tokens?.toLocaleString() || '\u2014'}</td>
-                          <td className="px-3 py-3 text-xs text-right text-primary-700 tabular-nums font-semibold">{a.total_tokens?.toLocaleString() || '\u2014'}</td>
-                          <td className="px-3 py-3 text-xs text-right text-primary-500 tabular-nums">{latencyDisplay(a.latency_ms)}</td>
+                          <td className="px-3 py-3 text-xs text-primary-500">{a.provider || a.metadata?.llm?.provider || '\u2014'}</td>
+                          <td className="px-3 py-3 text-xs text-primary-500 font-mono max-w-[120px] truncate" title={a.model || a.metadata?.llm?.model}>{a.model || a.metadata?.llm?.model || '\u2014'}</td>
+                          <td className="px-3 py-3 text-xs text-right text-primary-700 tabular-nums">{a.input_tokens?.toLocaleString() || a.metadata?.llm?.prompt_tokens?.toLocaleString() || '\u2014'}</td>
+                          <td className="px-3 py-3 text-xs text-right text-primary-700 tabular-nums">{a.output_tokens?.toLocaleString() || a.metadata?.llm?.completion_tokens?.toLocaleString() || '\u2014'}</td>
+                          <td className="px-3 py-3 text-xs text-right text-primary-700 tabular-nums font-semibold">{a.total_tokens?.toLocaleString() || a.metadata?.llm?.total_tokens?.toLocaleString() || '\u2014'}</td>
+                          <td className="px-3 py-3 text-xs text-right text-primary-500 tabular-nums">{latencyDisplay(a.latency_ms ?? a.metadata?.llm?.latency_ms)}</td>
                           <td className="px-3 py-3"><span className={`text-xs font-medium px-2 py-1 rounded ${ADMIN_STATUS_COLOR[st] || 'bg-gray-100 text-gray-700'}`}>{st}</span></td>
                         </tr>
                       );
