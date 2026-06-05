@@ -7,6 +7,7 @@ const envPaths = [
 ];
 
 if (process.env.NODE_ENV === 'test') {
+  envPaths.unshift(path.resolve(__dirname, '../../.env.test'));
   envPaths.unshift(path.resolve(__dirname, '../../../.env.test'));
 }
 

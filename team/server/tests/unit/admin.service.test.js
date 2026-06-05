@@ -181,8 +181,8 @@ describe('period param', () => {
     repos.aiRec.computeAllMetrics.mockResolvedValue({ suggested: 0, accepted: 0, rejected: 0, pending: 0 });
 
     db.query.mockImplementation((sql) => {
-      if (sql.includes("DATE_TRUNC('week', created_at)::date") && !sql.includes('COACH_TASK') && !sql.includes('ai_recommendations')) return Promise.resolve({ rows: [] });
-      if (sql.includes("DATE_TRUNC") && sql.includes('ai_recommendations')) return Promise.resolve({ rows: [] });
+      if (sql.includes('DATE_TRUNC(\'week\', created_at)::date') && !sql.includes('COACH_TASK') && !sql.includes('ai_recommendations')) return Promise.resolve({ rows: [] });
+      if (sql.includes('DATE_TRUNC') && sql.includes('ai_recommendations')) return Promise.resolve({ rows: [] });
       if (sql.includes('COACH_TASK_ACCEPTED')) return Promise.resolve({ rows: [] });
       if (sql.includes('LIMIT')) return Promise.resolve({ rows: [] });
       if (sql.includes('COUNT(*) FILTER')) return Promise.resolve({ rows: [{}] });

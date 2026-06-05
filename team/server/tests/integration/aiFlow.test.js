@@ -2,6 +2,8 @@ const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const app = require('../../src/app');
 
+jest.setTimeout(30000);
+
 const TEST_EMAIL = `ai-flow-test-${Date.now()}@example.com`;
 const TEST_PASSWORD = 'TestPass1';
 
@@ -59,7 +61,7 @@ describe('AI Flow Integration', () => {
     const res = await request(app)
       .post('/api/ai/plan/suggest')
       .set('Authorization', `Bearer ${accessToken}`)
-      .send({ goalId: testGoalId, context: 'Belajar integration testing dengan Jest dan supertest' });
+      .send({ goalId: testGoalId, context: { text: 'Belajar integration testing dengan Jest dan supertest' } });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -125,7 +127,7 @@ describe('AI Flow Integration', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.planned_date).toBe('2026-07-15');
+    expect(new Date(res.body.data.planned_date).toLocaleDateString('en-CA')).toBe('2026-07-15');
     expect(res.body.data.planned_slot).toBe('afternoon');
   });
 

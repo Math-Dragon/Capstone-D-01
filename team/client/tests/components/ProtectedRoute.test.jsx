@@ -18,7 +18,7 @@ describe('ProtectedRoute', () => {
       <MemoryRouter><ProtectedRoute><span>Protected</span></ProtectedRoute></MemoryRouter>
     );
     expect(screen.queryByText('Protected')).not.toBeInTheDocument();
-    expect(container.querySelector('.animate-spin')).toBeTruthy();
+    expect(container.querySelector('[role="status"]')).toBeTruthy();
   });
 
   it('shows spinner when loading', () => {
@@ -28,7 +28,7 @@ describe('ProtectedRoute', () => {
     const { container } = render(
       <MemoryRouter><ProtectedRoute><span>Protected</span></ProtectedRoute></MemoryRouter>
     );
-    expect(container.querySelector('.animate-spin')).toBeTruthy();
+    expect(container.querySelector('[role="status"]')).toBeTruthy();
   });
 
   it('redirects to /login when not authenticated', () => {
