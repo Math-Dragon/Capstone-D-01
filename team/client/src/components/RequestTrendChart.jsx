@@ -42,8 +42,8 @@ export default function RequestTrendChart({ byDay, byDayAccept, period, onPeriod
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#94a3b8" />
                 <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" />
                 <Tooltip />
-                <Line type="monotone" dataKey="requests" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} name="Requests" />
-                <Line type="monotone" dataKey="errors" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} name="Errors" />
+                <Line type="monotone" dataKey="requests" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} name="Requests" isAnimationActive={false} />
+                <Line type="monotone" dataKey="errors" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} name="Errors" isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
           ) : (
@@ -59,8 +59,8 @@ export default function RequestTrendChart({ byDay, byDayAccept, period, onPeriod
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#94a3b8" />
                 <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" domain={[0, 1]} tickFormatter={(v) => `${Math.round(v * 100)}%`} />
                 <Tooltip formatter={(v) => (v != null ? `${(v * 100).toFixed(1)}%` : '\u2014')} />
-                <Line type="monotone" dataKey="recRate" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} name="Plan Accept" connectNulls />
-                <Line type="monotone" dataKey="taskRate" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3 }} name="Task Accept" connectNulls />
+                <Line type="monotone" dataKey="recRate" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} name="Plan Accept" connectNulls isAnimationActive={false} />
+                <Line type="monotone" dataKey="taskRate" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3 }} name="Task Accept" connectNulls isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
           ) : (

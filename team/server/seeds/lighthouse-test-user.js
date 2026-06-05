@@ -52,8 +52,25 @@ async function seed() {
 async function cleanup() {
   console.log('Cleaning up lighthouse test users...');
 
-  await db.query("DELETE FROM users WHERE email IN ('lighthouse@test.local', 'admin123@example.com')");
-  console.log('  ✓ users cleaned');
+  const ids = await db.query(
+    "SELECT id FROM users WHERE email IN ('lighthouse@test.local', 'admin123@example.com')"
+  );
+
+  if (ids.rows.length > 0) {
+    const userIds = ids.rows.map(r => r.id);
+
+    // audit_logs is the only table without ON DELETE CASCADE
+    // must be cleared manually before deleting users
+    await db.query('DELETE FROM audit_logs WHERE user_id = ANY($1)', [userIds]);
+
+    // All other child tables (goals, ai_recommendations, refresh_tokens,
+    // chat_messages, student_metrics, plan_snapshots, profiles, progress_snapshots)
+    // use ON DELETE CASCADE — they clean up automatically
+    await db.query("DELETE FROM users WHERE email IN ('lighthouse@test.local', 'admin123@example.com')");
+    console.log('  ✓ users cleaned');
+  } else {
+    console.log('  ✓ no users to clean');
+  }
 
   const tokenPath = path.resolve(__dirname, 'data/lighthouse-tokens.json');
   if (fs.existsSync(tokenPath)) {

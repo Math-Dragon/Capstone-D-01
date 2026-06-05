@@ -98,7 +98,7 @@ export default function ProviderHealthSection({ byProvider }) {
           <h4 className="text-sm font-semibold text-primary-500 mb-2">Provider Distribution</h4>
           <ResponsiveContainer width={220} height={220}>
             <PieChart>
-              <Pie data={sorted} dataKey="calls" nameKey="provider" cx="50%" cy="50%" outerRadius={80} label={({ provider, percent }) => `${provider} ${(percent * 100).toFixed(0)}%`}>
+              <Pie data={sorted} dataKey="calls" nameKey="provider" cx="50%" cy="50%" outerRadius={80} label={({ provider, percent }) => `${provider} ${(percent * 100).toFixed(0)}%`} isAnimationActive={false}>
                 {sorted.map((_, i) => (
                   <Cell key={i} fill={ADMIN_PIE_COLORS[i % ADMIN_PIE_COLORS.length]} />
                 ))}
