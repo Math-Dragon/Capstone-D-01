@@ -213,7 +213,7 @@ describe('POST /api/coach/', () => {
 
     const res = await request(createApp())
       .post('/api/coach')
-      .send({ action: 'CHAT_MESSAGE', payload: {} });
+      .send({ action: 'CHAT_MESSAGE', payload: { message: 'Hello' } });
     expect(res.status).toBe(500);
   });
 });
