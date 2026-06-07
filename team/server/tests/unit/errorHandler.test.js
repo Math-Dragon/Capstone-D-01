@@ -113,4 +113,48 @@ describe('errorHandler', () => {
       meta: { request_id: 'unknown' },
     }));
   });
+
+  test('handles UnauthorizedError with 401', () => {
+    const { req, res, next } = buildMocks();
+    const err = { name: 'UnauthorizedError', message: 'No token' };
+    errorHandler(err, req, res, next);
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: { code: 'UNAUTHORIZED', message: 'Autentikasi diperlukan' },
+    }));
+  });
+
+  test('handles TokenExpiredError with 401', () => {
+    const { req, res, next } = buildMocks();
+    const err = { name: 'TokenExpiredError', message: 'jwt expired' };
+    errorHandler(err, req, res, next);
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: { code: 'TOKEN_EXPIRED', message: 'Token sudah expired. Silakan login ulang.' },
+    }));
+  });
+
+  test('hides stack trace in production', () => {
+    const { req, res, next } = buildMocks();
+    const origEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    const err = { message: 'Error' };
+    errorHandler(err, req, res, next);
+    process.env.NODE_ENV = origEnv;
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: { code: 'INTERNAL_ERROR', message: 'Internal server error' },
+    }));
+  });
+
+  test('exposes error message in development', () => {
+    const { req, res, next } = buildMocks();
+    const origEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+    const err = { message: 'Debug error' };
+    errorHandler(err, req, res, next);
+    process.env.NODE_ENV = origEnv;
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: { code: 'INTERNAL_ERROR', message: 'Debug error' },
+    }));
+  });
 });

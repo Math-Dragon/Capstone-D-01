@@ -21,6 +21,7 @@ export function Header() {
         { path: '/calendar', label: 'Kalender' },
         { path: '/progress', label: 'Progress' },
         { path: '/coach', label: 'Coach' },
+        ...(user?.isAdmin ? [{ path: '/admin', label: 'Admin' }] : []),
       ]
     : [];
 

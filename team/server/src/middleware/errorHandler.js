@@ -59,10 +59,32 @@ function errorHandler(err, req, res, next) {
     });
   }
 
+  if (err.name === 'UnauthorizedError') {
+    return res.status(401).json({
+      success: false,
+      error: { code: 'UNAUTHORIZED', message: 'Autentikasi diperlukan' },
+      meta: buildMeta(requestId, err),
+    });
+  }
+
+  if (err.name === 'TokenExpiredError') {
+    return res.status(401).json({
+      success: false,
+      error: { code: 'TOKEN_EXPIRED', message: 'Token sudah expired. Silakan login ulang.' },
+      meta: buildMeta(requestId, err),
+    });
+  }
+
   const statusCode = err.statusCode || err.status || 500;
   const message = err.message || 'Internal server error';
 
-  logger.error({ request_id: requestId, err: err.message, stack: err.stack });
+  logger.error({
+    request_id: requestId,
+    error_type: err.name,
+    error_message: err.message,
+    route: req.originalUrl,
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
+  });
 
   res.status(statusCode).json({
     success: false,

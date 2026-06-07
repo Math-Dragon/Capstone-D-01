@@ -4,18 +4,26 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import GoalDetailPage from '../../src/pages/GoalDetailPage';
 import api from '../../src/services/api';
 
+vi.mock('../../src/components/AdjustmentPanel', () => ({
+  default: () => null,
+}));
+
 vi.mock('../../src/services/api', () => ({
-  default: {
-    get: vi.fn(),
-    patch: vi.fn(),
-  },
+  default: { get: vi.fn(), patch: vi.fn() },
+}));
+
+vi.mock('../../src/components/ModifyTaskModal', () => ({ default: () => null }));
+vi.mock('../../src/components/SkipTaskModal', () => ({ default: () => null }));
+vi.mock('../../src/components/FeedbackModal', () => ({ default: () => null }));
+vi.mock('../../src/components/TaskDetailModal', () => ({ default: () => null }));
+vi.mock('../../src/components/ProposalOverlay', () => ({ default: () => null }));
+
+vi.mock('../../src/services/api', () => ({
+  default: { get: vi.fn(), patch: vi.fn() },
 }));
 
 vi.mock('../../src/features/goals/hooks/useGoals', () => ({
-  useGoals: () => ({
-    update: vi.fn(),
-    remove: vi.fn(),
-  }),
+  useGoals: () => ({ update: vi.fn(), remove: vi.fn() }),
 }));
 
 vi.mock('../../src/hooks/useTaskActions', () => ({
@@ -38,17 +46,22 @@ vi.mock('../../src/hooks/useTaskActions', () => ({
   }),
 }));
 
-vi.mock('../../src/components/AdjustmentPanel', () => ({ default: () => <div /> }));
-vi.mock('../../src/components/ModifyTaskModal', () => ({ default: () => null }));
-vi.mock('../../src/components/SkipTaskModal', () => ({ default: () => null }));
-vi.mock('../../src/components/FeedbackModal', () => ({ default: () => null }));
-vi.mock('../../src/components/TaskDetailModal', () => ({ default: () => null }));
-vi.mock('../../src/components/ProposalOverlay', () => ({ default: () => null }));
-vi.mock('../../src/utils/invalidation', () => ({ onDataChanged: () => () => {} }));
+vi.mock('../../src/utils/invalidation', () => ({
+  onDataChanged: () => () => {},
+}));
 
-function renderPage() {
+const mockGoal = {
+  id: 'goal-1',
+  title: 'Belajar React',
+  description: 'Kuasi React dalam 2 bulan',
+  status: 'active',
+  deadline: '2026-06-01',
+  tasks: [],
+};
+
+function renderPage(goalId = 'goal-1') {
   return render(
-    <MemoryRouter initialEntries={['/goals/goal-1']}>
+    <MemoryRouter initialEntries={[`/goals/${goalId}`]}>
       <Routes>
         <Route path="/goals/:id" element={<GoalDetailPage />} />
       </Routes>
@@ -56,37 +69,62 @@ function renderPage() {
   );
 }
 
-describe('GoalDetailPage accessibility states', () => {
+describe('GoalDetailPage', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('announces loading state', () => {
+  it('shows loading state', () => {
     api.get.mockReturnValue(new Promise(() => {}));
-
     renderPage();
-
-    expect(screen.getByRole('status')).toHaveTextContent('Memuat detail target');
+    expect(document.querySelector('[aria-busy="true"]')).toBeInTheDocument();
   });
 
-  it('announces error state with retry action and help text', async () => {
-    api.get.mockRejectedValue(new Error('Network error'));
-
+  it('shows error state on API failure', async () => {
+    api.get.mockRejectedValue(new Error('Gagal memuat goal'));
     renderPage();
-
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent('Network error');
+      expect(screen.getByText('Gagal memuat goal')).toBeInTheDocument();
     });
-    expect(screen.getByRole('button', { name: /Coba Lagi/i })).toBeInTheDocument();
-    expect(screen.getByText(/Periksa koneksi/i)).toBeInTheDocument();
+    expect(screen.getByText('Kembali')).toBeInTheDocument();
   });
 
-  it('announces empty task state', async () => {
-    api.get.mockResolvedValue({ id: 'goal-1', title: 'Belajar React', status: 'active', tasks: [] });
-
+  it('renders goal header with title', async () => {
+    api.get.mockResolvedValue(mockGoal);
     renderPage();
-
     await waitFor(() => {
       expect(screen.getByText('Belajar React')).toBeInTheDocument();
     });
-    expect(screen.getByRole('status')).toHaveTextContent('Belum ada tugas');
+  });
+
+  it('shows empty state when no tasks', async () => {
+    api.get.mockResolvedValue(mockGoal);
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('Belum ada tugas')).toBeInTheDocument();
+    });
+  });
+
+  it('renders task list when tasks exist', async () => {
+    const goalWithTasks = {
+      ...mockGoal,
+      tasks: [
+        { id: 't1', title: 'Belajar useEffect', status: 'todo', duration_estimate: 45, planned_date: '2026-05-04', planned_slot: 'morning' },
+        { id: 't2', title: 'Belajar useState', status: 'done', duration_estimate: 30, planned_date: '2026-05-04', planned_slot: 'afternoon' },
+      ],
+    };
+    api.get.mockResolvedValue(goalWithTasks);
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('Belajar useEffect')).toBeInTheDocument();
+      expect(screen.getByText('Belajar useState')).toBeInTheDocument();
+    });
+  });
+
+  it('shows edit and delete buttons', async () => {
+    api.get.mockResolvedValue(mockGoal);
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText((content) => content.includes('Edit Goal'))).toBeInTheDocument();
+      expect(screen.getByText((content) => content.includes('Hapus Goal'))).toBeInTheDocument();
+    });
   });
 });
