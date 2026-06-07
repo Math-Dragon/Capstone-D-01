@@ -22,7 +22,7 @@ export function AuthProvider({ children }) {
               const data = await authService.refreshToken();
               token = data.accessToken;
               localStorage.setItem('token', token);
-            } catch (err) {
+            } catch {
               // Silent failure, no token or refresh cookie
             }
           }
@@ -31,7 +31,7 @@ export function AuthProvider({ children }) {
             const profileData = await authService.getProfile();
             dispatch(setUser(profileData));
           }
-        } catch (err) {
+        } catch {
           localStorage.removeItem('token');
         } finally {
           dispatch(setLoading(false));

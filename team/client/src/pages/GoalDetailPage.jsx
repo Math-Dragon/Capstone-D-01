@@ -15,6 +15,8 @@ import { Skeleton, SkeletonList } from '../components/ui/Skeleton';
 import { onDataChanged } from '../utils/invalidation';
 import { SLOT_ORDER } from '../utils/constants';
 
+const EMPTY_TASKS = [];
+
 export default function GoalDetailPage() {
   const navigate = useNavigate();
   const { update, remove } = useGoals();
@@ -48,7 +50,7 @@ export default function GoalDetailPage() {
 
   const {
     proposal, activeModal, activeTask, actionLoading, proposalAccepting,
-    handleComplete, handleSkip, handleModify, handleFeedback,
+    handleComplete, handleSkip, handleModify,
     confirmSkip, confirmModify, submitFeedback,
     acceptProposal, rejectProposal, closeModal,
   } = useTaskActions({
@@ -131,7 +133,7 @@ export default function GoalDetailPage() {
     });
   }, [id]);
 
-  const tasks = goal?.tasks || [];
+  const tasks = goal?.tasks || EMPTY_TASKS;
   const completedCount = tasks.filter(t => t.status === 'done' || t.status === 'completed').length;
   const totalMin = tasks.reduce((s, t) => s + (t.duration_estimate || 0), 0);
   const progressPct = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;

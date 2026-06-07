@@ -33,14 +33,14 @@ describe('Toast', () => {
     render(<ToastProvider><TestComponent /></ToastProvider>);
     fireEvent.click(screen.getByText('Add Success'));
     const toast = screen.getByText('Success!').closest('div');
-    expect(toast.className).toContain('bg-green-500');
+    expect(toast.className).toContain('bg-green-600');
   });
 
   it('removes toast on close button click', () => {
     render(<ToastProvider><TestComponent /></ToastProvider>);
     fireEvent.click(screen.getByText('Add Info'));
     expect(screen.getByText('Hello')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('✕'));
+    fireEvent.click(screen.getByRole('button', { name: /tutup notifikasi: hello/i }));
     expect(screen.queryByText('Hello')).not.toBeInTheDocument();
   });
 

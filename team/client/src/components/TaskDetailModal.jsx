@@ -134,7 +134,7 @@ export default function TaskDetailModal({ task, isOpen, onClose, onSaveNotes }) 
             <div className="space-y-2">
               {task.rationale && (
                 <CollapsibleSection label="Alasan">
-                  <RationaleDisplay rationale={task.rationale} />
+                  <RationaleDisplay rationale={task.rationale} confidence={task.confidence} />
                 </CollapsibleSection>
               )}
               {task.completion_criteria && (

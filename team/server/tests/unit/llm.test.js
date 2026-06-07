@@ -50,6 +50,30 @@ describe('validateAIOutput', () => {
     expect(result.summary).toBe('A plan');
   });
 
+  test('accepts rationale as array of factors with confidence level', () => {
+    const valid = {
+      tasks: [{
+        title: 'Practice spaced recall',
+        description: 'Answer recall prompts without notes.',
+        task_type: 'recall',
+        duration_estimate: 25,
+        planned_date: '2026-05-01',
+        planned_slot: 'evening',
+        rationale: [
+          { factor: 'preference_match', explanation: 'Matches the student preference for short evening work.' },
+          { factor: 'learning_science', explanation: 'Retrieval practice strengthens retention.' },
+        ],
+        confidence: 'high',
+      }],
+      summary: 'A factor-based plan',
+    };
+
+    const result = validateAIOutput(JSON.stringify(valid));
+
+    expect(result.tasks[0].rationale).toEqual(valid.tasks[0].rationale);
+    expect(result.tasks[0].confidence).toBe('high');
+  });
+
   test('returns parsed data when provider returns an object', () => {
     const valid = {
       tasks: [{
@@ -150,6 +174,19 @@ describe('TaskSchema', () => {
       rationale: '   ',
     });
     expect(result.success).toBe(false);
+  });
+
+  test('accepts rationale factor array', () => {
+    const result = TaskSchema.safeParse({
+      title: 'Test',
+      description: 'desc',
+      duration_estimate: 30,
+      planned_date: '2026-05-01',
+      planned_slot: 'morning',
+      rationale: [{ factor: 'availability', explanation: 'Morning slot matches the available schedule.' }],
+      confidence: 'medium',
+    });
+    expect(result.success).toBe(true);
   });
 
   test('rejects impossible planned_date', () => {

@@ -109,4 +109,11 @@ describe('TaskCard', () => {
     const title = screen.getByText('Belajar React Hooks');
     expect(title.className).toContain('line-through');
   });
+
+  it('marks status changes with a transition data attribute', () => {
+    const { rerender } = render(<TaskCard task={baseTask} />);
+    rerender(<TaskCard task={{ ...baseTask, status: 'done' }} />);
+
+    expect(screen.getByTestId('task-card-task-1')).toHaveAttribute('data-transition-state', 'done');
+  });
 });

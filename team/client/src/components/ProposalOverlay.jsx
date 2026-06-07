@@ -53,7 +53,7 @@ export default function ProposalOverlay({ proposal, onAccept, onReject, acceptin
                     <span className="text-xs text-primary-400">{task.duration_estimate}m</span>
                   </div>
                   <p className={`text-sm font-medium mt-1 ${style.text}`}>{task.title}</p>
-                  <RationaleDisplay rationale={task.rationale} compact className="mt-2" />
+                  <RationaleDisplay rationale={task.rationale} confidence={task.confidence} compact className="mt-2" />
                 </div>
               );
             })}

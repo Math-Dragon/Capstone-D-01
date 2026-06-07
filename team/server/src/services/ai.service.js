@@ -93,7 +93,11 @@ class AIService {
       'SESSION_TYPE: initial_plan',
       'TASK: Generate AI learning plan suggestions for /api/ai/plan/suggest.',
       'Return valid JSON with exactly this top-level shape:',
+<<<<<<< HEAD
       '{ "tasks": [ { "title": "...", "description": "...", "duration_estimate": 45, "planned_date": "YYYY-MM-DD", "planned_slot": "morning", "rationale": ["Factor 1", "Factor 2", "Factor 3"], "confidence": "high" } ], "summary": "..." }',
+=======
+      '{ "tasks": [ { "title": "...", "description": "...", "duration_estimate": 45, "planned_date": "YYYY-MM-DD", "planned_slot": "morning", "rationale": [ { "factor": "preference_match", "explanation": "..." } ], "confidence": "low|medium|high" } ], "summary": "..." }',
+>>>>>>> dev
       'Do not return chat/message/plan wrapper. Do not return markdown. Do not include text outside JSON.',
       'CONTEXT:',
       JSON.stringify(userContext),
@@ -182,6 +186,7 @@ class AIService {
       planned_date: t.planned_date,
       planned_slot: t.planned_slot,
       rationale: t.rationale,
+      confidence: t.confidence || 'medium',
       source: 'ai',
       status: 'todo',
     }));

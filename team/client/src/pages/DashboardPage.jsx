@@ -92,11 +92,11 @@ export default function DashboardPage() {
     const controller = new AbortController();
     loadData(controller.signal);
     return () => controller.abort();
-  }, []);
+  }, [loadData]);
 
   useEffect(() => {
     return onDataChanged(() => loadData());
-  }, []);
+  }, [loadData]);
 
   const completedCount = useMemo(
     () => tasks.filter(t => t.status === 'done' || t.status === 'completed').length,
