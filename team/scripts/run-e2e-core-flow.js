@@ -14,12 +14,18 @@ const state = {
   goalId: null,
   manualTaskId: null,
   acceptedTaskTitle: 'E2E Accepted Coach Plan Task',
+  aiAcceptedTaskTitle: null,
 };
 
 function todayString(offsetDays = 0) {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
   return d.toISOString().slice(0, 10);
+}
+
+function dateOnly(value) {
+  if (!value) return null;
+  return String(value).slice(0, 10);
 }
 
 function sleep(ms) {
@@ -214,6 +220,56 @@ async function aiSuggestionHealth() {
   return fail('E2E-06', 'AI suggestion memberi error terkendali saat tidak tersedia', `Status=${suggestion.status}, payload=${JSON.stringify(suggestion.payload)}`);
 }
 
+async function aiSuggestAcceptCalendarFlow() {
+  const suggestion = await request('POST', '/ai/plan/suggest', {
+    goalId: state.goalId,
+    context: {
+      test_case: 'E2E-07',
+      note: 'Validasi integrasi AI suggest -> accept -> calendar menggunakan provider mock atau quota AI tersedia.',
+    },
+  });
+
+  if (!suggestion.ok) {
+    const clearError = suggestion.status === 429 || suggestion.status === 503 || suggestion.payload?.error?.code;
+    if (clearError) {
+      return fail('E2E-07', 'AI suggest -> accept -> calendar', `AI tidak tersedia untuk flow penuh: status=${suggestion.status}, code=${suggestion.payload?.error?.code || 'n/a'}. Jalankan dengan LLM_PROVIDER=mock untuk hasil deterministik.`);
+    }
+    return fail('E2E-07', 'AI suggest -> accept -> calendar', `Suggest gagal: status=${suggestion.status}, payload=${JSON.stringify(suggestion.payload)}`);
+  }
+
+  const recommendation = suggestion.payload?.data;
+  const recommendationId = recommendation?.recommendationId;
+  const firstTask = recommendation?.tasks?.[0];
+  if (!recommendationId || !firstTask?.title) {
+    return fail('E2E-07', 'AI suggest -> accept -> calendar', `Payload recommendation tidak lengkap: ${JSON.stringify(recommendation)}`);
+  }
+
+  state.aiAcceptedTaskTitle = firstTask.title;
+  const accepted = await must('POST', `/ai/recommendations/${recommendationId}/accept`, {});
+  const tasks = await must('GET', '/tasks');
+  const found = tasks.data.find((task) => task.title === firstTask.title && task.source === 'ai');
+
+  const expectedDate = firstTask.planned_date || null;
+  const expectedSlot = firstTask.planned_slot || null;
+  const calendarMatch = found
+    && dateOnly(found.planned_date) === expectedDate
+    && found.planned_slot === expectedSlot;
+
+  if (accepted.data?.length > 0 && calendarMatch) {
+    return pass(
+      'E2E-07',
+      'AI suggest -> accept -> calendar',
+      `Recommendation ${recommendationId} accepted; task "${firstTask.title}" muncul di calendar date=${dateOnly(found.planned_date)}, slot=${found.planned_slot}`
+    );
+  }
+
+  return fail(
+    'E2E-07',
+    'AI suggest -> accept -> calendar',
+    `accepted=${accepted.data?.length || 0}, found=${Boolean(found)}, expected=${expectedDate}/${expectedSlot}, actual=${dateOnly(found?.planned_date) || 'n/a'}/${found?.planned_slot || 'n/a'}`
+  );
+}
+
 async function cleanup() {
   const evidence = [];
   if (state.manualTaskId) {
@@ -263,6 +319,7 @@ async function main() {
     results.push(await completeTaskAndProgress());
     results.push(await acceptCoachProposal());
     results.push(await aiSuggestionHealth());
+    results.push(await aiSuggestAcceptCalendarFlow());
   } catch (err) {
     error = err;
     results.push(fail('E2E-RUNNER', 'Runner berhenti karena error', `${err.status || ''} ${err.message}`.trim()));

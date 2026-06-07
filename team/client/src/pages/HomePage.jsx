@@ -110,7 +110,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
-            {features.map((feature, index) => (
+            {features.map((feature) => (
               <div
                 key={feature.title}
                 className="group p-6 sm:p-8 rounded-2xl bg-primary-50/50 border border-primary-100 hover:border-primary-200 hover:shadow-lg transition-all duration-300"

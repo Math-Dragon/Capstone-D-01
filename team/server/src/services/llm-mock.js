@@ -60,7 +60,17 @@ function generateMockSuggestion(ctx) {
       planned_date: dates[i],
       planned_slot: SLOT_CYCLE[(SLOT_CYCLE.indexOf(preferredSlot) + i) % 3],
       priority: i === 0 ? 'high' : 'medium',
-      rationale: `Tugas ini dijadwalkan pada sesi ${SLOT_LABELS[SLOT_CYCLE[(SLOT_CYCLE.indexOf(preferredSlot) + i) % 3]]} agar ritme belajarmu tetap nyaman dan konsisten.`,
+      rationale: [
+        {
+          factor: 'preference_match',
+          explanation: `Sesi ${SLOT_LABELS[SLOT_CYCLE[(SLOT_CYCLE.indexOf(preferredSlot) + i) % 3]]} mengikuti preferensi waktu belajar yang tersedia.`,
+        },
+        {
+          factor: 'learning_science',
+          explanation: `Tipe ${tmpl.type} dipilih agar aktivitas belajar tetap bertahap dan mudah dievaluasi.`,
+        },
+      ],
+      confidence: i === 0 ? 'high' : 'medium',
     });
   }
 

@@ -1,7 +1,7 @@
 const db = require('../../db');
 const repos = require('../../repositories');
 const logger = require('../../utils/logger');
-const { aiRequestCount } = require('../../utils/metrics');
+const { aiRequestCount, recordAIUsage } = require('../../utils/metrics');
 const { scheduleTasks } = require('../scheduler.service');
 const gate = require('./gate.service');
 const staticResponse = require('./static-response.service');
@@ -131,7 +131,21 @@ class DispatchService {
       }
     }
 
-    aiRequestCount.inc({ type: `coach.${effectiveSessionType}`, status: 'success' });
+    const usageMeta = this._llmUsageMeta(llmMeta);
+    if (usageMeta) {
+      recordAIUsage({
+        type: `coach.${effectiveSessionType}`,
+        status: 'success',
+        provider: usageMeta.provider,
+        model: usageMeta.model,
+        promptTokens: usageMeta.prompt_tokens,
+        completionTokens: usageMeta.completion_tokens,
+        totalTokens: usageMeta.total_tokens,
+        latencyMs: usageMeta.latency_ms,
+      });
+    } else {
+      aiRequestCount.inc({ type: `coach.${effectiveSessionType}`, status: 'success' });
+    }
 
     if (effectiveSessionType === 'task_action') {
       const message = validated.message || 'Tindakan dicatat.';
@@ -219,6 +233,7 @@ class DispatchService {
           duration_estimate: t.duration_estimate,
           planned_slot: t.planned_slot,
           rationale: t.rationale,
+          confidence: t.confidence || 'medium',
           status: t.status,
         })),
         summary: rec.output.summary,
@@ -372,6 +387,7 @@ class DispatchService {
           planned_slot: task.planned_slot || null,
           task_type: task.task_type || null,
           rationale: task.rationale || null,
+          confidence: task.confidence || 'medium',
           source: 'coach',
           status: 'todo',
         }, client);
@@ -404,6 +420,7 @@ class DispatchService {
   async getRecommendationMetrics() {
     try {
       const m = await repos.aiRec.computeAllMetrics();
+      const rationaleMetrics = await repos.aiRec.computeRationaleMetrics();
       const total = m.accepted + m.rejected;
       return {
         ai_tasks_suggested_total: m.suggested,
@@ -411,6 +428,7 @@ class DispatchService {
         ai_tasks_rejected_total: m.rejected,
         ai_tasks_pending_total: m.pending,
         accept_rate: total > 0 ? (m.accepted / total).toFixed(2) : '0.00',
+        rationale_metrics: rationaleMetrics,
       };
     } catch (err) {
       logger.warn({ err: err.message }, 'Failed to compute recommendation metrics');
@@ -420,6 +438,7 @@ class DispatchService {
         ai_tasks_rejected_total: 0,
         ai_tasks_pending_total: 0,
         accept_rate: '0.00',
+        rationale_metrics: [],
       };
     }
   }
@@ -567,6 +586,7 @@ class DispatchService {
     if (!success || !success.usage) return undefined;
     return {
       provider: success.source,
+      model: success.model || 'unknown',
       prompt_tokens: success.usage.prompt_tokens,
       completion_tokens: success.usage.completion_tokens,
       total_tokens: success.usage.total_tokens,

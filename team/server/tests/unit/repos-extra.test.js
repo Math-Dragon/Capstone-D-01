@@ -145,6 +145,24 @@ describe('ai-recommendation.repo', () => {
     const result = await aiRecRepo.computeAllMetrics();
     expect(result).toEqual({ suggested: 0, accepted: 0, rejected: 0, pending: 0 });
   });
+
+  test('computeRationaleMetrics aggregates accepted and suggested tasks by rationale factor', async () => {
+    db.query.mockResolvedValue({
+      rows: [
+        { factor: 'preference_match', suggested: 4, accepted: 3 },
+        { factor: 'learning_science', suggested: 2, accepted: 1 },
+      ],
+    });
+
+    const result = await aiRecRepo.computeRationaleMetrics();
+
+    expect(result).toEqual([
+      { factor: 'preference_match', suggested: 4, accepted: 3, acceptance_rate: '0.75' },
+      { factor: 'learning_science', suggested: 2, accepted: 1, acceptance_rate: '0.50' },
+    ]);
+    expect(db.query.mock.calls[0][0]).toContain('jsonb_array_elements');
+    expect(db.query.mock.calls[0][0]).toContain('rationale');
+  });
 });
 
 describe('progress-snapshot.repo', () => {

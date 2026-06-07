@@ -61,11 +61,12 @@ describe('generateMockSuggestion', () => {
   });
 
   test('dates fall between today and deadline', () => {
-    const result = generateMockSuggestion(makeContext({ profile: { goal: 'Test', deadline: '2026-06-01', preferred_slots: ['morning'], weekly_available_hours: 5 } }));
+    const deadline = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+    const result = generateMockSuggestion(makeContext({ profile: { goal: 'Test', deadline, preferred_slots: ['morning'], weekly_available_hours: 5 } }));
     const today = new Date().toISOString().slice(0, 10);
     for (const task of result.tasks) {
       expect(task.planned_date >= today).toBe(true);
-      expect(task.planned_date <= '2026-06-01').toBe(true);
+      expect(task.planned_date <= deadline).toBe(true);
     }
   });
 });

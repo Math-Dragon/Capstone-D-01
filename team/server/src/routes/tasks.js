@@ -4,7 +4,13 @@ const { z } = require('zod');
 const taskService = require('../services/task.service');
 const { authenticate } = require('../middleware/authenticate');
 const { validate } = require('../middleware/validate');
-const { createTaskSchema, updateTaskSchema, taskStatusEnum, statusTransitionSchema } = require('../models/task.model');
+const {
+  createTaskSchema,
+  updateTaskSchema,
+  taskStatusEnum,
+  statusTransitionSchema,
+  rescheduleTaskSchema,
+} = require('../models/task.model');
 const logger = require('../utils/logger');
 
 router.use(authenticate);
@@ -39,6 +45,13 @@ router.get('/:id', async (req, res, next) => {
 router.put('/:id', validate({ body: updateTaskSchema }), async (req, res, next) => {
   try {
     const task = await taskService.update(req.user.id, req.params.id, req.body);
+    res.json({ success: true, data: task });
+  } catch (err) { next(err); }
+});
+
+router.patch('/:id/reschedule', validate({ body: rescheduleTaskSchema }), async (req, res, next) => {
+  try {
+    const task = await taskService.reschedule(req.user.id, req.params.id, req.body);
     res.json({ success: true, data: task });
   } catch (err) { next(err); }
 });

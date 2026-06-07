@@ -6,6 +6,10 @@ function validate(schemas = {}) {
       if (schemas.params) req.params = schemas.params.parse(req.params);
       next();
     } catch (err) {
+      if (err.name === 'ZodError') {
+        err.statusCode = 400;
+        err.code = 'VALIDATION_ERROR';
+      }
       next(err);
     }
   };
