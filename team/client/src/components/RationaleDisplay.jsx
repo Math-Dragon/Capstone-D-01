@@ -27,19 +27,6 @@ export default function RationaleDisplay({
       id={id}
       className={`border-l-2 border-primary-100 pl-3 ${compact ? 'py-0.5' : 'py-2'} ${className}`.trim()}
     >
-<<<<<<< ours
-      <p className="text-[11px] font-semibold uppercase text-primary-500 mb-0.5">{label}</p>
-      {points.length > 1 ? (
-        <ul className={`list-disc list-inside ${compact ? 'text-xs' : 'text-sm'} text-primary-500 leading-relaxed space-y-0.5`}>
-          {points.map((point, i) => (
-            <li key={i}>{point}</li>
-          ))}
-        </ul>
-      ) : (
-        <p className={`${compact ? 'text-xs' : 'text-sm'} text-primary-500 leading-relaxed`}>
-          {rationale}
-        </p>
-=======
       <div className="flex flex-wrap items-center gap-2 mb-0.5">
         <p className="text-[11px] font-semibold uppercase text-primary-500">{label}</p>
         {confidenceLabel && (
@@ -60,7 +47,6 @@ export default function RationaleDisplay({
             </li>
           ))}
         </ul>
->>>>>>> theirs
       )}
     </div>
   );

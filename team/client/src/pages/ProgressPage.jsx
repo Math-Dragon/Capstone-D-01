@@ -159,11 +159,7 @@ export default function ProgressPage() {
       )}
 
       {/* Progress Ring */}
-<<<<<<< HEAD
       <div className="card p-8 mb-6" aria-live="polite" aria-atomic="true">
-=======
-      <div className="card p-8 mb-6" aria-live="polite">
->>>>>>> dev
         <div className="text-center">
           <ProgressRing percent={computed.pct} />
         </div>
