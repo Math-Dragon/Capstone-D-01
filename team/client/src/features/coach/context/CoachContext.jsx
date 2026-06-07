@@ -34,13 +34,13 @@ function getOrCreateSessionId() {
         return stored.id;
       }
     }
-  } catch (e) {
+  } catch {
     // localStorage unavailable
   }
   const id = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
   try {
     localStorage.setItem(SESSION_KEY, JSON.stringify({ id, created: Date.now() }));
-  } catch (e) {
+  } catch {
     // localStorage unavailable
   }
   return id;
@@ -160,7 +160,7 @@ export function CoachProvider({ children }) {
       setMessages((prev) => [...prev, errorMsg]);
       return null;
     }
-  }, []);
+  }, [setPipelineTrace]);
 
   const dispatchTaskAction = useCallback(async (action, payload) => {
     setStatus('loading');
@@ -251,7 +251,7 @@ export function CoachProvider({ children }) {
       setStatus('error');
       return null;
     }
-  }, []);
+  }, [setPipelineTrace]);
 
   const dismissBanner = useCallback(() => {
     setBanner(null);
@@ -277,7 +277,7 @@ export function CoachProvider({ children }) {
     } catch {
       // Network failure — proceed, never block the app
     }
-  }, []);
+  }, [setPipelineTrace]);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -319,6 +319,7 @@ export function CoachProvider({ children }) {
             duration_estimate: t.duration_estimate,
             planned_slot: t.planned_slot,
             rationale: t.rationale,
+            confidence: t.confidence,
             status: t.status,
             violation: violationMap[t.task_id] || null,
           })),
@@ -348,7 +349,7 @@ export function CoachProvider({ children }) {
       setMode('error');
       return null;
     }
-  }, []);
+  }, [setPipelineTrace]);
 
   const retryGeneratePlan = useCallback(() => {
     if (lastPayloadRef.current) {

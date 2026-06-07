@@ -285,7 +285,7 @@ describe('CalendarPage', () => {
     fireEvent.drop(targetDay, { dataTransfer });
 
     await waitFor(() => {
-      expect(api.patch).toHaveBeenCalledWith('/tasks/current-week-morning', {
+      expect(api.patch).toHaveBeenCalledWith('/tasks/current-week-morning/reschedule', {
         planned_date: '2026-05-19',
         planned_slot: 'morning',
       });

@@ -212,9 +212,9 @@ export default function CalendarPage() {
 
   const {
     proposal, activeModal, activeTask, actionLoading, proposalAccepting,
-    handleComplete, handleSkip, handleModify, handleFeedback,
+    handleComplete, handleSkip, handleModify,
     confirmSkip, confirmModify, submitFeedback,
-    acceptProposal, rejectProposal, closeModal, handleModalConfirm,
+    acceptProposal, rejectProposal, closeModal,
   } = useTaskActions({
     onUpdateTasks: (updater) => setTasks(prev => updater(prev)),
     refreshData: async () => {
@@ -409,7 +409,7 @@ export default function CalendarPage() {
       planned_slot: task.planned_slot || 'morning',
     };
     try {
-      const updated = await api.patch(`/tasks/${task.id}`, patch);
+      const updated = await api.patch(`/tasks/${task.id}/reschedule`, patch);
       setTasks((prev) => {
         const next = prev.map((item) => item.id === task.id ? { ...item, ...updated, ...patch } : item);
         setPlanAdvice(buildPlanEditAdvice({
@@ -470,12 +470,11 @@ export default function CalendarPage() {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const nextDate = toDateKey(tomorrow);
     const patch = {
-      status: 'todo',
       planned_date: nextDate,
       planned_slot: task.planned_slot || 'morning',
     };
     try {
-      const updated = await api.patch(`/tasks/${task.id}`, patch);
+      const updated = await api.patch(`/tasks/${task.id}/reschedule`, patch);
       setTasks((prev) => {
         const next = prev.map((item) => item.id === task.id ? { ...item, ...updated, ...patch } : item);
         setPlanAdvice(buildPlanEditAdvice({

@@ -18,7 +18,15 @@ function ProgressRing({ percent, size = 120, strokeWidth = 8 }) {
   const offset = circumference - (percent / 100) * circumference;
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="mx-auto block">
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      className="mx-auto block"
+      role="img"
+      aria-label={`Progress ${percent}% selesai`}
+      aria-live="polite"
+    >
       <circle
         cx={size / 2} cy={size / 2} r={radius}
         fill="none" stroke="#e2e8f0" strokeWidth={strokeWidth}
@@ -145,7 +153,7 @@ export default function ProgressPage() {
       )}
 
       {/* Progress Ring */}
-      <div className="card p-8 mb-6">
+      <div className="card p-8 mb-6" aria-live="polite">
         <div className="text-center">
           <ProgressRing percent={computed.pct} />
         </div>

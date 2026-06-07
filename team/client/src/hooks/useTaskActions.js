@@ -95,7 +95,7 @@ export default function useTaskActions({ onUpdateTasks, refreshData }) {
       addToast('Tugas dilewati.', 'warning');
       notifyMutation();
       closeModal();
-    } catch (err) {
+    } catch {
       addToast('Gagal melewati tugas.', 'error');
     } finally {
       setActionLoading(null);
@@ -120,7 +120,7 @@ export default function useTaskActions({ onUpdateTasks, refreshData }) {
       addToast('Tugas diperbarui!', 'info');
       notifyMutation();
       closeModal();
-    } catch (err) {
+    } catch {
       addToast('Gagal memperbarui tugas.', 'error');
     } finally {
       setActionLoading(null);
@@ -144,7 +144,7 @@ export default function useTaskActions({ onUpdateTasks, refreshData }) {
         persistProposal(result.plan);
       }
       closeModal();
-    } catch (err) {
+    } catch {
       addToast('Gagal mengirim feedback.', 'error');
     } finally {
       setActionLoading(null);
@@ -161,7 +161,7 @@ export default function useTaskActions({ onUpdateTasks, refreshData }) {
       await refreshData();
       addToast('Rencana baru disimpan!', 'success');
       notifyMutation();
-    } catch (err) {
+    } catch {
       addToast('Gagal menyimpan rencana. Coba lagi.', 'error');
     } finally {
       setProposalAccepting(false);

@@ -54,7 +54,13 @@ For `initial_plan`, `adjustment`, `crisis`, and `milestone` session types, respo
       "priority": "high | medium | low",
       "completion_criteria": "Observable, measurable outcome that defines done",
       "prerequisites": [],
-      "rationale": "Why this task type, why this duration, why this time slot."
+      "rationale": [
+        {
+          "factor": "preference_match | availability | learning_science | difficulty_fit | sequence_fit | workload_balance",
+          "explanation": "Why this factor supports the task type, duration, or time slot."
+        }
+      ],
+      "confidence": "low | medium | high"
     }
   ],
   "summary": "Concise strategy overview: what this plan achieves and how",
@@ -82,12 +88,13 @@ If no plan change is needed in a `chat` response, set `"plan"` to `null`.
 
 1. **Format Compliance:** Output must be valid JSON matching the schema exactly. No extra keys, no conversational filler, no markdown code fences.
 2. **Duration Constraints:** Every task duration must be at least 25 minutes (¹) and never exceed 90 minutes. Align with the task type's recommended range.
-3. **Rationale Requirement:** Each rationale must state why the task type was chosen, why the duration fits, and why the time slot is optimal.
-4. **ID Uniqueness:** Every task `id` must be unique within a plan. Use format: `t1`, `t2`, `t3`, etc.
-5. **Prerequisite Integrity:** Never reference a prerequisite task ID that does not exist in the current plan.
-6. **Privacy and Neutrality:** Never request, store, or reference personal or identifying information.
-7. **Context Adaptation:** If availability is constrained, prioritize `acquire` + `practice` + `recall`. Cut `synthesize` and `interleave` first. Cut `reflect` last.
-8. **Realistic Expectations:** If a student's goal is unrealistic for their available time, state this in `adaptation_notes` and propose a revised timeline.
+3. **Rationale Requirement:** Each rationale must be an array of factor objects. Include at least two factors, and collectively explain why the task type was chosen, why the duration fits, why the time slot is optimal, and how the task matches student preferences.
+4. **Confidence Requirement:** Set `confidence` to `high` when the task strongly matches preference, availability, and sequencing; `medium` when it matches most signals; `low` when constraints force a compromise.
+5. **ID Uniqueness:** Every task `id` must be unique within a plan. Use format: `t1`, `t2`, `t3`, etc.
+6. **Prerequisite Integrity:** Never reference a prerequisite task ID that does not exist in the current plan.
+7. **Privacy and Neutrality:** Never request, store, or reference personal or identifying information.
+8. **Context Adaptation:** If availability is constrained, prioritize `acquire` + `practice` + `recall`. Cut `synthesize` and `interleave` first. Cut `reflect` last.
+9. **Realistic Expectations:** If a student's goal is unrealistic for their available time, state this in `adaptation_notes` and propose a revised timeline.
 
 ---
 

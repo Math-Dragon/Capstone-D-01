@@ -340,7 +340,7 @@ function TaskCard({ task, onDecide, onViolationAccept }) {
           </div>
         );
       })()}
-      <RationaleDisplay rationale={task.rationale} compact className="mb-3" />
+      <RationaleDisplay rationale={task.rationale} confidence={task.confidence} compact className="mb-3" />
       <div className="flex gap-2 justify-end">
         {task.status === 'pending' ? (
           <>
@@ -460,7 +460,7 @@ function RecommendationPanel({ recommendation, onDecide }) {
         <h3 className="text-sm font-semibold text-primary-900 mb-1">Rekomendasi Rencana</h3>
         <p className="text-xs text-primary-600">{recommendation.summary}</p>
         <div className="mt-2 flex items-center gap-2">
-          <div className="flex-1 bg-primary-200 rounded-full h-1.5">
+          <div className="flex-1 bg-primary-200 rounded-full h-1.5" aria-live="polite">
             <div className="bg-primary-900 h-1.5 rounded-full transition-all" style={{ width: `${(decidedCount / totalTasks) * 100}%` }} />
           </div>
           <span className="text-[10px] text-primary-500">{decidedCount} dari {totalTasks} diputuskan</span>
@@ -540,7 +540,7 @@ export default function CoachPage() {
       setFormOpen(true);
       navigate(location.pathname, { replace: true });
     }
-  }, [searchParams, mode]);
+  }, [searchParams, mode, navigate, location.pathname]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

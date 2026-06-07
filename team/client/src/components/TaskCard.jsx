@@ -30,7 +30,9 @@ const TaskCard = memo(function TaskCard({
 
   return (
     <div
-      className={`card p-4 ${stateClasses} animate-fadeIn hover:-translate-y-px transition-all duration-200`}
+      data-testid={`task-card-${task.id}`}
+      data-transition-state={task.status}
+      className={`card p-4 ${stateClasses} animate-fadeIn hover:-translate-y-px transition-[opacity,transform,border-color,background-color] duration-300 ease-out`}
       style={{
         borderLeftColor: isDone ? undefined : isSkipped ? undefined : palette.color,
         animationDelay: `${index * 80}ms`,
@@ -105,7 +107,13 @@ const TaskCard = memo(function TaskCard({
             Why this task?
           </button>
           {rationaleOpen && (
-            <RationaleDisplay id={`rationale-${task.id}`} rationale={task.rationale} compact className="mt-1 ml-1" />
+            <RationaleDisplay
+              id={`rationale-${task.id}`}
+              rationale={task.rationale}
+              confidence={task.confidence}
+              compact
+              className="mt-1 ml-1"
+            />
           )}
         </div>
       )}
@@ -114,7 +122,7 @@ const TaskCard = memo(function TaskCard({
       {!isInactive && (
         <>
           <hr className="my-3 border-primary-100" />
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <button
               onClick={() => onComplete?.(task)}
               disabled={loading}

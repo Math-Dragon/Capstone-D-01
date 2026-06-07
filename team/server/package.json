@@ -8,6 +8,7 @@
     "dev": "nodemon src/index.js",
     "test": "jest --forceExit --detectOpenHandles",
     "test:coverage": "jest --coverage --forceExit --detectOpenHandles",
+    "test:coverage:ci": "jest --coverage --config jest.config.ci.js --forceExit --detectOpenHandles",
     "lint": "eslint src/ tests/",
     "lint:fix": "eslint src/ tests/ --fix",
     "migrate:create": "node-pg-migrate create",

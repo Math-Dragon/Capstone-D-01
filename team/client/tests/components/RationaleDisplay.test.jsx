@@ -15,4 +15,21 @@ describe('RationaleDisplay', () => {
 
     expect(container.firstChild).toBeNull();
   });
+
+  it('renders rationale factors and confidence when rationale is an array', () => {
+    render(
+      <RationaleDisplay
+        rationale={[
+          { factor: 'preference_match', explanation: 'Cocok dengan preferensi pagi.' },
+          { factor: 'learning_science', explanation: 'Menggunakan retrieval practice.' },
+        ]}
+        confidence="high"
+      />,
+    );
+
+    expect(screen.getByText('Keyakinan tinggi')).toBeInTheDocument();
+    expect(screen.getByText('preference match')).toBeInTheDocument();
+    expect(screen.getByText('Cocok dengan preferensi pagi.')).toBeInTheDocument();
+    expect(screen.getByText('learning science')).toBeInTheDocument();
+  });
 });

@@ -73,15 +73,12 @@ describe('taskService.update', () => {
     expect(repos.task.update).toHaveBeenCalledWith('t1', expect.objectContaining({ status: 'done', completed_at: expect.any(Date) }));
   });
 
-  test('clears completed_at when status changes from done to todo', async () => {
+  test('rejects status changes from done to todo', async () => {
     repos.task.findByIdAndUser.mockResolvedValue({ id: 't1', status: 'done' });
-    repos.task.update.mockResolvedValue({ id: 't1', status: 'todo' });
-    repos.task.findByUserAndWeek.mockResolvedValue([]);
-    repos.progress.upsert.mockResolvedValue({});
 
-    const result = await taskService.update('u1', 't1', { status: 'todo' });
-    expect(result).toEqual({ id: 't1', status: 'todo' });
-    expect(repos.task.update).toHaveBeenCalledWith('t1', expect.objectContaining({ status: 'todo', completed_at: null }));
+    await expect(taskService.update('u1', 't1', { status: 'todo' }))
+      .rejects.toMatchObject({ statusCode: 400, code: 'INVALID_TRANSITION' });
+    expect(repos.task.update).not.toHaveBeenCalled();
   });
 
   test('recalculates progress when status changes to done', async () => {
@@ -96,16 +93,13 @@ describe('taskService.update', () => {
     expect(repos.progress.upsert).toHaveBeenCalled();
   });
 
-  test('recalculates progress when status changes from done', async () => {
+  test('does not recalculate progress when invalid transition from done is rejected', async () => {
     const task = { id: 't1', status: 'done', planned_date: '2026-05-04', duration_estimate: 30 };
-    const todoTask = { ...task, status: 'todo' };
     repos.task.findByIdAndUser.mockResolvedValue(task);
-    repos.task.update.mockResolvedValue(todoTask);
-    repos.task.findByUserAndWeek.mockResolvedValue([todoTask]);
-    repos.progress.upsert.mockResolvedValue({});
 
-    await taskService.update('u1', 't1', { status: 'todo' });
-    expect(repos.progress.upsert).toHaveBeenCalled();
+    await expect(taskService.update('u1', 't1', { status: 'todo' }))
+      .rejects.toMatchObject({ code: 'INVALID_TRANSITION' });
+    expect(repos.progress.upsert).not.toHaveBeenCalled();
   });
 
   test('skips progress recalc when status unchanged', async () => {

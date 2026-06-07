@@ -29,7 +29,7 @@ export default function RegisterPage() {
 
   const onSubmit = async (data) => {
     try {
-      const { confirmPassword, ...userData } = data;
+      const { confirmPassword: _confirmPassword, ...userData } = data;
       await registerUser(userData);
       navigate('/');
     } catch (error) {

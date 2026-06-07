@@ -5,8 +5,14 @@ import { Footer } from '../components/layout/Footer';
 export default function Layout() {
   return (
     <div className="min-h-screen flex flex-col">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-primary-900 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg"
+      >
+        Lewati ke konten utama
+      </a>
       <Header />
-      <main className="flex-1 container py-8">
+      <main id="main-content" tabIndex={-1} className="flex-1 container py-8">
         <Outlet />
       </main>
       <Footer />

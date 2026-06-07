@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import useFocusTrap from '../hooks/useFocusTrap';
 import { useCoach } from '../features/coach/hooks/useCoach';
 
