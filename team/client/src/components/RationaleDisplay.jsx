@@ -17,6 +17,11 @@ export default function RationaleDisplay({
 
   const textClass = `${compact ? 'text-xs' : 'text-sm'} text-primary-500 leading-relaxed`;
 
+  const points = rationale
+    .split(/[,;]\s*/)
+    .map(p => p.trim())
+    .filter(Boolean);
+
   return (
     <div
       id={id}

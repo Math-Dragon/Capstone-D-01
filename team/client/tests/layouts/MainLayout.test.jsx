@@ -34,7 +34,7 @@ describe('MainLayout', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('link', { name: /Langsung ke konten utama/i })).toHaveAttribute('href', '#main-content');
+    expect(screen.getByRole('link', { name: /Lewati ke konten utama/i })).toHaveAttribute('href', '#main-content');
     expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content');
   });
 });
