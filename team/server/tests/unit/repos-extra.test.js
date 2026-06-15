@@ -91,10 +91,10 @@ describe('ai-recommendation.repo', () => {
     expect(sql).not.toContain('FOR UPDATE');
   });
 
-  test('findByIdAndUserId with client adds lock', async () => {
+  test('findByIdAndUserId with forUpdate adds lock', async () => {
     db.query.mockResolvedValue({ rows: [{ id: 'r1' }] });
     const client = {};
-    await aiRecRepo.findByIdAndUserId('r1', 'u1', client);
+    await aiRecRepo.findByIdAndUserId('r1', 'u1', client, { forUpdate: true });
     const sql = db.query.mock.calls[0][0];
     expect(sql).toContain('FOR UPDATE');
   });

@@ -135,35 +135,47 @@ class AIService {
   }
 
   async acceptRecommendation(userId, recommendationId) {
-    const rec = await repos.aiRec.findByIdAndUserId(recommendationId, userId);
-    if (!rec) {
-      const err = new Error('Recommendation not found');
-      err.statusCode = 404;
-      throw err;
-    }
-    if (rec.status !== 'pending') {
-      const err = new Error('Recommendation already processed');
-      err.statusCode = 409;
-      err.code = 'CONFLICT';
-      throw err;
-    }
-
-    const tasksToCreate = rec.output.tasks.map(t => ({
-      goal_id: rec.goal_id,
-      title: t.title,
-      description: t.description,
-      duration_estimate: t.duration_estimate,
-      planned_date: t.planned_date,
-      planned_slot: t.planned_slot,
-      rationale: t.rationale,
-      confidence: t.confidence || 'medium',
-      source: 'ai',
-      status: 'todo',
-    }));
-
-    z.array(createTaskSchema).parse(tasksToCreate);
-
     const savedTasks = await db.withTransaction(async (client) => {
+      const rec = await repos.aiRec.findByIdAndUserId(
+        recommendationId,
+        userId,
+        client,
+        { forUpdate: true }
+      );
+
+      if (!rec) {
+        const err = new Error('Recommendation not found');
+        err.statusCode = 404;
+        throw err;
+      }
+
+      if (rec.status === 'accepted') {
+        return repos.task.findByRecommendationId(recommendationId, client);
+      }
+
+      if (rec.status !== 'pending') {
+        const err = new Error('Recommendation already processed');
+        err.statusCode = 409;
+        err.code = 'CONFLICT';
+        throw err;
+      }
+
+      const tasksToCreate = rec.output.tasks.map(t => ({
+        goal_id: rec.goal_id,
+        recommendation_id: recommendationId,
+        title: t.title,
+        description: t.description,
+        duration_estimate: t.duration_estimate,
+        planned_date: t.planned_date,
+        planned_slot: t.planned_slot,
+        rationale: t.rationale,
+        confidence: t.confidence || 'medium',
+        source: 'ai',
+        status: 'todo',
+      }));
+
+      z.array(createTaskSchema).parse(tasksToCreate);
+
       const tasks = await repos.task.createMany(tasksToCreate, client);
       await repos.aiRec.updateStatus(recommendationId, 'accepted', client);
       await repos.audit.create({

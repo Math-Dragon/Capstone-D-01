@@ -66,14 +66,24 @@ async function findByIdAndUser(taskId, userId, client) {
   return result.rows[0] || null;
 }
 
+async function findByRecommendationId(recommendationId, client) {
+  const result = await db.query(
+    'SELECT * FROM tasks WHERE recommendation_id = $1 ORDER BY planned_date ASC, created_at ASC',
+    [recommendationId],
+    client
+  );
+  return result.rows;
+}
+
 async function create(data, client) {
   const result = await db.query(
-    `INSERT INTO tasks (goal_id, title, description, duration_estimate, planned_date,
+    `INSERT INTO tasks (goal_id, recommendation_id, title, description, duration_estimate, planned_date,
        planned_slot, status, source, actual_duration, completed_at, rationale, task_type, personal_notes)
-     VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, 'todo'), COALESCE($8, 'manual'), $9, $10, $11, $12, $13)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, 'todo'), COALESCE($9, 'manual'), $10, $11, $12, $13, $14)
      RETURNING *`,
     [
       data.goal_id,
+      data.recommendation_id || null,
       data.title,
       data.description || null,
       data.duration_estimate,
@@ -96,7 +106,7 @@ async function createMany(tasksArray, client) {
   if (tasksArray.length === 0) return [];
 
   const cols = [
-    'goal_id', 'title', 'description', 'duration_estimate',
+    'goal_id', 'recommendation_id', 'title', 'description', 'duration_estimate',
     'planned_date', 'planned_slot', 'status', 'source',
     'actual_duration', 'completed_at', 'rationale', 'task_type', 'personal_notes',
   ];
@@ -106,7 +116,7 @@ async function createMany(tasksArray, client) {
 
   for (const t of tasksArray) {
     const row = [
-      t.goal_id, t.title, t.description || null, t.duration_estimate,
+      t.goal_id, t.recommendation_id || null, t.title, t.description || null, t.duration_estimate,
       t.planned_date || null, t.planned_slot || null, t.status || 'todo',
       t.source || 'manual', t.actual_duration || null, t.completed_at || null,
       serializeRationale(t.rationale), t.task_type || null, t.personal_notes || null,
@@ -205,6 +215,6 @@ async function countByGoalIds(goalIds, client) {
 
 module.exports = {
   listByUser, findByGoalIds, findByGoalId, findById,
-  findByIdAndUser, create, createMany, update, remove, findByUserAndWeek,
+  findByIdAndUser, findByRecommendationId, create, createMany, update, remove, findByUserAndWeek,
   findActiveByUser, countByGoalIds,
 };

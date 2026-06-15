@@ -68,6 +68,31 @@ function _genOllamaUrl() {
   return `${config.ollamaBaseUrl}/v1/chat/completions`;
 }
 
+function getCircuitBreakerState() {
+  const providers = {
+    gemini: _gemini429 ? 'open' : 'closed',
+    geminiPaid: _geminiPaid429 ? 'open' : 'closed',
+    glm: _onCooldown(_glmCooldownUntil) ? 'open' : 'closed',
+    openrouter: _onCooldown(_openrouterCooldownUntil) ? 'open' : 'closed',
+  };
+
+  if (isMock) {
+    return { status: 'closed', providers };
+  }
+
+  const configuredProviders = [];
+  if (config.geminiKey) configuredProviders.push(providers.gemini);
+  if (config.geminiPaidKey) configuredProviders.push(providers.geminiPaid);
+  if (config.glmKey) configuredProviders.push(providers.glm);
+  if (config.openrouterKey) configuredProviders.push(providers.openrouter);
+
+  const status = configuredProviders.length > 0 && configuredProviders.every((providerStatus) => providerStatus === 'open')
+    ? 'open'
+    : 'closed';
+
+  return { status, providers };
+}
+
 async function callGemini(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
   initGemini();
   const { modelConfig, contentConfig } = buildGeminiPayload(systemPrompt, userMessage, config.geminiModel, temperature);
@@ -429,5 +454,6 @@ module.exports = {
   DEFAULT_TIMEOUT_MS,
   isRetryable,
   callWithRetry,
+  getCircuitBreakerState,
   validateConnection,
 };
