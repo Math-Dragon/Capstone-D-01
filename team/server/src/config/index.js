@@ -10,6 +10,8 @@ for (const p of envPaths) {
 }
 
 const llmProvider = process.env.LLM_PROVIDER || 'gemini';
+const nodeEnv = process.env.NODE_ENV || 'development';
+const isProduction = nodeEnv === 'production';
 
 const ollamaBaseUrl = (process.env.OLLAMA_BASE_URL || 'http://localhost:11434').replace(/\/+$/, '');
 const ollamaModel = (process.env.OLLAMA_MODEL || '').trim();
@@ -26,10 +28,20 @@ for (const key of required) {
 }
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:5173')
-  .split(',').map(s => s.trim());
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+const refreshCookieOptions = {
+  httpOnly: true,
+  secure: isProduction,
+  sameSite: isProduction ? 'none' : 'strict',
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+};
 
 module.exports = {
-  nodeEnv: process.env.NODE_ENV || 'development',
+  nodeEnv,
+  isProduction,
   port: parseInt(process.env.PORT, 10) || 3000,
   databaseUrl: process.env.DATABASE_URL,
   jwtSecret: process.env.JWT_SECRET,
@@ -55,6 +67,7 @@ module.exports = {
   openrouterModel: process.env.OPENROUTER_MODEL || 'qwen/qwen3-next-80b-a3b-instruct:free',
   redisUrl: process.env.REDIS_URL,
   allowedOrigins,
+  refreshCookieOptions,
   metricsApiKey: process.env.METRICS_API_KEY || '',
   firebaseProjectId: process.env.FIREBASE_PROJECT_ID || 'auth-aiweb',
 };

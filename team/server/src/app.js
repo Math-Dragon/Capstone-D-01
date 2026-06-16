@@ -20,7 +20,18 @@ const progressRoutes = require('./routes/progress');
 const coachRoutes = require('./routes/coach');
 
 const app = express();
-app.use(cors({ origin: config.allowedOrigins, credentials: true }));
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin) {
+      return callback(null, true);
+    }
+    if (config.allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Origin ${origin} is not allowed by CORS`));
+  },
+  credentials: true,
+}));
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
