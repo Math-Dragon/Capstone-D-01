@@ -50,4 +50,56 @@ async function computeAllMetrics() {
   return result.rows[0] || { suggested: 0, accepted: 0, rejected: 0, pending: 0 };
 }
 
-module.exports = { findByIdAndUserId, create, updateStatus, updateOutput, computeAllMetrics };
+async function computeRationaleMetrics() {
+  const result = await db.query(`
+    WITH task_items AS (
+      SELECT task
+      FROM ai_recommendations,
+      LATERAL jsonb_array_elements(COALESCE(output->'tasks', '[]'::jsonb)) AS task
+    ),
+    rationale_items AS (
+      SELECT
+        task,
+        CASE
+          WHEN jsonb_typeof(task->'rationale') = 'array' THEN task->'rationale'
+          WHEN NULLIF(task->>'rationale', '') IS NOT NULL THEN jsonb_build_array(jsonb_build_object('factor', task->>'rationale'))
+          ELSE '[]'::jsonb
+        END AS rationale
+      FROM task_items
+    ),
+    factors AS (
+      SELECT
+        COALESCE(NULLIF(factor->>'factor', ''), 'unknown') AS factor,
+        task->>'status' AS status
+      FROM rationale_items,
+      LATERAL jsonb_array_elements(rationale) AS factor
+    )
+    SELECT
+      factor,
+      COUNT(*)::int AS suggested,
+      COUNT(*) FILTER (WHERE status = 'accepted')::int AS accepted
+    FROM factors
+    GROUP BY factor
+    ORDER BY suggested DESC, factor ASC
+  `);
+
+  return result.rows.map((row) => {
+    const suggested = Number(row.suggested) || 0;
+    const accepted = Number(row.accepted) || 0;
+    return {
+      factor: row.factor,
+      suggested,
+      accepted,
+      acceptance_rate: suggested > 0 ? (accepted / suggested).toFixed(2) : '0.00',
+    };
+  });
+}
+
+module.exports = {
+  findByIdAndUserId,
+  create,
+  updateStatus,
+  updateOutput,
+  computeAllMetrics,
+  computeRationaleMetrics,
+};

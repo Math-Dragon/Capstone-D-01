@@ -14,7 +14,7 @@ describe('ProgressPage', () => {
   it('shows loading state', () => {
     api.get.mockReturnValue(new Promise(() => {}));
     render(<ProgressPage />);
-    expect(document.querySelector('.animate-spin')).toBeInTheDocument();
+    expect(document.querySelector('[aria-busy="true"]')).toBeInTheDocument();
   });
 
   it('shows error state on API failure', async () => {

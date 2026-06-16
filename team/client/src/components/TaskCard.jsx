@@ -1,5 +1,6 @@
 import { useState, memo } from 'react';
 import { TASK_TYPE_PALETTE, SLOT_LABELS } from '../utils/constants';
+import RationaleDisplay from './RationaleDisplay';
 
 const PRIORITY_DOT = { high: 'bg-red-500', medium: 'bg-amber-400', low: 'bg-gray-300' };
 
@@ -29,7 +30,9 @@ const TaskCard = memo(function TaskCard({
 
   return (
     <div
-      className={`card p-4 ${stateClasses} animate-fadeIn hover:-translate-y-px transition-all duration-200`}
+      data-testid={`task-card-${task.id}`}
+      data-transition-state={task.status}
+      className={`card p-4 ${stateClasses} animate-fadeIn hover:-translate-y-px transition-[opacity,transform,border-color,background-color] duration-300 ease-out`}
       style={{
         borderLeftColor: isDone ? undefined : isSkipped ? undefined : palette.color,
         animationDelay: `${index * 80}ms`,
@@ -54,11 +57,21 @@ const TaskCard = memo(function TaskCard({
       </div>
 
       {/* Title */}
-      <h3
-        className={`font-medium text-sm cursor-pointer hover:underline ${isDone ? 'line-through text-primary-400' : 'text-primary-900'}`}
-        onClick={() => onClickTitle?.(task)}
-      >
-        {task.title}
+      <h3>
+        <button
+          type="button"
+          className={`block w-full text-left font-medium text-sm hover:underline focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 rounded ${isDone ? 'line-through text-primary-400' : 'text-primary-900'}`}
+          onClick={() => onClickTitle?.(task)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              onClickTitle?.(task);
+            }
+          }}
+          aria-label={`Buka detail task ${task.title}`}
+        >
+          {task.title}
+        </button>
       </h3>
 
       {/* Description */}
@@ -94,9 +107,13 @@ const TaskCard = memo(function TaskCard({
             Why this task?
           </button>
           {rationaleOpen && (
-            <p id={`rationale-${task.id}`} className="text-xs text-primary-500 mt-1 pl-4 border-l-2 border-primary-100">
-              {task.rationale}
-            </p>
+            <RationaleDisplay
+              id={`rationale-${task.id}`}
+              rationale={task.rationale}
+              confidence={task.confidence}
+              compact
+              className="mt-1 ml-1"
+            />
           )}
         </div>
       )}
@@ -105,7 +122,7 @@ const TaskCard = memo(function TaskCard({
       {!isInactive && (
         <>
           <hr className="my-3 border-primary-100" />
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <button
               onClick={() => onComplete?.(task)}
               disabled={loading}

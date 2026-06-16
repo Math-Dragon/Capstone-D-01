@@ -28,7 +28,7 @@ export default function ModifyTaskModal({ task, isOpen, onSave, onCancel }) {
     const e = {};
     if (!title.trim()) e.title = 'Judul wajib diisi';
     const d = Number(duration);
-    if (!d || d < 10 || d > 90) e.duration = 'Durasi 10–90 menit';
+    if (!d || d < 25 || d > 90) e.duration = 'Durasi 25–90 menit';
     if (!slot) e.slot = 'Pilih sesi';
     if (!date) e.date = 'Pilih tanggal';
     setErrors(e);
@@ -73,7 +73,7 @@ export default function ModifyTaskModal({ task, isOpen, onSave, onCancel }) {
             type="number"
             value={duration}
             onChange={(e) => setDuration(e.target.value)}
-            min={10}
+            min={25}
             max={90}
             step={5}
             className="input"

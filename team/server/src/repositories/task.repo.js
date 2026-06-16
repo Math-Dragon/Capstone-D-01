@@ -1,5 +1,13 @@
 const db = require('../db');
 
+function serializeRationale(value) {
+  if (value == null || value === '') return null;
+  if (Array.isArray(value) || typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+  return value;
+}
+
 async function listByUser(userId, { goalId, status, limit: queryLimit } = {}, client) {
   let sql = 'SELECT t.* FROM tasks t INNER JOIN goals g ON t.goal_id = g.id WHERE g.user_id = $1';
   const params = [userId];
@@ -75,7 +83,7 @@ async function create(data, client) {
       data.source || null,
       data.actual_duration || null,
       data.completed_at || null,
-      data.rationale || null,
+      serializeRationale(data.rationale),
       data.task_type || null,
       data.personal_notes || null,
     ],
@@ -101,7 +109,7 @@ async function createMany(tasksArray, client) {
       t.goal_id, t.title, t.description || null, t.duration_estimate,
       t.planned_date || null, t.planned_slot || null, t.status || 'todo',
       t.source || 'manual', t.actual_duration || null, t.completed_at || null,
-      t.rationale || null, t.task_type || null, t.personal_notes || null,
+      serializeRationale(t.rationale), t.task_type || null, t.personal_notes || null,
     ];
     placeholders.push(`(${cols.map(() => `$${i++}`).join(', ')})`);
     values.push(...row);
@@ -126,7 +134,7 @@ async function update(taskId, data, client) {
   for (const key of allowed) {
     if (data[key] !== undefined) {
       sets.push(`${key} = $${i++}`);
-      vals.push(data[key]);
+      vals.push(key === 'rationale' ? serializeRationale(data[key]) : data[key]);
     }
   }
   if (sets.length === 0) return findById(taskId, client);

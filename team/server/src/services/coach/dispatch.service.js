@@ -1,7 +1,7 @@
 const db = require('../../db');
 const repos = require('../../repositories');
 const logger = require('../../utils/logger');
-const { aiRequestCount } = require('../../utils/metrics');
+const { aiRequestCount, recordAIUsage } = require('../../utils/metrics');
 const { scheduleTasks } = require('../scheduler.service');
 const gate = require('./gate.service');
 const staticResponse = require('./static-response.service');
@@ -131,7 +131,21 @@ class DispatchService {
       }
     }
 
-    aiRequestCount.inc({ type: `coach.${effectiveSessionType}`, status: 'success' });
+    const usageMeta = this._llmUsageMeta(llmMeta);
+    if (usageMeta) {
+      recordAIUsage({
+        type: `coach.${effectiveSessionType}`,
+        status: 'success',
+        provider: usageMeta.provider,
+        model: usageMeta.model,
+        promptTokens: usageMeta.input_tokens,
+        completionTokens: usageMeta.output_tokens,
+        totalTokens: usageMeta.total_tokens,
+        latencyMs: usageMeta.latency_ms,
+      });
+    } else {
+      aiRequestCount.inc({ type: `coach.${effectiveSessionType}`, status: 'success' });
+    }
 
     if (effectiveSessionType === 'task_action') {
       const message = validated.message || 'Tindakan dicatat.';
@@ -149,6 +163,7 @@ class DispatchService {
         session_id: sessionId,
       });
 
+      const taskUsage = this._llmUsageMeta(llmMeta);
       await repos.audit.create({
         user_id: userId,
         action: 'COACH_LLM_CALL',
@@ -157,7 +172,8 @@ class DispatchService {
           trigger_action: payload.action,
           message_preview: message.slice(0, 120),
           has_plan_adjustment: !!validated.plan,
-          llm: this._llmUsageMeta(llmMeta),
+          ...(taskUsage || {}),
+          ...(taskUsage ? { llm: taskUsage } : {}),
         },
         session_id: sessionId,
         involves_llm: true,
@@ -183,6 +199,7 @@ class DispatchService {
         session_id: sessionId,
       });
 
+      const chatUsage = this._llmUsageMeta(llmMeta);
       await repos.audit.create({
         user_id: userId,
         action: 'COACH_LLM_CALL',
@@ -190,7 +207,8 @@ class DispatchService {
           session_type: effectiveSessionType,
           message_preview: message.slice(0, 120),
           has_plan_adjustment: !!validated.plan,
-          llm: this._llmUsageMeta(llmMeta),
+          ...(chatUsage || {}),
+          ...(chatUsage ? { llm: chatUsage } : {}),
         },
         session_id: sessionId,
         involves_llm: true,
@@ -219,6 +237,7 @@ class DispatchService {
           duration_estimate: t.duration_estimate,
           planned_slot: t.planned_slot,
           rationale: t.rationale,
+          confidence: t.confidence || 'medium',
           status: t.status,
         })),
         summary: rec.output.summary,
@@ -276,6 +295,7 @@ class DispatchService {
     await responseFormatter.persistPlan(userId, validated);
 
     if (validated && validated.tasks) {
+      const planUsage = this._llmUsageMeta(llmMeta);
       await repos.audit.create({
         user_id: userId,
         action: 'COACH_LLM_CALL',
@@ -283,7 +303,8 @@ class DispatchService {
           session_type: effectiveSessionType,
           task_count: validated.tasks.length,
           summary: validated.summary,
-          llm: this._llmUsageMeta(llmMeta),
+          ...(planUsage || {}),
+          ...(planUsage ? { llm: planUsage } : {}),
         },
         session_id: sessionId,
         involves_llm: true,
@@ -363,6 +384,7 @@ class DispatchService {
           targetGoalId = fallbackGoal.id;
         }
 
+        const taskRationale = Array.isArray(task.rationale) ? task.rationale : (task.rationale ? [task.rationale] : []);
         await repos.task.create({
           goal_id: targetGoalId,
           title: task.title,
@@ -372,6 +394,7 @@ class DispatchService {
           planned_slot: task.planned_slot || null,
           task_type: task.task_type || null,
           rationale: task.rationale || null,
+          confidence: task.confidence || 'medium',
           source: 'coach',
           status: 'todo',
         }, client);
@@ -379,14 +402,25 @@ class DispatchService {
         await repos.audit.create({
           user_id: userId,
           action: 'COACH_TASK_ACCEPTED',
-          metadata: { recommendation_id: recId, task_id: taskId },
+          metadata: {
+            recommendation_id: recId,
+            task_id: taskId,
+            rationale_factors: taskRationale,
+            confidence: task.confidence || null,
+          },
           session_id: sessionId,
         }, client);
       } else {
+        const taskRationale = Array.isArray(task.rationale) ? task.rationale : (task.rationale ? [task.rationale] : []);
         await repos.audit.create({
           user_id: userId,
           action: 'COACH_TASK_REJECTED',
-          metadata: { recommendation_id: recId, task_id: taskId },
+          metadata: {
+            recommendation_id: recId,
+            task_id: taskId,
+            rationale_factors: taskRationale,
+            confidence: task.confidence || null,
+          },
           session_id: sessionId,
         }, client);
       }
@@ -404,6 +438,7 @@ class DispatchService {
   async getRecommendationMetrics() {
     try {
       const m = await repos.aiRec.computeAllMetrics();
+      const rationaleMetrics = await repos.aiRec.computeRationaleMetrics();
       const total = m.accepted + m.rejected;
       return {
         ai_tasks_suggested_total: m.suggested,
@@ -411,6 +446,7 @@ class DispatchService {
         ai_tasks_rejected_total: m.rejected,
         ai_tasks_pending_total: m.pending,
         accept_rate: total > 0 ? (m.accepted / total).toFixed(2) : '0.00',
+        rationale_metrics: rationaleMetrics,
       };
     } catch (err) {
       logger.warn({ err: err.message }, 'Failed to compute recommendation metrics');
@@ -420,6 +456,7 @@ class DispatchService {
         ai_tasks_rejected_total: 0,
         ai_tasks_pending_total: 0,
         accept_rate: '0.00',
+        rationale_metrics: [],
       };
     }
   }
@@ -567,10 +604,15 @@ class DispatchService {
     if (!success || !success.usage) return undefined;
     return {
       provider: success.source,
-      prompt_tokens: success.usage.prompt_tokens,
-      completion_tokens: success.usage.completion_tokens,
+      model: success.model || 'unknown',
+      input_tokens: success.usage.prompt_tokens,
+      output_tokens: success.usage.completion_tokens,
       total_tokens: success.usage.total_tokens,
       latency_ms: success.duration_ms,
+      llm: {
+        prompt_tokens: success.usage.prompt_tokens,
+        completion_tokens: success.usage.completion_tokens,
+      },
     };
   }
 }

@@ -50,6 +50,30 @@ describe('validateAIOutput', () => {
     expect(result.summary).toBe('A plan');
   });
 
+  test('accepts rationale as array of factors with confidence level', () => {
+    const valid = {
+      tasks: [{
+        title: 'Practice spaced recall',
+        description: 'Answer recall prompts without notes.',
+        task_type: 'recall',
+        duration_estimate: 25,
+        planned_date: '2026-05-01',
+        planned_slot: 'evening',
+        rationale: [
+          { factor: 'preference_match', explanation: 'Matches the student preference for short evening work.' },
+          { factor: 'learning_science', explanation: 'Retrieval practice strengthens retention.' },
+        ],
+        confidence: 'high',
+      }],
+      summary: 'A factor-based plan',
+    };
+
+    const result = validateAIOutput(JSON.stringify(valid));
+
+    expect(result.tasks[0].rationale).toEqual(valid.tasks[0].rationale);
+    expect(result.tasks[0].confidence).toBe('high');
+  });
+
   test('returns parsed data when provider returns an object', () => {
     const valid = {
       tasks: [{
@@ -86,6 +110,21 @@ describe('validateAIOutput', () => {
     expect(result.tasks).toHaveLength(1);
     expect(result.summary).toBe('Wrapped plan');
   });
+
+  test('throws when summary is blank', () => {
+    const input = JSON.stringify({
+      tasks: [{
+        title: 'Study blank summary',
+        description: 'Summary must explain the plan.',
+        duration_estimate: 45,
+        planned_date: '2026-05-01',
+        planned_slot: 'morning',
+        rationale: 'This task has a valid rationale.',
+      }],
+      summary: '   ',
+    });
+    expect(() => validateAIOutput(input)).toThrow('schema violation');
+  });
 });
 
 describe('TaskSchema', () => {
@@ -120,6 +159,43 @@ describe('TaskSchema', () => {
       duration_estimate: 30,
       planned_date: '2026-05-01',
       planned_slot: 'midnight',
+      rationale: 'reason',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  test('rejects blank rationale', () => {
+    const result = TaskSchema.safeParse({
+      title: 'Test',
+      description: 'desc',
+      duration_estimate: 30,
+      planned_date: '2026-05-01',
+      planned_slot: 'morning',
+      rationale: '   ',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  test('accepts rationale factor array', () => {
+    const result = TaskSchema.safeParse({
+      title: 'Test',
+      description: 'desc',
+      duration_estimate: 30,
+      planned_date: '2026-05-01',
+      planned_slot: 'morning',
+      rationale: [{ factor: 'availability', explanation: 'Morning slot matches the available schedule.' }],
+      confidence: 'medium',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  test('rejects impossible planned_date', () => {
+    const result = TaskSchema.safeParse({
+      title: 'Test',
+      description: 'desc',
+      duration_estimate: 30,
+      planned_date: '2026-99-99',
+      planned_slot: 'morning',
       rationale: 'reason',
     });
     expect(result.success).toBe(false);

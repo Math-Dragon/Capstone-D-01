@@ -193,11 +193,11 @@ Status terakhir:
 
 | Scope | Command | Report |
 | --- | --- | --- |
-| Task & AI TC-03 sampai TC-07 | `node team/scripts/run-tc03-tc07.js` | `team/docs/task-ai-management-tc03-tc07-run-report.md` |
-| Task & AI TC-08 sampai TC-12 | `node team/scripts/run-task-ai-management-extra.js` | `team/docs/task-ai-management-tc08-tc12-run-report.md` |
-| Performance & Security TC-10 sampai TC-24 | `node team/scripts/run-tc10-tc24.js` | `team/docs/performance-security-tc10-tc24-run-report.md` |
-| E2E Core Flow | `node team/scripts/run-e2e-core-flow.js` | `team/docs/e2e-core-flow-run-report.md` |
-| Cleanup Data Testing | `node team/scripts/cleanup-test-data.js` | `team/docs/test-data-cleanup-run-report.md` |
+| Task & AI TC-03 sampai TC-07 | `node scripts/run-tc03-tc07.js` | `docs/task-ai-management-tc03-tc07-run-report.md` |
+| Task & AI TC-08 sampai TC-12 | `node scripts/run-task-ai-management-extra.js` | `docs/task-ai-management-tc08-tc12-run-report.md` |
+| Performance & Security TC-10 sampai TC-24 | `node scripts/run-tc10-tc24.js` | `docs/performance-security-tc10-tc24-run-report.md` |
+| E2E Core Flow | `node scripts/run-e2e-core-flow.js` | `docs/e2e-core-flow-run-report.md` |
+| Cleanup Data Testing | `node scripts/cleanup-test-data.js` | `docs/test-data-cleanup-run-report.md` |
 
 Ringkasan:
 

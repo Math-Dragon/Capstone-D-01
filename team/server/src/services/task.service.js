@@ -36,6 +36,14 @@ class TaskService {
     const original = await this.getById(userId, taskId);
 
     const updateData = { ...data };
+    const statusChanged = data.status && data.status !== original.status;
+
+    if (statusChanged && !VALID_TRANSITIONS[original.status]?.includes(data.status)) {
+      const err = new Error(`Transition from '${original.status}' to '${data.status}' is not allowed`);
+      err.statusCode = 400;
+      err.code = 'INVALID_TRANSITION';
+      throw err;
+    }
 
     if (data.status === 'done' && original.status !== 'done') {
       updateData.completed_at = new Date();
@@ -46,7 +54,6 @@ class TaskService {
 
     const updated = await repos.task.update(taskId, updateData);
 
-    const statusChanged = data.status && data.status !== original.status;
     if (statusChanged && (data.status === 'done' || original.status === 'done')) {
       await this.recalculateProgress(userId, updated);
     }
@@ -101,6 +108,21 @@ class TaskService {
       }
       await repos.studentMetrics.upsert(userId, metrics);
     }
+
+    if (updated.planned_date) {
+      await this.recalculateProgress(userId, updated);
+    }
+
+    return updated;
+  }
+
+  async reschedule(userId, taskId, data) {
+    const original = await this.getById(userId, taskId);
+    const updated = await repos.task.update(taskId, {
+      planned_date: data.planned_date,
+      planned_slot: data.planned_slot,
+      completed_at: original.status === 'done' ? original.completed_at : null,
+    });
 
     if (updated.planned_date) {
       await this.recalculateProgress(userId, updated);

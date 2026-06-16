@@ -22,4 +22,19 @@ describe('MainLayout', () => {
     );
     expect(screen.getByText('Page Content')).toBeInTheDocument();
   });
+
+  it('renders a skip-to-content link for keyboard users', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<div>Page Content</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('link', { name: /Langsung ke konten utama/i })).toHaveAttribute('href', '#main-content');
+    expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content');
+  });
 });

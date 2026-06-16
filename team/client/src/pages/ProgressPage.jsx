@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Skeleton, SkeletonCard } from '../components/ui/Skeleton';
 import api from '../services/api';
 
 const TASK_TYPE_META = {
@@ -18,7 +19,15 @@ function ProgressRing({ percent, size = 120, strokeWidth = 8 }) {
   const offset = circumference - (percent / 100) * circumference;
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="mx-auto block">
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      className="mx-auto block"
+      role="img"
+      aria-label={`Progress ${percent}% selesai`}
+      aria-live="polite"
+    >
       <circle
         cx={size / 2} cy={size / 2} r={radius}
         fill="none" stroke="#e2e8f0" strokeWidth={strokeWidth}
@@ -56,29 +65,30 @@ export default function ProgressPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const loadProgress = useCallback(async (signal) => {
+    setLoading(true);
+    try {
+      const [taskData, statsData] = await Promise.all([
+        api.get('/tasks', { signal }),
+        api.get('/progress/stats', { signal }),
+      ]);
+      setTasks(Array.isArray(taskData) ? taskData : []);
+      setStats(statsData);
+      setError(null);
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        setError('Gagal memuat data progres. Silakan coba lagi.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
-    const { signal } = controller;
-    async function load() {
-      try {
-        const [taskData, statsData] = await Promise.all([
-          api.get('/tasks', { signal }),
-          api.get('/progress/stats', { signal }),
-        ]);
-        setTasks(Array.isArray(taskData) ? taskData : []);
-        setStats(statsData);
-        setError(null);
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          setError('Gagal memuat data progres. Silakan coba lagi.');
-        }
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
+    loadProgress(controller.signal);
     return () => controller.abort();
-  }, []);
+  }, [loadProgress]);
 
   const computed = useMemo(() => {
     const completed = tasks.filter(
@@ -100,21 +110,30 @@ export default function ProgressPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <svg className="animate-spin h-8 w-8 text-primary-400" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-        </svg>
+      <div role="status" aria-live="polite" aria-busy="true">
+        <div className="mb-8">
+          <Skeleton className="h-8 w-48 mb-2" />
+          <Skeleton className="h-4 w-56" />
+        </div>
+        <div className="card p-8 mb-6 flex justify-center">
+          <Skeleton variant="circular" className="h-32 w-32" />
+        </div>
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
+      <div className="flex flex-col items-center justify-center py-20" role="alert" aria-live="assertive">
         <div className="text-4xl mb-4">⚠️</div>
-        <p className="text-primary-500 mb-4 text-center">{error}</p>
-        <button onClick={() => window.location.reload()} className="btn-primary">
+        <p className="text-primary-700 mb-2 text-center font-semibold">{error}</p>
+        <p className="text-primary-500 mb-4 text-center text-sm">Periksa koneksi, lalu coba ambil ulang ringkasan progres.</p>
+        <button onClick={() => loadProgress()} className="btn-primary">
           Coba Lagi
         </button>
       </div>
@@ -132,8 +151,15 @@ export default function ProgressPage() {
         <p className="text-primary-400">Lihat pencapaian dan tren belajarmu.</p>
       </div>
 
+      {computed.total === 0 && (
+        <div className="card p-8 mb-6 text-center" role="status" aria-live="polite">
+          <h3 className="text-lg font-semibold text-primary-900 mb-2">Belum ada data progres</h3>
+          <p className="text-primary-500">Selesaikan atau jadwalkan task terlebih dahulu agar grafik progres bisa dihitung.</p>
+        </div>
+      )}
+
       {/* Progress Ring */}
-      <div className="card p-8 mb-6">
+      <div className="card p-8 mb-6" aria-live="polite" aria-atomic="true">
         <div className="text-center">
           <ProgressRing percent={computed.pct} />
         </div>
