@@ -24,14 +24,26 @@ jest.mock('../../src/models/user.model', () => ({
   loginSchema: { parse: jest.fn((d) => d) },
 }));
 
-const authService = require('../../src/services/auth.service');
-const { registerSchema, loginSchema } = require('../../src/models/user.model');
-const router = require('../../src/routes/auth');
-const express = require('express');
-const cookieParser = require('cookie-parser');
-const request = require('supertest');
+const ORIGINAL_ENV = { ...process.env };
+
+function prepareEnv() {
+  process.env = {
+    ...ORIGINAL_ENV,
+    SKIP_DB_CHECK: 'true',
+    NODE_ENV: 'test',
+    DATABASE_URL: 'postgres://example',
+    JWT_SECRET: '12345678901234567890123456789012',
+    JWT_REFRESH_SECRET: '12345678901234567890123456789012',
+    LLM_PROVIDER: 'mock',
+  };
+}
 
 function createApp() {
+  prepareEnv();
+  const router = require('../../src/routes/auth');
+  const express = require('express');
+  const cookieParser = require('cookie-parser');
+
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
@@ -42,10 +54,20 @@ function createApp() {
   return app;
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.resetModules();
+  jest.clearAllMocks();
+  prepareEnv();
+});
+
+afterEach(() => {
+  process.env = { ...ORIGINAL_ENV, SKIP_DB_CHECK: 'true' };
+});
 
 describe('POST /api/auth/register', () => {
   test('succeeds and returns 201', async () => {
+    const authService = require('../../src/services/auth.service');
+    const request = require('supertest');
     authService.register.mockResolvedValue({ id: 'u1', email: 'a@b.com' });
     const res = await request(createApp())
       .post('/api/auth/register')
@@ -55,6 +77,8 @@ describe('POST /api/auth/register', () => {
   });
 
   test('handles error via next', async () => {
+    const { registerSchema } = require('../../src/models/user.model');
+    const request = require('supertest');
     registerSchema.parse.mockImplementationOnce(() => { throw new Error('Invalid'); });
     const res = await request(createApp())
       .post('/api/auth/register')
@@ -65,6 +89,8 @@ describe('POST /api/auth/register', () => {
 
 describe('POST /api/auth/login', () => {
   test('succeeds and sets cookie', async () => {
+    const authService = require('../../src/services/auth.service');
+    const request = require('supertest');
     authService.login.mockResolvedValue({
       accessToken: 'at', refreshToken: 'rt', user: { id: 'u1', email: 'a@b.com' },
     });
@@ -77,6 +103,8 @@ describe('POST /api/auth/login', () => {
   });
 
   test('handles error via next', async () => {
+    const { loginSchema } = require('../../src/models/user.model');
+    const request = require('supertest');
     loginSchema.parse.mockImplementationOnce(() => { throw new Error('Invalid'); });
     const res = await request(createApp())
       .post('/api/auth/login')
@@ -87,6 +115,8 @@ describe('POST /api/auth/login', () => {
 
 describe('POST /api/auth/google', () => {
   test('succeeds with idToken', async () => {
+    const authService = require('../../src/services/auth.service');
+    const request = require('supertest');
     authService.googleLogin.mockResolvedValue({
       accessToken: 'at', refreshToken: 'rt', user: { id: 'u1', email: 'a@b.com' },
     });
@@ -98,6 +128,7 @@ describe('POST /api/auth/google', () => {
   });
 
   test('returns 400 when idToken missing', async () => {
+    const request = require('supertest');
     const res = await request(createApp())
       .post('/api/auth/google')
       .send({});
@@ -107,6 +138,8 @@ describe('POST /api/auth/google', () => {
 
 describe('POST /api/auth/refresh', () => {
   test('succeeds with cookie', async () => {
+    const authService = require('../../src/services/auth.service');
+    const request = require('supertest');
     authService.refresh.mockResolvedValue({ accessToken: 'at2', refreshToken: 'rt2' });
     const res = await request(createApp())
       .post('/api/auth/refresh')
@@ -116,6 +149,7 @@ describe('POST /api/auth/refresh', () => {
   });
 
   test('returns 401 when no cookie', async () => {
+    const request = require('supertest');
     const res = await request(createApp())
       .post('/api/auth/refresh');
     expect(res.status).toBe(401);
@@ -124,6 +158,7 @@ describe('POST /api/auth/refresh', () => {
 
 describe('GET /api/auth/me', () => {
   test('returns user when authenticated', async () => {
+    const request = require('supertest');
     const res = await request(createApp())
       .get('/api/auth/me')
       .set('x-test-user', 'u1');
@@ -134,6 +169,8 @@ describe('GET /api/auth/me', () => {
 
 describe('POST /api/auth/logout', () => {
   test('succeeds when authenticated', async () => {
+    const authService = require('../../src/services/auth.service');
+    const request = require('supertest');
     authService.logout.mockResolvedValue();
     const res = await request(createApp())
       .post('/api/auth/logout')

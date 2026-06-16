@@ -60,4 +60,43 @@ describe('auth cookie options', () => {
     expect(res.headers['set-cookie'][0]).toContain('Secure');
     expect(res.headers['set-cookie'][0]).toContain('SameSite=None');
   });
+
+  test('google login sets refresh cookie with shared production-safe options', async () => {
+    const authService = require('../../src/services/auth.service');
+    authService.googleLogin.mockResolvedValue({
+      accessToken: 'at',
+      refreshToken: 'rt',
+      user: { id: 'u1', email: 'user@example.com' },
+    });
+
+    const request = require('supertest');
+    const app = require('../../src/app');
+
+    const res = await request(app)
+      .post('/api/auth/google')
+      .send({ idToken: 'google-token' });
+
+    expect(res.headers['set-cookie'][0]).toContain('HttpOnly');
+    expect(res.headers['set-cookie'][0]).toContain('Secure');
+    expect(res.headers['set-cookie'][0]).toContain('SameSite=None');
+  });
+
+  test('refresh sets refresh cookie with shared production-safe options', async () => {
+    const authService = require('../../src/services/auth.service');
+    authService.refresh.mockResolvedValue({
+      accessToken: 'next-at',
+      refreshToken: 'next-rt',
+    });
+
+    const request = require('supertest');
+    const app = require('../../src/app');
+
+    const res = await request(app)
+      .post('/api/auth/refresh')
+      .set('Cookie', 'refreshToken=old-rt');
+
+    expect(res.headers['set-cookie'][0]).toContain('HttpOnly');
+    expect(res.headers['set-cookie'][0]).toContain('Secure');
+    expect(res.headers['set-cookie'][0]).toContain('SameSite=None');
+  });
 });

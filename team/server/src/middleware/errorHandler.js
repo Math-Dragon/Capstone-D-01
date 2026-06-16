@@ -59,6 +59,14 @@ function errorHandler(err, req, res, next) {
     });
   }
 
+  if (err.code === 'CORS_ORIGIN_DENIED') {
+    return res.status(403).json({
+      success: false,
+      error: { code: 'CORS_ORIGIN_DENIED', message: err.message },
+      meta: buildMeta(requestId, err),
+    });
+  }
+
   const statusCode = err.statusCode || err.status || 500;
   const message = err.message || 'Internal server error';
 

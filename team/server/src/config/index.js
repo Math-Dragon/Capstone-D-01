@@ -20,6 +20,9 @@ const required = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET'];
 if (llmProvider === 'gemini') {
   required.push('GEMINI_API_KEY');
 }
+if (isProduction) {
+  required.push('ALLOWED_ORIGINS');
+}
 for (const key of required) {
   if (!process.env[key]) {
     process.stderr.write(`Missing required env: ${key}\n`);
@@ -27,7 +30,8 @@ for (const key of required) {
   }
 }
 
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:5173')
+const defaultAllowedOrigins = 'http://localhost:3000,http://localhost:5173';
+const allowedOrigins = (isProduction ? process.env.ALLOWED_ORIGINS : (process.env.ALLOWED_ORIGINS || defaultAllowedOrigins))
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
