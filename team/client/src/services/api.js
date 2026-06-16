@@ -1,7 +1,7 @@
 import axios from 'axios';
 import store from '../store';
 import { logout } from '../store/slices/authSlice';
-import { API_BASE_URL } from '../utils/constants';
+import { API_BASE_URL, isPublicAppPath } from '../utils/constants';
 
 let lastRequestId = localStorage.getItem('lastRequestId') || null;
 
@@ -15,6 +15,23 @@ const api = axios.create({
 
 let isRefreshing = false;
 let failedQueue = [];
+
+const REFRESH_EXCLUDED_URLS = new Set(['/auth/login', '/auth/refresh', '/auth/register', '/auth/google']);
+
+function getCurrentPathname() {
+  if (typeof window === 'undefined' || !window.location) {
+    return '/';
+  }
+  return window.location.pathname || '/';
+}
+
+function shouldAttemptRefresh(originalRequest) {
+  if (!originalRequest || originalRequest._retry || REFRESH_EXCLUDED_URLS.has(originalRequest.url)) {
+    return false;
+  }
+
+  return !isPublicAppPath(getCurrentPathname());
+}
 
 const processQueue = (error, token = null) => {
   failedQueue.forEach(prom => {
@@ -75,12 +92,7 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    if (
-      error.response.status === 401 &&
-      !originalRequest._retry &&
-      originalRequest.url !== '/auth/login' &&
-      originalRequest.url !== '/auth/refresh'
-    ) {
+    if (error.response.status === 401 && shouldAttemptRefresh(originalRequest)) {
       if (isRefreshing) {
         try {
           const token = await new Promise(function(resolve, reject) {
@@ -126,7 +138,7 @@ api.interceptors.response.use(
         isRefreshing = false;
         localStorage.removeItem('token');
         store.dispatch(logout());
-        if (window.location.pathname !== '/login') {
+        if (!isPublicAppPath(getCurrentPathname())) {
           window.location.href = '/login';
         }
         return Promise.reject(refreshError);

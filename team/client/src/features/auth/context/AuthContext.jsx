@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setUser, logout as logoutAction, setLoading, setError } from '../../../store/slices/authSlice';
+import { isPublicAppPath } from '../../../utils/constants';
 import authService from '../services/authService';
 
 const AuthContext = createContext(null);
@@ -14,10 +15,12 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!isInitialized && !user) {
       const initAuth = async () => {
+        const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
+        const isPublicRoute = isPublicAppPath(pathname);
         dispatch(setLoading(true));
         try {
           let token = localStorage.getItem('token');
-          if (!token) {
+          if (!token && !isPublicRoute) {
             try {
               const data = await authService.refreshToken();
               token = data.accessToken;

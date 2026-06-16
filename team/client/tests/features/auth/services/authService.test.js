@@ -47,7 +47,7 @@ describe('authService', () => {
   it('refreshToken calls api.post', async () => {
     api.post.mockResolvedValue({ accessToken: 'new' });
     const result = await authService.refreshToken();
-    expect(api.post).toHaveBeenCalledWith('/auth/refresh');
+    expect(api.post).toHaveBeenCalledWith('/auth/refresh', {});
     expect(result).toEqual({ accessToken: 'new' });
   });
 
