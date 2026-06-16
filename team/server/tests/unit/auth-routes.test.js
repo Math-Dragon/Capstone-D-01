@@ -1,3 +1,5 @@
+process.env.SKIP_DB_CHECK = 'true';
+
 jest.mock('../../src/services/auth.service', () => ({
   register: jest.fn(),
   login: jest.fn(),
