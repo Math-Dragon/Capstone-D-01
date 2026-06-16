@@ -1,3 +1,5 @@
+process.env.SKIP_DB_CHECK = 'true';
+
 jest.mock('../../src/db', () => ({
   isHealthy: jest.fn(),
   pool: { query: jest.fn(), end: jest.fn() },
@@ -5,6 +7,11 @@ jest.mock('../../src/db', () => ({
 
 jest.mock('../../src/services/llm-client', () => ({
   getCircuitBreakerState: jest.fn(),
+}));
+
+jest.mock('../../src/config', () => ({
+  llmProvider: 'gemini',
+  aiConfigured: true,
 }));
 
 const { isHealthy } = require('../../src/db');
@@ -28,7 +35,11 @@ describe('GET /health', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.status).toBe('ok');
     expect(res.body.data.database).toBe('connected');
-    expect(res.body.data.ai).toEqual({ status: 'closed' });
+    expect(res.body.data.ai).toEqual({
+      status: 'closed',
+      provider: 'gemini',
+      configured: true,
+    });
   });
 
   test('returns 503 when db is unhealthy', async () => {
@@ -39,7 +50,11 @@ describe('GET /health', () => {
     expect(res.body.success).toBe(false);
     expect(res.body.data.status).toBe('degraded');
     expect(res.body.data.database).toBe('disconnected');
-    expect(res.body.data.ai).toEqual({ status: 'closed' });
+    expect(res.body.data.ai).toEqual({
+      status: 'closed',
+      provider: 'gemini',
+      configured: true,
+    });
   });
 
   test('returns AI open state without forcing 503 when db is healthy', async () => {
@@ -51,6 +66,10 @@ describe('GET /health', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.status).toBe('ok');
-    expect(res.body.data.ai).toEqual({ status: 'open' });
+    expect(res.body.data.ai).toEqual({
+      status: 'open',
+      provider: 'gemini',
+      configured: true,
+    });
   });
 });

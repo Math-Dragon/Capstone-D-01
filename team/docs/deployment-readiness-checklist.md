@@ -11,13 +11,17 @@ Checklist ini merangkum hal yang perlu dicek sebelum StepUp AI Learn dipakai di 
 | Redis | Siap | Dipakai untuk rate limiting dan cache |
 | `JWT_SECRET` dan `JWT_REFRESH_SECRET` | Wajib production secret | Jangan pakai secret lokal |
 | `ALLOWED_ORIGINS` | Wajib disesuaikan | Isi domain frontend production |
+| `VITE_API_URL` | Wajib di Vercel | Harus menunjuk ke `https://<render-domain>/api` |
+| Referensi env production | Wajib tersedia | Lihat `team/docs/render-vercel-production-env.md` |
 
 ## AI Provider
 
 | Item | Status | Catatan |
 | --- | --- | --- |
 | `LLM_PROVIDER=gemini` | Siap | Sudah divalidasi dengan Gemini |
+| `LLM_PROVIDER` production | Wajib eksplisit | Health check sekarang melaporkan provider aktif dan status configured |
 | `GEMINI_MODEL=gemini-2.5-flash-lite` | Siap | Model valid dan ringan |
+| Provider-specific key | Wajib sesuai provider | `gemini -> GEMINI_API_KEY`, `openrouter -> OPENROUTER_API_KEY`, `glm -> GLM_API_KEY`, `ollama -> OLLAMA_MODEL` |
 | Free tier Gemini | Terbatas | Kuota bisa habis saat testing intensif |
 | Paid key/fallback | Disarankan | Pakai paid plan dengan billing cap untuk demo/production |
 | Mock provider | Tetap diperlukan | Aman untuk CI agar test tidak tergantung kuota AI |
@@ -44,7 +48,9 @@ Checklist ini merangkum hal yang perlu dicek sebelum StepUp AI Learn dipakai di 
 ## Rekomendasi Sebelum Release
 
 1. Gunakan secret production yang berbeda dari lokal.
-2. Aktifkan Gemini paid plan dengan batas billing.
-3. Simpan CI tetap memakai `LLM_PROVIDER=mock`.
-4. Jalankan semua script test sebelum deployment.
-5. Dokumentasikan status quota AI saat demo agar ekspektasi user jelas.
+2. Isi `VITE_API_URL` di Vercel dan `ALLOWED_ORIGINS` di Render sebagai pasangan origin yang benar.
+3. Pastikan `/health` menampilkan `data.ai.provider` yang benar dan `data.ai.configured=true`.
+4. Aktifkan Gemini paid plan dengan batas billing bila Gemini jadi provider production.
+5. Simpan CI tetap memakai `LLM_PROVIDER=mock`.
+6. Jalankan semua script test sebelum deployment.
+7. Dokumentasikan status quota AI saat demo agar ekspektasi user jelas.

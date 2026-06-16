@@ -16,17 +16,26 @@ const isProduction = nodeEnv === 'production';
 const ollamaBaseUrl = (process.env.OLLAMA_BASE_URL || 'http://localhost:11434').replace(/\/+$/, '');
 const ollamaModel = (process.env.OLLAMA_MODEL || '').trim();
 
-const required = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET'];
-if (llmProvider === 'gemini') {
-  required.push('GEMINI_API_KEY');
+const providerRequirements = {
+  gemini: ['GEMINI_API_KEY'],
+  mock: [],
+  ollama: ['OLLAMA_MODEL'],
+  openrouter: ['OPENROUTER_API_KEY'],
+  glm: ['GLM_API_KEY'],
+};
+
+if (!Object.prototype.hasOwnProperty.call(providerRequirements, llmProvider)) {
+  throw new Error(`Unsupported LLM_PROVIDER: ${llmProvider}`);
 }
+
+const required = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET'];
+required.push(...providerRequirements[llmProvider]);
 if (isProduction) {
   required.push('ALLOWED_ORIGINS');
 }
 for (const key of required) {
   if (!process.env[key]) {
-    process.stderr.write(`Missing required env: ${key}\n`);
-    process.exit(1);
+    throw new Error(`Missing required env: ${key}`);
   }
 }
 
@@ -42,6 +51,8 @@ const refreshCookieOptions = {
   sameSite: isProduction ? 'none' : 'strict',
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
+
+const aiConfigured = providerRequirements[llmProvider].every((key) => !!process.env[key]);
 
 module.exports = {
   nodeEnv,
@@ -72,6 +83,7 @@ module.exports = {
   redisUrl: process.env.REDIS_URL,
   allowedOrigins,
   refreshCookieOptions,
+  aiConfigured,
   metricsApiKey: process.env.METRICS_API_KEY || '',
   firebaseProjectId: process.env.FIREBASE_PROJECT_ID || 'auth-aiweb',
 };

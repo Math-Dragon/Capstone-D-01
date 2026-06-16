@@ -74,23 +74,16 @@ function getCircuitBreakerState() {
     geminiPaid: _geminiPaid429 ? 'open' : 'closed',
     glm: _onCooldown(_glmCooldownUntil) ? 'open' : 'closed',
     openrouter: _onCooldown(_openrouterCooldownUntil) ? 'open' : 'closed',
+    ollama: 'closed',
+    mock: 'closed',
   };
 
-  if (isMock) {
-    return { status: 'closed', providers };
-  }
-
-  const configuredProviders = [];
-  if (config.geminiKey) configuredProviders.push(providers.gemini);
-  if (config.geminiPaidKey) configuredProviders.push(providers.geminiPaid);
-  if (config.glmKey) configuredProviders.push(providers.glm);
-  if (config.openrouterKey) configuredProviders.push(providers.openrouter);
-
-  const status = configuredProviders.length > 0 && configuredProviders.every((providerStatus) => providerStatus === 'open')
-    ? 'open'
-    : 'closed';
-
-  return { status, providers };
+  const primaryProvider = isMock ? 'mock' : config.llmProvider;
+  return {
+    status: providers[primaryProvider] || 'closed',
+    provider: primaryProvider,
+    providers,
+  };
 }
 
 async function callGemini(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
