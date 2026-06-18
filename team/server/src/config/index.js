@@ -32,6 +32,7 @@ const required = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET'];
 required.push(...providerRequirements[llmProvider]);
 if (isProduction) {
   required.push('ALLOWED_ORIGINS');
+  required.push('REDIS_URL');
 }
 for (const key of required) {
   if (!process.env[key]) {

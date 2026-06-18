@@ -33,18 +33,19 @@ describe('GoalCard', () => {
 
   it('renders deadline formatted', () => {
     render(<MemoryRouter><GoalCard goal={baseGoal} /></MemoryRouter>);
+    expect(screen.getByText(/Deadline:/)).toBeInTheDocument();
     expect(screen.getByText(/2026/)).toBeInTheDocument();
   });
 
   it('renders edit and delete buttons', () => {
     render(<MemoryRouter><GoalCard goal={baseGoal} /></MemoryRouter>);
-    expect(screen.getByText('✏️ Edit')).toBeInTheDocument();
-    expect(screen.getByText('🗑️ Hapus')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit goal Belajar React' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hapus goal Belajar React' })).toBeInTheDocument();
   });
 
   it('opens delete modal on delete click', () => {
     render(<MemoryRouter><GoalCard goal={baseGoal} /></MemoryRouter>);
-    fireEvent.click(screen.getByText('🗑️ Hapus'));
+    fireEvent.click(screen.getByRole('button', { name: 'Hapus goal Belajar React' }));
     expect(screen.getByText('Hapus Target')).toBeInTheDocument();
     expect(screen.getByText(/Apakah kamu yakin/)).toBeInTheDocument();
   });

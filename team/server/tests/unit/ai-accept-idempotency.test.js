@@ -1,3 +1,5 @@
+process.env.SKIP_DB_CHECK = 'true';
+
 jest.mock('../../src/db', () => ({
   withTransaction: jest.fn(async (fn) => fn({})),
   pool: { query: jest.fn(), end: jest.fn() },
@@ -17,8 +19,13 @@ jest.mock('../../src/repositories', () => ({
   },
 }));
 
+jest.mock('../../src/services/webhook.service', () => ({
+  publish: jest.fn(),
+}));
+
 const aiService = require('../../src/services/ai.service');
 const repos = require('../../src/repositories');
+const webhookService = require('../../src/services/webhook.service');
 
 describe('acceptRecommendation idempotency', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -53,6 +60,7 @@ describe('acceptRecommendation idempotency', () => {
     expect(repos.task.createMany).not.toHaveBeenCalled();
     expect(repos.aiRec.updateStatus).not.toHaveBeenCalled();
     expect(repos.audit.create).not.toHaveBeenCalled();
+    expect(webhookService.publish).not.toHaveBeenCalled();
   });
 
   test('creates tasks once when recommendation is pending', async () => {
@@ -101,6 +109,15 @@ describe('acceptRecommendation idempotency', () => {
       '550e8400-e29b-41d4-a716-446655440001',
       'accepted',
       expect.anything()
+    );
+    expect(webhookService.publish).toHaveBeenCalledWith(
+      'ai.recommendation.accepted',
+      expect.objectContaining({
+        userId: '550e8400-e29b-41d4-a716-446655440002',
+        recommendationId: '550e8400-e29b-41d4-a716-446655440001',
+        goalId: '550e8400-e29b-41d4-a716-446655440003',
+        taskIds: ['550e8400-e29b-41d4-a716-446655440004'],
+      })
     );
     expect(result).toEqual([
       expect.objectContaining({ id: '550e8400-e29b-41d4-a716-446655440004' }),

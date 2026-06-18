@@ -30,7 +30,7 @@ describe('HomePage', () => {
 
   it('renders register link', () => {
     renderPage();
-    expect(screen.getByText('Mulai Sekarang — Gratis')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Mulai Sekarang/i })).toBeInTheDocument();
   });
 
   it('renders login link', () => {
@@ -50,6 +50,7 @@ describe('HomePage', () => {
     expect(screen.getByText('Learning Coach')).toBeInTheDocument();
     expect(screen.getByText('Akses Kapan Saja')).toBeInTheDocument();
     expect(screen.getByText('Gratis')).toBeInTheDocument();
+    expect(screen.getByText('Tak terbatas')).toBeInTheDocument();
   });
 
   it('renders how it works section', () => {
@@ -57,7 +58,7 @@ describe('HomePage', () => {
     expect(screen.getByText('Cara Kerjanya')).toBeInTheDocument();
     expect(screen.getByText('Buat Target')).toBeInTheDocument();
     expect(screen.getByText('AI Susun Rencana')).toBeInTheDocument();
-    expect(screen.getByText('Kerjakan & Track')).toBeInTheDocument();
+    expect(screen.getByText('Kerjakan dan Track')).toBeInTheDocument();
   });
 
   it('renders CTA section', () => {

@@ -15,9 +15,11 @@ const metricsRoutes = require('./routes/metrics');
 const authRoutes = require('./routes/auth');
 const goalRoutes = require('./routes/goals');
 const taskRoutes = require('./routes/tasks');
+const calendarRoutes = require('./routes/calendar');
 const aiRoutes = require('./routes/ai');
 const progressRoutes = require('./routes/progress');
 const coachRoutes = require('./routes/coach');
+const webhookRoutes = require('./routes/webhooks');
 
 const app = express();
 app.use(cors({
@@ -56,9 +58,11 @@ app.use('/metrics', metricsAuth, metricsRoutes);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/goals', generalLimiter, goalRoutes);
 app.use('/api/tasks', generalLimiter, taskRoutes);
+app.use('/api/calendar', generalLimiter, calendarRoutes);
 app.use('/api/ai', authenticate, aiLimiter, aiRoutes);
 app.use('/api/progress', generalLimiter, progressRoutes);
 app.use('/api/coach', coachRoutes);
+app.use('/api/webhooks', generalLimiter, webhookRoutes);
 
 app.use(errorHandler);
 

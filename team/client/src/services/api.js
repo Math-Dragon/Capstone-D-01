@@ -155,4 +155,12 @@ api.interceptors.response.use(
   }
 );
 
+export async function downloadCalendarExport() {
+  return api.get('/calendar/export.ics', {
+    responseType: 'blob',
+  });
+}
+
+api.downloadCalendarExport = downloadCalendarExport;
+
 export default api;

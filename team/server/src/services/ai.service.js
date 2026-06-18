@@ -8,6 +8,7 @@ const db = require('../db');
 const logger = require('../utils/logger');
 const { recordAIUsage } = require('../utils/metrics');
 const { createTaskSchema } = require('../models/task.model');
+const webhookService = require('./webhook.service');
 
 class AIService {
   async suggestPlan(userId, goalId, context = {}) {
@@ -135,7 +136,7 @@ class AIService {
   }
 
   async acceptRecommendation(userId, recommendationId) {
-    const savedTasks = await db.withTransaction(async (client) => {
+    const result = await db.withTransaction(async (client) => {
       const rec = await repos.aiRec.findByIdAndUserId(
         recommendationId,
         userId,
@@ -150,7 +151,11 @@ class AIService {
       }
 
       if (rec.status === 'accepted') {
-        return repos.task.findByRecommendationId(recommendationId, client);
+        return {
+          tasks: await repos.task.findByRecommendationId(recommendationId, client),
+          shouldPublish: false,
+          goalId: rec.goal_id,
+        };
       }
 
       if (rec.status !== 'pending') {
@@ -184,10 +189,23 @@ class AIService {
         action: 'AI_RECOMMENDATION_ACCEPTED',
         metadata: { task_count: tasks.length },
       }, client);
-      return tasks;
+      return {
+        tasks,
+        shouldPublish: true,
+        goalId: rec.goal_id,
+      };
     });
 
-    return savedTasks;
+    if (result.shouldPublish) {
+      await webhookService.publish('ai.recommendation.accepted', {
+        userId,
+        recommendationId,
+        taskIds: result.tasks.map((task) => task.id),
+        goalId: result.goalId,
+      });
+    }
+
+    return result.tasks;
   }
 
   async rejectRecommendation(userId, recommendationId) {

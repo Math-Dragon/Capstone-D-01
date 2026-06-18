@@ -21,9 +21,30 @@ const CalendarPage = lazy(() => import('./pages/CalendarPage'));
 const ProgressPage = lazy(() => import('./pages/ProgressPage'));
 const CoachPage = lazy(() => import('./features/coach/components/CoachPage'));
 
+function FeatureProviders({ children }) {
+  return (
+    <GoalsProvider>
+      <CoachProvider>
+        {children}
+      </CoachProvider>
+    </GoalsProvider>
+  );
+}
+
+function withFeatureProviders(children) {
+  return <FeatureProviders>{children}</FeatureProviders>;
+}
+
 function RootPage() {
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
-  return isAuthenticated ? <CheckInGateway><DashboardPage /></CheckInGateway> : <HomePage />;
+
+  return isAuthenticated
+    ? withFeatureProviders(
+      <CheckInGateway>
+        <DashboardPage />
+      </CheckInGateway>
+    )
+    : <HomePage />;
 }
 
 export default function App() {
@@ -31,26 +52,77 @@ export default function App() {
     <ErrorBoundary>
       <Router>
         <AuthProvider>
-          <GoalsProvider>
-            <ToastProvider>
-              <CoachProvider>
-                <Suspense fallback={<SkeletonList count={5} />}>
-                  <Routes>
-                    <Route path="/" element={<Layout />}>
-                      <Route index element={<RootPage />} />
-                      <Route path="login" element={<LoginPage />} />
-                      <Route path="register" element={<RegisterPage />} />
-                      <Route path="goals" element={<ProtectedRoute><CheckInGateway><GoalsPage /></CheckInGateway></ProtectedRoute>} />
-                      <Route path="goals/:id" element={<ProtectedRoute><CheckInGateway><GoalDetailPage /></CheckInGateway></ProtectedRoute>} />
-                      <Route path="calendar" element={<ProtectedRoute><CheckInGateway><CalendarPage /></CheckInGateway></ProtectedRoute>} />
-                      <Route path="progress" element={<ProtectedRoute><CheckInGateway><ProgressPage /></CheckInGateway></ProtectedRoute>} />
-                      <Route path="coach" element={<ProtectedRoute><CheckInGateway><CoachPage /></CheckInGateway></ProtectedRoute>} />
-                    </Route>
-                  </Routes>
-                </Suspense>
-              </CoachProvider>
-            </ToastProvider>
-          </GoalsProvider>
+          <ToastProvider>
+            <Suspense fallback={<SkeletonList count={5} />}>
+              <Routes>
+                <Route path="/" element={<Layout />}>
+                  <Route index element={<RootPage />} />
+                  <Route path="login" element={<LoginPage />} />
+                  <Route path="register" element={<RegisterPage />} />
+                  <Route
+                    path="goals"
+                    element={(
+                      <ProtectedRoute>
+                        {withFeatureProviders(
+                          <CheckInGateway>
+                            <GoalsPage />
+                          </CheckInGateway>
+                        )}
+                      </ProtectedRoute>
+                    )}
+                  />
+                  <Route
+                    path="goals/:id"
+                    element={(
+                      <ProtectedRoute>
+                        {withFeatureProviders(
+                          <CheckInGateway>
+                            <GoalDetailPage />
+                          </CheckInGateway>
+                        )}
+                      </ProtectedRoute>
+                    )}
+                  />
+                  <Route
+                    path="calendar"
+                    element={(
+                      <ProtectedRoute>
+                        {withFeatureProviders(
+                          <CheckInGateway>
+                            <CalendarPage />
+                          </CheckInGateway>
+                        )}
+                      </ProtectedRoute>
+                    )}
+                  />
+                  <Route
+                    path="progress"
+                    element={(
+                      <ProtectedRoute>
+                        {withFeatureProviders(
+                          <CheckInGateway>
+                            <ProgressPage />
+                          </CheckInGateway>
+                        )}
+                      </ProtectedRoute>
+                    )}
+                  />
+                  <Route
+                    path="coach"
+                    element={(
+                      <ProtectedRoute>
+                        {withFeatureProviders(
+                          <CheckInGateway>
+                            <CoachPage />
+                          </CheckInGateway>
+                        )}
+                      </ProtectedRoute>
+                    )}
+                  />
+                </Route>
+              </Routes>
+            </Suspense>
+          </ToastProvider>
         </AuthProvider>
       </Router>
     </ErrorBoundary>

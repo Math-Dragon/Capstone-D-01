@@ -3,6 +3,7 @@ const db = require('../../src/db');
 const studentMetricsRepo = require('../../src/repositories/student-metrics.repo');
 const aiRecRepo = require('../../src/repositories/ai-recommendation.repo');
 const progressRepo = require('../../src/repositories/progress-snapshot.repo');
+const taskRepo = require('../../src/repositories/task.repo');
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -212,5 +213,23 @@ describe('progress-snapshot.repo', () => {
     const sql = db.query.mock.calls[0][0];
     expect(sql).toContain('week >=');
     expect(sql).toContain('week <=');
+  });
+});
+
+describe('task.repo', () => {
+  test('findScheduledByUser returns only tasks with planned_date', async () => {
+    db.query.mockResolvedValue({
+      rows: [{ id: 'task-1', planned_date: '2026-06-20', goal_title: 'React Goal' }],
+    });
+
+    const result = await taskRepo.findScheduledByUser('user-1');
+
+    expect(result).toEqual([{ id: 'task-1', planned_date: '2026-06-20', goal_title: 'React Goal' }]);
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE g.user_id = $1 AND t.planned_date IS NOT NULL'),
+      ['user-1'],
+      undefined
+    );
+    expect(db.query.mock.calls[0][0]).toContain('ORDER BY t.planned_date ASC, t.planned_slot ASC, t.created_at ASC');
   });
 });
