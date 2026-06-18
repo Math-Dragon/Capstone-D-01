@@ -43,73 +43,33 @@ ADMIN_EMAILS=admin@your-domain.com
 
 **Penting**: Jangan hardcode secret di kode. Semua nilai sensitif harus lewat environment variables.
 
-## 2. Build Docker Production Image
+## 2. Build & Deploy with Docker Compose
 
 Di server VPS, setelah clone repository:
 
 ```bash
-cd team/server
+cd ~/apps/stepup
 
-# Build production image
-docker build \
-  -f Dockerfile.production \
-  -t stepup-server:latest \
-  .
+# Build dan jalankan semua service (DB, Redis, Server, Client)
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
-# Verifikasi image
-docker images stepup-server:latest
+# Cek status semua container
+docker compose ps
+
+# Cek log
+docker compose logs -f server
 ```
 
 ## 3. Database Migration
 
-Jalankan migration terhadap database production:
+Jalankan migration terhadap database production via container:
 
 ```bash
-# Set DATABASE_URL ke production DB
-export DATABASE_URL=postgres://user:strong_password@production-db-host:5432/planner
-
-# Jalankan migration
-npx -r dotenv/config node-pg-migrate -m src/migrations up
+# Dari dalam container server
+docker compose exec server npm run migrate:up
 ```
 
-Atau dari dalam Docker:
-
-```bash
-docker run --rm \
-  -e DATABASE_URL=postgres://user:strong_password@production-db-host:5432/planner \
-  -v $(pwd)/src/migrations:/app/src/migrations \
-  stepup-server:latest \
-  node node_modules/node-pg-migrate/bin/node-pg-migrate.js -m src/migrations up
-```
-
-## 4. Deploy Container
-
-```bash
-# Jalankan container production
-docker run -d \
-  --name stepup-server \
-  --env-file .env.production \
-  -p 3000:3000 \
-  --restart unless-stopped \
-  stepup-server:latest
-
-# Cek status
-docker ps
-docker logs stepup-server
-```
-
-Jika menggunakan Redis lokal di VPS:
-
-```bash
-# Jalankan Redis
-docker run -d \
-  --name stepup-redis \
-  --restart unless-stopped \
-  -p 6379:6379 \
-  redis:7-alpine redis-server --requirepass <redis_password>
-```
-
-## 5. Post-Deployment Verification
+## 4. Post-Deployment Verification
 
 Jalankan smoke test setelah deploy:
 
@@ -151,7 +111,7 @@ curl -s "https://<DOMAIN>/api/export/weekly?week_start=2026-06-15" \
 curl -s https://<DOMAIN>/metrics | head -10
 ```
 
-## 6. Setup Reverse Proxy (Nginx)
+## 5. Setup Reverse Proxy (Nginx)
 
 ```nginx
 server {
