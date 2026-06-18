@@ -203,8 +203,21 @@ async function countByGoalIds(goalIds, client) {
   return map;
 }
 
+async function findByUserAndDateRange(userId, startDate, endDate, client) {
+  const result = await db.query(
+    `SELECT title, planned_date, planned_slot, duration_estimate, status
+     FROM tasks
+     WHERE goal_id IN (SELECT id FROM goals WHERE user_id = $1)
+     AND planned_date BETWEEN $2 AND $3
+     ORDER BY planned_date, planned_slot`,
+    [userId, startDate, endDate],
+    client
+  );
+  return result.rows;
+}
+
 module.exports = {
   listByUser, findByGoalIds, findByGoalId, findById,
   findByIdAndUser, create, createMany, update, remove, findByUserAndWeek,
-  findActiveByUser, countByGoalIds,
+  findActiveByUser, countByGoalIds, findByUserAndDateRange,
 };

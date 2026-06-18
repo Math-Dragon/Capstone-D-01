@@ -1,52 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
-const repos = require('../repositories');
+const { z } = require('zod');
 const { authenticate } = require('../middleware/authenticate');
-const { getISOWeek } = require('../utils/week');
+const { validate } = require('../middleware/validate');
+const exportService = require('../services/export.service');
+
+const exportQuerySchema = z.object({
+  week_start: z.string({ required_error: 'Parameter week_start diperlukan' })
+    .date('Format week_start tidak valid. Gunakan YYYY-MM-DD'),
+});
 
 router.use(authenticate);
 
-router.get('/weekly', async (req, res, next) => {
+router.get('/weekly', validate({ query: exportQuerySchema }), async (req, res, next) => {
   try {
-    const { week_start } = req.query;
-
-    if (!week_start) {
-      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Parameter week_start diperlukan' } });
-    }
-
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(week_start)) {
-      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Format week_start tidak valid. Gunakan YYYY-MM-DD' } });
-    }
-
-    const weekEnd = new Date(week_start);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-
-    const tasksResult = await db.query(
-      `SELECT title, planned_date, planned_slot, duration_estimate, status
-       FROM tasks
-       WHERE goal_id IN (SELECT id FROM goals WHERE user_id = $1)
-       AND planned_date BETWEEN $2 AND $3
-       ORDER BY planned_date, planned_slot`,
-      [req.user.id, week_start, weekEnd.toISOString().split('T')[0]]
-    );
-
-    const week = getISOWeek(week_start);
-    const progress = await repos.progress.findByUserAndWeek(req.user.id, week);
-
-    res.json({
-      success: true,
-      data: {
-        week: week_start,
-        summary: {
-          planned_hours: progress?.planned_hours || 0,
-          completed_hours: progress?.completed_hours || 0,
-          completion_rate: progress?.completion_rate || 0,
-        },
-        tasks: tasksResult.rows,
-        exported_at: new Date().toISOString(),
-      },
-    });
+    const data = await exportService.getWeeklyExport(req.user.id, req.query.week_start);
+    res.json({ success: true, data });
   } catch (err) {
     next(err);
   }
