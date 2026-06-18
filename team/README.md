@@ -36,6 +36,76 @@ Project ini dibuat untuk membantu user yang punya target belajar, tetapi kesulit
 | Testing | Jest, Vitest, Supertest, Testing Library |
 | Infrastructure | Docker Compose, GitHub Actions |
 
+## Arsitektur
+
+```
+┌─────────────────────────────────────────┐
+│  Browser (React 19 + Vite)              │
+│  Redux Toolkit, React Router, Recharts  │
+└────────────────┬────────────────────────┘
+                 │ HTTPS
+┌────────────────▼────────────────────────┐
+│  Nginx Reverse Proxy                    │
+│  Static files + API proxy               │
+└────────────────┬────────────────────────┘
+                 │
+┌────────────────▼────────────────────────┐
+│  Express API (Node.js 22)              │
+│  Zod validation, JWT auth, Helmet      │
+│  ┌──────────────────────────────────┐   │
+│  │  Services Layer                  │   │
+│  │  auth • goals • tasks • progress  │   │
+│  │  AI (Gemini) • coach • scheduler │   │
+│  │  circuit breaker • events        │   │
+│  └──────────────────────────────────┘   │
+│  ┌──────────────────────────────────┐   │
+│  │  Repository Layer                │   │
+│  │  raw SQL via pg driver           │   │
+│  └──────────────────────────────────┘   │
+└────────┬───────────────────┬────────────┘
+         │                   │
+┌────────▼──────┐   ┌───────▼──────┐
+│  PostgreSQL   │   │    Redis     │
+│  (data store) │   │  (cache +    │
+│  port 5432    │   │  rate limit) │
+└───────────────┘   └──────────────┘
+```
+
+## API Documentation
+
+| Method | Endpoint | Auth | Rate Limit | Deskripsi |
+|--------|----------|------|-----------|-----------|
+| `GET` | `/health` | No | None | Health check (DB, AI status) |
+| `GET` | `/metrics` | Admin key | None | Prometheus metrics |
+| `POST` | `/api/auth/register` | No | Auth | Register user baru |
+| `POST` | `/api/auth/login` | No | Auth | Login, return JWT token |
+| `POST` | `/api/auth/logout` | Yes | Auth | Logout, revoke token |
+| `POST` | `/api/auth/refresh` | Cookie | Auth | Refresh access token |
+| `GET` | `/api/goals` | Yes | General | List semua goal user |
+| `POST` | `/api/goals` | Yes | General | Buat goal baru |
+| `GET` | `/api/goals/:id` | Yes | General | Detail goal + tasks |
+| `PATCH` | `/api/goals/:id` | Yes | General | Update goal |
+| `DELETE` | `/api/goals/:id` | Yes | General | Hapus goal |
+| `GET` | `/api/tasks` | Yes | General | List tasks (filter: week_start, status) |
+| `POST` | `/api/tasks` | Yes | General | Buat task manual |
+| `GET` | `/api/tasks/:id` | Yes | General | Detail task |
+| `PUT` | `/api/tasks/:id` | Yes | General | Update task |
+| `PATCH` | `/api/tasks/:id/status` | Yes | General | Update status task (todo, in_progress, done, skipped) |
+| `PATCH` | `/api/tasks/:id/reschedule` | Yes | General | Reschedule task ke hari/slot lain |
+| `DELETE` | `/api/tasks/:id` | Yes | General | Hapus task |
+| `POST` | `/api/ai/plan/suggest` | Yes | AI | Generate rekomendasi rencana belajar |
+| `POST` | `/api/ai/chat` | Yes | AI | Chat dengan AI learning coach |
+| `POST` | `/api/ai/plan/accept` | Yes | AI | Accept rekomendasi AI → tasks dibuat |
+| `POST` | `/api/ai/plan/reject` | Yes | AI | Reject rekomendasi AI |
+| `GET` | `/api/progress` | Yes | General | Progress snapshots (ISO week) |
+| `GET` | `/api/progress/trend` | Yes | General | Trend completion rate (multi-week) |
+| `POST` | `/api/coach/check-in` | Yes | General | Daily check-in (mood, kondisi) |
+| `GET` | `/api/coach/status` | Yes | General | Status coach hari ini |
+| `POST` | `/api/coach/request` | Yes | AI | Request saran/rekomendasi dari coach |
+| `POST` | `/api/coach/request/:id/decide` | Yes | General | Accept/reject saran coach |
+| `GET` | `/api/admin` | Yes + Admin | General | Admin metrics dashboard |
+| `GET` | `/api/export/weekly` | Yes | General | Export data mingguan (JSON) |
+
 ## Struktur Project
 
 ```text
@@ -110,6 +180,19 @@ URL lokal:
 - Frontend: `http://127.0.0.1:5173`
 - Backend: `http://localhost:3000`
 - Health check: `http://localhost:3000/health`
+
+## Deployment
+
+Lihat panduan lengkap di [docs/deployment.md](docs/deployment.md) yang mencakup:
+
+- Production environment variables
+- Docker production image build (multi-stage, non-root, healthcheck)
+- Database migration di production
+- Nginx reverse proxy + SSL (Certbot)
+- Post-deployment smoke test
+- Staging environment setup
+- Zero-downtime deployment (blue-green strategy)
+- Rollback plan
 
 ## Panduan Singkat User Baru
 
@@ -211,6 +294,9 @@ Ringkasan:
 
 - [Problem Framing](docs/problem-framing.md)
 - [AI Gemini Readiness](docs/ai-gemini-readiness.md)
+- [Deployment Guide](docs/deployment.md)
+- [Contributing Guide](../CONTRIBUTING.md)
+- [Architecture Decision Records](docs/adr)
 - [Task & AI TC-03 sampai TC-07](docs/task-ai-management-tc03-tc07-summary.md)
 - [Task & AI TC-08 sampai TC-12](docs/task-ai-management-tc08-tc12-summary.md)
 - [Performance & Security TC-10 sampai TC-24](docs/performance-security-tc10-tc24-summary.md)
@@ -218,7 +304,6 @@ Ringkasan:
 - [Test Data Cleanup](docs/test-data-cleanup.md)
 - [Test Data Cleanup Run Report](docs/test-data-cleanup-run-report.md)
 - [Deployment Readiness Checklist](docs/deployment-readiness-checklist.md)
-- [Architecture Decision Records](docs/adr)
 
 ## CI Pipeline
 
