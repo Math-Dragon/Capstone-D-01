@@ -1,3 +1,9 @@
+jest.mock('../../src/utils/logger', () => ({
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+}));
+
 const repos = require('../../src/repositories');
 
 jest.mock('../../src/repositories', () => ({
@@ -10,7 +16,7 @@ jest.mock('../../src/repositories', () => ({
     findByUserAndWeek: jest.fn(),
     listByUser: jest.fn(),
   },
-  progress: { upsert: jest.fn() },
+  progress: { findByUserAndWeek: jest.fn(), upsert: jest.fn() },
   studentMetrics: {
     findByUserId: jest.fn(),
     computeRollingMetrics: jest.fn(),
@@ -18,12 +24,15 @@ jest.mock('../../src/repositories', () => ({
   },
 }));
 
-jest.mock('../../src/utils/taskEvents', () => ({
-  emitTaskCompleted: jest.fn(),
-}));
+jest.mock('../../src/services/events', () => {
+  const EventEmitter = require('events');
+  const emitter = new EventEmitter();
+  jest.spyOn(emitter, 'emit');
+  return emitter;
+});
 
 const taskService = require('../../src/services/task.service');
-const { emitTaskCompleted } = require('../../src/utils/taskEvents');
+const appEvents = require('../../src/services/events');
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -250,6 +259,7 @@ describe('taskService.updateStatus', () => {
     repos.task.update.mockReset();
     repos.task.findByUserAndWeek.mockReset();
     repos.progress.upsert.mockReset();
+    repos.progress.findByUserAndWeek.mockReset();
     repos.studentMetrics.findByUserId.mockReset();
     repos.studentMetrics.computeRollingMetrics.mockReset();
     repos.studentMetrics.upsert.mockReset();
@@ -276,7 +286,7 @@ describe('taskService.updateStatus', () => {
       total_completed: 6,
       consecutive_skips: 0,
     }));
-    expect(emitTaskCompleted).toHaveBeenCalledWith('u1', expect.any(String));
+    expect(appEvents.emit).toHaveBeenCalledWith('task:completed', { userId: 'u1', taskId: expect.any(String) });
   });
 
   test('todo → done: uses provided actual_duration', async () => {
@@ -290,7 +300,7 @@ describe('taskService.updateStatus', () => {
     await taskService.updateStatus('u1', 't1', 'done', { actual_duration: 45 });
 
     expect(repos.task.update).toHaveBeenCalledWith('t1', expect.objectContaining({ actual_duration: 45 }));
-    expect(emitTaskCompleted).toHaveBeenCalledWith('u1', 't1');
+    expect(appEvents.emit).toHaveBeenCalledWith('task:completed', { userId: 'u1', taskId: 't1' });
   });
 
   test('todo → skipped: updates status, sets skip_reason, updates metrics', async () => {
@@ -312,7 +322,7 @@ describe('taskService.updateStatus', () => {
       total_skipped: 4,
       consecutive_skips: 2,
     }));
-    expect(emitTaskCompleted).not.toHaveBeenCalled();
+    expect(appEvents.emit).not.toHaveBeenCalledWith('task:completed', expect.any(Object));
   });
 
   test('done → todo: throws INVALID_TRANSITION', async () => {
@@ -320,7 +330,7 @@ describe('taskService.updateStatus', () => {
 
     await expect(taskService.updateStatus('u1', 't1', 'todo', {}))
       .rejects.toMatchObject({ statusCode: 400, code: 'INVALID_TRANSITION' });
-    expect(emitTaskCompleted).not.toHaveBeenCalled();
+    expect(appEvents.emit).not.toHaveBeenCalledWith('task:completed', expect.any(Object));
   });
 
   test('task not found: throws 404', async () => {
@@ -328,7 +338,7 @@ describe('taskService.updateStatus', () => {
 
     await expect(taskService.updateStatus('u1', 't1', 'done', {}))
       .rejects.toMatchObject({ statusCode: 404 });
-    expect(emitTaskCompleted).not.toHaveBeenCalled();
+    expect(appEvents.emit).not.toHaveBeenCalledWith('task:completed', expect.any(Object));
   });
 
   test('recalculates progress when planned_date exists', async () => {
@@ -342,7 +352,7 @@ describe('taskService.updateStatus', () => {
     await taskService.updateStatus('u1', 't1', 'done', {});
 
     expect(repos.progress.upsert).toHaveBeenCalled();
-    expect(emitTaskCompleted).toHaveBeenCalledWith('u1', 't1');
+    expect(appEvents.emit).toHaveBeenCalledWith('task:completed', { userId: 'u1', taskId: 't1' });
   });
 
   test('in_progress → done: valid transition', async () => {
@@ -355,6 +365,72 @@ describe('taskService.updateStatus', () => {
 
     const result = await taskService.updateStatus('u1', 't1', 'done', {});
     expect(result.status).toBe('done');
-    expect(emitTaskCompleted).toHaveBeenCalledWith('u1', 't1');
+    expect(appEvents.emit).toHaveBeenCalledWith('task:completed', { userId: 'u1', taskId: 't1' });
+  });
+
+  describe('milestone check (inline from taskEvents)', () => {
+    beforeEach(() => {
+      repos.task.findByIdAndUser.mockResolvedValue(todoTask);
+      repos.task.update.mockResolvedValue({ ...todoTask, status: 'done' });
+      repos.studentMetrics.findByUserId.mockResolvedValue({});
+      repos.studentMetrics.computeRollingMetrics.mockResolvedValue({});
+      repos.task.findByUserAndWeek.mockResolvedValue([]);
+      repos.progress.upsert.mockResolvedValue({});
+    });
+
+    test('emits milestone:reached when completion_rate >= 1.0', async () => {
+      repos.progress.findByUserAndWeek.mockResolvedValue({ completion_rate: '1.0' });
+
+      await taskService.updateStatus('u1', 't1', 'done', {});
+
+      expect(appEvents.emit).toHaveBeenCalledWith('milestone:reached', expect.objectContaining({
+        userId: 'u1',
+        milestone: expect.stringMatching(/^week_\d{4}-W\d{2}_complete$/),
+      }));
+    });
+
+    test('emits milestone:reached when completion_rate > 1.0', async () => {
+      repos.progress.findByUserAndWeek.mockResolvedValue({ completion_rate: '2.0' });
+
+      await taskService.updateStatus('u1', 't1', 'done', {});
+
+      expect(appEvents.emit).toHaveBeenCalledWith('milestone:reached', expect.any(Object));
+    });
+
+    test('does not emit milestone when completion_rate < 1.0', async () => {
+      repos.progress.findByUserAndWeek.mockResolvedValue({ completion_rate: '0.75' });
+
+      await taskService.updateStatus('u1', 't1', 'done', {});
+
+      const milestoneCalls = appEvents.emit.mock.calls.filter(
+        call => call[0] === 'milestone:reached'
+      );
+      expect(milestoneCalls.length).toBe(0);
+    });
+
+    test('does not emit milestone when progress is null', async () => {
+      repos.progress.findByUserAndWeek.mockResolvedValue(null);
+
+      await taskService.updateStatus('u1', 't1', 'done', {});
+
+      const milestoneCalls = appEvents.emit.mock.calls.filter(
+        call => call[0] === 'milestone:reached'
+      );
+      expect(milestoneCalls.length).toBe(0);
+    });
+
+    test('handles progress repo errors gracefully — still emits task:completed', async () => {
+      repos.progress.findByUserAndWeek.mockRejectedValue(new Error('DB error'));
+
+      await taskService.updateStatus('u1', 't1', 'done', {});
+
+      expect(appEvents.emit).toHaveBeenCalledWith('task:completed', { userId: 'u1', taskId: 't1' });
+    });
+
+    test('does not throw when progress repo fails', async () => {
+      repos.progress.findByUserAndWeek.mockRejectedValue(new Error('DB error'));
+
+      await expect(taskService.updateStatus('u1', 't1', 'done', {})).resolves.toBeDefined();
+    });
   });
 });

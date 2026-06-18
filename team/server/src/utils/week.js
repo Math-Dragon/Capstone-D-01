@@ -8,4 +8,8 @@ function getISOWeek(date) {
   return `${year}-W${String(weekNo).padStart(2, '0')}`;
 }
 
-module.exports = { getISOWeek };
+function getCurrentWeek() {
+  return getISOWeek(new Date().toISOString().split('T')[0]);
+}
+
+module.exports = { getISOWeek, getCurrentWeek };
