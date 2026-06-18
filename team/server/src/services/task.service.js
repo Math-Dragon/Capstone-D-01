@@ -1,5 +1,6 @@
 const repos = require('../repositories');
 const { VALID_TRANSITIONS } = require('../models/task.model');
+const { emitTaskCompleted } = require('../utils/taskEvents');
 
 class TaskService {
   async list(userId, filters = {}) {
@@ -111,6 +112,10 @@ class TaskService {
 
     if (updated.planned_date) {
       await this.recalculateProgress(userId, updated);
+    }
+
+    if (status === 'done') {
+      await emitTaskCompleted(userId, updated.id);
     }
 
     return updated;

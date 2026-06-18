@@ -18,7 +18,12 @@ jest.mock('../../src/repositories', () => ({
   },
 }));
 
+jest.mock('../../src/utils/taskEvents', () => ({
+  emitTaskCompleted: jest.fn(),
+}));
+
 const taskService = require('../../src/services/task.service');
+const { emitTaskCompleted } = require('../../src/utils/taskEvents');
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -271,6 +276,7 @@ describe('taskService.updateStatus', () => {
       total_completed: 6,
       consecutive_skips: 0,
     }));
+    expect(emitTaskCompleted).toHaveBeenCalledWith('u1', expect.any(String));
   });
 
   test('todo → done: uses provided actual_duration', async () => {
@@ -284,6 +290,7 @@ describe('taskService.updateStatus', () => {
     await taskService.updateStatus('u1', 't1', 'done', { actual_duration: 45 });
 
     expect(repos.task.update).toHaveBeenCalledWith('t1', expect.objectContaining({ actual_duration: 45 }));
+    expect(emitTaskCompleted).toHaveBeenCalledWith('u1', 't1');
   });
 
   test('todo → skipped: updates status, sets skip_reason, updates metrics', async () => {
@@ -305,6 +312,7 @@ describe('taskService.updateStatus', () => {
       total_skipped: 4,
       consecutive_skips: 2,
     }));
+    expect(emitTaskCompleted).not.toHaveBeenCalled();
   });
 
   test('done → todo: throws INVALID_TRANSITION', async () => {
@@ -312,6 +320,7 @@ describe('taskService.updateStatus', () => {
 
     await expect(taskService.updateStatus('u1', 't1', 'todo', {}))
       .rejects.toMatchObject({ statusCode: 400, code: 'INVALID_TRANSITION' });
+    expect(emitTaskCompleted).not.toHaveBeenCalled();
   });
 
   test('task not found: throws 404', async () => {
@@ -319,6 +328,7 @@ describe('taskService.updateStatus', () => {
 
     await expect(taskService.updateStatus('u1', 't1', 'done', {}))
       .rejects.toMatchObject({ statusCode: 404 });
+    expect(emitTaskCompleted).not.toHaveBeenCalled();
   });
 
   test('recalculates progress when planned_date exists', async () => {
@@ -332,6 +342,7 @@ describe('taskService.updateStatus', () => {
     await taskService.updateStatus('u1', 't1', 'done', {});
 
     expect(repos.progress.upsert).toHaveBeenCalled();
+    expect(emitTaskCompleted).toHaveBeenCalledWith('u1', 't1');
   });
 
   test('in_progress → done: valid transition', async () => {
@@ -344,5 +355,6 @@ describe('taskService.updateStatus', () => {
 
     const result = await taskService.updateStatus('u1', 't1', 'done', {});
     expect(result.status).toBe('done');
+    expect(emitTaskCompleted).toHaveBeenCalledWith('u1', 't1');
   });
 });
