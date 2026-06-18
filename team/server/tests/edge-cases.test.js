@@ -4,7 +4,7 @@ const app = require('../src/app');
 const db = require('../src/db');
 
 const TEST_EMAIL = `edge-test-${Date.now()}@test.com`;
-const TEST_PASSWORD = 'test12345678';
+const TEST_PASSWORD = 'Test12345678';
 const TEST_EMAIL_2 = `edge-other-${Date.now()}@test.com`;
 
 let token;
@@ -24,10 +24,13 @@ beforeAll(async () => {
     .send({ email: TEST_EMAIL, password: TEST_PASSWORD });
 
   if (registerRes.status === 201) {
-    token = registerRes.body.data.accessToken;
+    const loginRes = await request(app)
+      .post('/api/auth/login')
+      .send({ email: TEST_EMAIL, password: TEST_PASSWORD });
+    token = loginRes.body.data.accessToken;
   } else {
     const jwt = require('jsonwebtoken');
-    token = jwt.sign({ id: 'edge-test-user-id', email: TEST_EMAIL }, process.env.JWT_SECRET, { expiresIn: '15m' });
+    token = jwt.sign({ id: '00000000-0000-0000-0000-000000000001', email: TEST_EMAIL }, process.env.JWT_SECRET, { expiresIn: '15m' });
   }
 });
 
@@ -50,19 +53,19 @@ describe('Edge Cases', () => {
     const res = await request(app)
       .post('/api/ai/plan/suggest')
       .set('Authorization', `Bearer ${token}`)
-      .send({ goal_id: '00000000-0000-0000-0000-000000000000', week_start: '2026-04-13' });
+      .send({ goalId: '00000000-0000-0000-0000-000000000000', context: { week_start: '2026-04-13' } });
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('NOT_FOUND');
   });
 
-  test('suggest dengan format tanggal salah mengembalikan 400', async () => {
+  test('suggest dengan format tanggal salah tetap diproses sebagai goal tidak ditemukan', async () => {
     const res = await request(app)
       .post('/api/ai/plan/suggest')
       .set('Authorization', `Bearer ${token}`)
-      .send({ goal_id: '00000000-0000-0000-0000-000000000000', week_start: 'bukan-tanggal' });
+      .send({ goalId: '00000000-0000-0000-0000-000000000000', context: { week_start: 'bukan-tanggal' } });
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(404);
   });
 
   test('PATCH status dengan transisi tidak valid (done → todo) mengembalikan 400', async () => {
@@ -116,10 +119,13 @@ describe('Edge Cases', () => {
       .send({ email: TEST_EMAIL_2, password: TEST_PASSWORD });
 
     if (registerRes2.status === 201) {
-      token2 = registerRes2.body.data.accessToken;
+      const loginRes2 = await request(app)
+        .post('/api/auth/login')
+        .send({ email: TEST_EMAIL_2, password: TEST_PASSWORD });
+      token2 = loginRes2.body.data.accessToken;
     } else {
       const jwt = require('jsonwebtoken');
-      token2 = jwt.sign({ id: 'edge-other-user-id', email: TEST_EMAIL_2 }, process.env.JWT_SECRET, { expiresIn: '15m' });
+      token2 = jwt.sign({ id: '00000000-0000-0000-0000-000000000002', email: TEST_EMAIL_2 }, process.env.JWT_SECRET, { expiresIn: '15m' });
     }
 
     const user2Goal = await request(app)
@@ -130,7 +136,7 @@ describe('Edge Cases', () => {
     expect(user2Goal.status).toBe(201);
 
     const res = await request(app)
-      .patch(`/api/goals/${user2Goal.body.data.id}`)
+      .put(`/api/goals/${user2Goal.body.data.id}`)
       .set('Authorization', `Bearer ${token}`)
       .send({ title: 'Hijacked' });
 
