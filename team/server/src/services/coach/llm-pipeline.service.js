@@ -148,8 +148,18 @@ async function callLLM(ctx, isChat) {
       if (isChat) {
         return { validated: { message: 'Maaf, saya sedang mengalami gangguan. Coba lagi sebentar.', plan: null }, llmMeta };
       }
-      err._llmMeta = llmMeta;
-      throw err;
+      const mappedError = err.name === 'AbortError'
+        ? Object.assign(new Error('AI request timed out. Please try again.'), {
+          code: 'AI_TIMEOUT',
+          statusCode: 504,
+        })
+        : Object.assign(new Error('AI service is temporarily unavailable. Please try again in a moment.'), {
+          code: 'AI_UNAVAILABLE',
+          statusCode: 503,
+          originalError: err.message,
+        });
+      mappedError._llmMeta = llmMeta;
+      throw mappedError;
     }
 
     const durationMs = Date.now() - start;
