@@ -51,7 +51,7 @@ function setIsMock(value) {
 }
 
 function isRetryable(err) {
-  if (err.name === 'AbortError') return false;
+  if (err.name === 'AbortError') return true;
   if (err.code === 'AI_OUTPUT_INVALID') return false;
   if (err.statusCode === 401 || err.statusCode === 403) return false;
   if (err.message?.includes('API key')) return false;

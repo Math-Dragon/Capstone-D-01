@@ -19,61 +19,63 @@ describe('coach llm pipeline provider error mapping', () => {
     jest.clearAllMocks();
   });
 
-  test('maps provider failure to AI_UNAVAILABLE for coach initial plan', async () => {
+  test('falls back to deterministic plan for coach initial plan when provider fails', async () => {
     callWithRetry.mockRejectedValue(new Error('Gemini quota exhausted'));
 
-    await expect(
-      callLLM(
-        {
-          sessionType: 'initial_plan',
-          payload: {
-            goal: { title: 'Belajar React', deadline: '2026-07-15' },
-            profile: { weekly_target_hours: 6, preferred_time: 'morning', availability: ['mon', 'wed'] },
-          },
-          profile: {
-            goal: 'Belajar React',
-            deadline: '2026-07-15',
-            weekly_available_hours: 6,
-            preferred_slots: ['morning'],
-            available_days: ['mon', 'wed'],
-          },
+    const result = await callLLM(
+      {
+        sessionType: 'initial_plan',
+        payload: {
+          goal: { title: 'Belajar React', deadline: '2026-07-15' },
+          profile: { weekly_target_hours: 6, preferred_time: 'morning', availability: ['mon', 'wed'] },
         },
-        false
-      )
-    ).rejects.toMatchObject({
-      code: 'AI_UNAVAILABLE',
-      statusCode: 503,
-      message: 'AI service is temporarily unavailable. Please try again in a moment.',
-    });
+        profile: {
+          goal: 'Belajar React',
+          deadline: '2026-07-15',
+          weekly_available_hours: 6,
+          preferred_slots: ['morning'],
+          available_days: ['mon', 'wed'],
+        },
+      },
+      false
+    );
+
+    expect(result.validated.tasks).toHaveLength(3);
+    expect(result.validated.tasks.map((task) => task.task_type)).toEqual(['acquire', 'practice', 'reflect']);
+    expect(result.validated.summary).toContain('layanan AI kembali stabil');
+    expect(result.llmMeta.fallback_used).toBe('deterministic_initial_plan');
   });
 
-  test('maps abort failure to AI_TIMEOUT for coach initial plan', async () => {
+  test('uses compact prompt and stronger retry settings for coach initial plan', async () => {
     const abortError = new Error('This operation was aborted');
     abortError.name = 'AbortError';
     callWithRetry.mockRejectedValue(abortError);
 
-    await expect(
-      callLLM(
-        {
-          sessionType: 'initial_plan',
-          payload: {
-            goal: { title: 'Belajar React', deadline: '2026-07-15' },
-            profile: { weekly_target_hours: 6, preferred_time: 'morning', availability: ['mon', 'wed'] },
-          },
-          profile: {
-            goal: 'Belajar React',
-            deadline: '2026-07-15',
-            weekly_available_hours: 6,
-            preferred_slots: ['morning'],
-            available_days: ['mon', 'wed'],
-          },
+    await callLLM(
+      {
+        sessionType: 'initial_plan',
+        payload: {
+          goal: { title: 'Belajar React', deadline: '2026-07-15' },
+          profile: { weekly_target_hours: 6, preferred_time: 'morning', availability: ['mon', 'wed'] },
         },
-        false
-      )
-    ).rejects.toMatchObject({
-      code: 'AI_TIMEOUT',
-      statusCode: 504,
-      message: 'AI request timed out. Please try again.',
+        profile: {
+          goal: 'Belajar React',
+          deadline: '2026-07-15',
+          weekly_available_hours: 6,
+          preferred_slots: ['morning'],
+          available_days: ['mon', 'wed'],
+        },
+      },
+      false
+    );
+
+    expect(callWithRetry).toHaveBeenCalled();
+    expect(callWithRetry.mock.calls[0][0]).toContain('Generate exactly 3 tasks');
+    expect(callWithRetry.mock.calls[0][0]).toContain('Keep each rationale explanation under 18 words');
+    expect(callWithRetry.mock.calls[0][1]).toMatchObject({
+      maxRetries: 2,
+      timeoutMs: 35000,
+      label: 'coach.initial_plan',
     });
   });
 
@@ -148,6 +150,8 @@ describe('coach llm pipeline provider error mapping', () => {
 
     expect(result.validated.tasks).toHaveLength(3);
     expect(callWithRetry).toHaveBeenCalledTimes(2);
+    expect(callWithRetry.mock.calls[0][0]).toContain('Generate exactly 3 tasks');
     expect(callWithRetry.mock.calls[1][0]).toContain('Generate exactly 3 tasks');
+    expect(callWithRetry.mock.calls[1][0]).toContain('Latency mitigation: respond with exactly 3 tasks');
   });
 });
