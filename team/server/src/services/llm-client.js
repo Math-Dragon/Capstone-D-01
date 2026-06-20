@@ -4,6 +4,7 @@ const config = require('../config');
 const { withRetry } = require('../utils/retry');
 const { buildGeminiPayload, buildOpenRouterPayload, buildGlmPayload, buildOllamaPayload, extractContent } = require('../utils/converter');
 const logger = require('../utils/logger');
+const breaker = require('./circuitBreaker');
 
 const DEFAULT_TIMEOUT_MS = 30000;
 
@@ -69,147 +70,157 @@ function _genOllamaUrl() {
 }
 
 async function callGemini(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
-  initGemini();
-  const { modelConfig, contentConfig } = buildGeminiPayload(systemPrompt, userMessage, config.geminiModel, temperature);
-  const model = genAI.getGenerativeModel(modelConfig);
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const result = await model.generateContent(contentConfig, { signal: controller.signal });
-    const content = extractContent('gemini', result);
-    const usage = result.response.usageMetadata ? {
-      prompt_tokens: result.response.usageMetadata.promptTokenCount,
-      completion_tokens: result.response.usageMetadata.candidatesTokenCount,
-      total_tokens: result.response.usageMetadata.totalTokenCount,
-    } : null;
-    return { content, usage };
-  } finally {
-    clearTimeout(timeout);
-  }
+  return breaker.execute(async () => {
+    initGemini();
+    const { modelConfig, contentConfig } = buildGeminiPayload(systemPrompt, userMessage, config.geminiModel, temperature);
+    const model = genAI.getGenerativeModel(modelConfig);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const result = await model.generateContent(contentConfig, { signal: controller.signal });
+      const content = extractContent('gemini', result);
+      const usage = result.response.usageMetadata ? {
+        prompt_tokens: result.response.usageMetadata.promptTokenCount,
+        completion_tokens: result.response.usageMetadata.candidatesTokenCount,
+        total_tokens: result.response.usageMetadata.totalTokenCount,
+      } : null;
+      return { content, usage };
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
 }
 
 async function callGeminiPaid(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
-  initGeminiPaid();
-  if (!genAIPaid) throw new Error('Gemini Paid not configured');
-  const { modelConfig, contentConfig } = buildGeminiPayload(systemPrompt, userMessage, config.geminiPaidModel, temperature);
-  const model = genAIPaid.getGenerativeModel(modelConfig);
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const result = await model.generateContent(contentConfig, { signal: controller.signal });
-    const content = extractContent('gemini', result);
-    const usage = result.response.usageMetadata ? {
-      prompt_tokens: result.response.usageMetadata.promptTokenCount,
-      completion_tokens: result.response.usageMetadata.candidatesTokenCount,
-      total_tokens: result.response.usageMetadata.totalTokenCount,
-    } : null;
-    return { content, usage };
-  } finally {
-    clearTimeout(timeout);
-  }
+  return breaker.execute(async () => {
+    initGeminiPaid();
+    if (!genAIPaid) throw new Error('Gemini Paid not configured');
+    const { modelConfig, contentConfig } = buildGeminiPayload(systemPrompt, userMessage, config.geminiPaidModel, temperature);
+    const model = genAIPaid.getGenerativeModel(modelConfig);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const result = await model.generateContent(contentConfig, { signal: controller.signal });
+      const content = extractContent('gemini', result);
+      const usage = result.response.usageMetadata ? {
+        prompt_tokens: result.response.usageMetadata.promptTokenCount,
+        completion_tokens: result.response.usageMetadata.candidatesTokenCount,
+        total_tokens: result.response.usageMetadata.totalTokenCount,
+      } : null;
+      return { content, usage };
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
 }
 
 async function callGlm(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
-  _loadSystemPrompt();
-  const { url, body } = buildGlmPayload(config.glmBaseUrl, systemPrompt, userMessage, config.glmModel, temperature);
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.glmKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-    if (!resp.ok) {
-      const detail = await resp.text();
-      const err = new Error(`GLM ${resp.status}: ${detail}`);
-      err.statusCode = resp.status;
-      throw err;
+  return breaker.execute(async () => {
+    _loadSystemPrompt();
+    const { url, body } = buildGlmPayload(config.glmBaseUrl, systemPrompt, userMessage, config.glmModel, temperature);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.glmKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      if (!resp.ok) {
+        const detail = await resp.text();
+        const err = new Error(`GLM ${resp.status}: ${detail}`);
+        err.statusCode = resp.status;
+        throw err;
+      }
+      const raw = await resp.json();
+      const content = extractContent('glm', raw);
+      if (!content) throw new Error('GLM returned empty content');
+      const usage = raw.usage ? {
+        prompt_tokens: raw.usage.prompt_tokens,
+        completion_tokens: raw.usage.completion_tokens,
+        total_tokens: raw.usage.total_tokens,
+      } : null;
+      return { content, usage };
+    } finally {
+      clearTimeout(timeout);
     }
-    const raw = await resp.json();
-    const content = extractContent('glm', raw);
-    if (!content) throw new Error('GLM returned empty content');
-    const usage = raw.usage ? {
-      prompt_tokens: raw.usage.prompt_tokens,
-      completion_tokens: raw.usage.completion_tokens,
-      total_tokens: raw.usage.total_tokens,
-    } : null;
-    return { content, usage };
-  } finally {
-    clearTimeout(timeout);
-  }
+  });
 }
 
 async function callOpenRouter(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
-  _loadSystemPrompt();
-  const { url, body } = buildOpenRouterPayload(systemPrompt, userMessage, config.openrouterModel, temperature);
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.openrouterKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-    if (!resp.ok) {
-      const detail = await resp.text();
-      const err = new Error(`OpenRouter ${resp.status}: ${detail}`);
-      err.statusCode = resp.status;
-      throw err;
+  return breaker.execute(async () => {
+    _loadSystemPrompt();
+    const { url, body } = buildOpenRouterPayload(systemPrompt, userMessage, config.openrouterModel, temperature);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.openrouterKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      if (!resp.ok) {
+        const detail = await resp.text();
+        const err = new Error(`OpenRouter ${resp.status}: ${detail}`);
+        err.statusCode = resp.status;
+        throw err;
+      }
+      const raw = await resp.json();
+      const content = extractContent('openrouter', raw);
+      if (!content) throw new Error('OpenRouter returned empty content');
+      const usage = raw.usage ? {
+        prompt_tokens: raw.usage.prompt_tokens,
+        completion_tokens: raw.usage.completion_tokens,
+        total_tokens: raw.usage.total_tokens,
+      } : null;
+      return { content, usage };
+    } finally {
+      clearTimeout(timeout);
     }
-    const raw = await resp.json();
-    const content = extractContent('openrouter', raw);
-    if (!content) throw new Error('OpenRouter returned empty content');
-    const usage = raw.usage ? {
-      prompt_tokens: raw.usage.prompt_tokens,
-      completion_tokens: raw.usage.completion_tokens,
-      total_tokens: raw.usage.total_tokens,
-    } : null;
-    return { content, usage };
-  } finally {
-    clearTimeout(timeout);
-  }
+  });
 }
 
 async function callOllama(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
-  _loadSystemPrompt();
-  const { body } = buildOllamaPayload(systemPrompt, userMessage, config.ollamaModel, temperature);
-  const url = _genOllamaUrl();
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-    if (!resp.ok) {
-      const detail = await resp.text();
-      const err = new Error(`Ollama ${resp.status}: ${detail}`);
-      err.statusCode = resp.status;
-      throw err;
+  return breaker.execute(async () => {
+    _loadSystemPrompt();
+    const { body } = buildOllamaPayload(systemPrompt, userMessage, config.ollamaModel, temperature);
+    const url = _genOllamaUrl();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      if (!resp.ok) {
+        const detail = await resp.text();
+        const err = new Error(`Ollama ${resp.status}: ${detail}`);
+        err.statusCode = resp.status;
+        throw err;
+      }
+      const raw = await resp.json();
+      const content = extractContent('ollama', raw);
+      if (!content) throw new Error('Ollama returned empty content');
+      const usage = raw.usage ? {
+        prompt_tokens: raw.usage.prompt_tokens,
+        completion_tokens: raw.usage.completion_tokens,
+        total_tokens: raw.usage.total_tokens,
+      } : null;
+      return { content, usage };
+    } finally {
+      clearTimeout(timeout);
     }
-    const raw = await resp.json();
-    const content = extractContent('ollama', raw);
-    if (!content) throw new Error('Ollama returned empty content');
-    const usage = raw.usage ? {
-      prompt_tokens: raw.usage.prompt_tokens,
-      completion_tokens: raw.usage.completion_tokens,
-      total_tokens: raw.usage.total_tokens,
-    } : null;
-    return { content, usage };
-  } finally {
-    clearTimeout(timeout);
-  }
+  });
 }
 
 async function callWithRetry(userMessage, { maxRetries = 1, label = 'llm', timeoutMs = DEFAULT_TIMEOUT_MS, temperature } = {}) {
