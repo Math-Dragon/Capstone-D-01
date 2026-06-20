@@ -81,6 +81,7 @@ module.exports = {
   ),
   openrouterKey: (process.env.OPENROUTER_API_KEY || '').trim() || null,
   openrouterModel: process.env.OPENROUTER_MODEL || 'qwen/qwen3-next-80b-a3b-instruct:free',
+  llmMaxOutputTokens: parseInt(process.env.LLM_MAX_OUTPUT_TOKENS, 10) || 1200,
   redisUrl: process.env.REDIS_URL,
   allowedOrigins,
   refreshCookieOptions,

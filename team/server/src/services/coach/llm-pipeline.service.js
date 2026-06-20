@@ -126,9 +126,12 @@ async function callLLM(ctx, isChat) {
   let allAttempts = [];
   let totalDuration = 0;
   let retryHint = '';
+  let compactRetry = false;
 
   for (let attempt = 0; attempt <= MAX_BUSINESS_RETRIES; attempt++) {
-    const msg = attempt === 0 ? baseMessage : baseMessage + retryHint;
+    const promptContext = compactRetry ? { ...ctx, compactMode: true } : ctx;
+    const promptBody = compactRetry ? _buildUserMessage(promptContext) : baseMessage;
+    const msg = attempt === 0 ? promptBody : promptBody + retryHint;
 
     const start = Date.now();
     let raw, attempts;
@@ -147,6 +150,11 @@ async function callLLM(ctx, isChat) {
       const llmMeta = { attempts: allAttempts.concat(err.attempts || []), duration_ms: totalDuration + (Date.now() - start) };
       if (isChat) {
         return { validated: { message: 'Maaf, saya sedang mengalami gangguan. Coba lagi sebentar.', plan: null }, llmMeta };
+      }
+      if (attempt < MAX_BUSINESS_RETRIES) {
+        compactRetry = true;
+        retryHint = '\n\n[Latency mitigation: respond with exactly 3 tasks and very short rationale explanations.]';
+        continue;
       }
       const mappedError = err.name === 'AbortError'
         ? Object.assign(new Error('AI request timed out. Please try again.'), {

@@ -1,3 +1,5 @@
+process.env.SKIP_DB_CHECK = 'true';
+
 const { TEMPLATES } = require('../../src/services/coach/templates');
 
 const baseProfile = {
@@ -37,6 +39,12 @@ describe('TEMPLATES.initial_plan', () => {
     const profile = { ...baseProfile, deadline: undefined };
     const result = TEMPLATES.initial_plan({ profile });
     expect(result).toContain('open-ended');
+  });
+
+  test('uses compact prompt when compact mode is enabled', () => {
+    const result = TEMPLATES.initial_plan({ profile: baseProfile, compactMode: true });
+    expect(result).toContain('Generate exactly 3 tasks');
+    expect(result).toContain('Keep each rationale explanation under 18 words');
   });
 });
 
