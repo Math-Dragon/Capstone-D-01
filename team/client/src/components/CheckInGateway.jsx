@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import useFocusTrap from '../hooks/useFocusTrap';
 import { useCoach } from '../features/coach/hooks/useCoach';
+import { toDateKey } from '../utils/helpers';
 
 const MOODS = [
   { value: 'great', emoji: '🔥', label: 'Bersemangat' },
@@ -11,7 +12,7 @@ const MOODS = [
 ];
 
 function getToday() {
-  return new Date().toISOString().slice(0, 10);
+  return toDateKey(new Date());
 }
 
 export default function CheckInGateway({ children }) {
