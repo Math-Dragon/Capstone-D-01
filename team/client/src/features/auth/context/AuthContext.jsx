@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setUser, logout as logoutAction, setLoading, setError } from '../../../store/slices/authSlice';
+import { resetGoals } from '../../../store/slices/goalsSlice';
+import { resetObservability } from '../../../store/slices/observabilitySlice';
 import { isPublicAppPath } from '../../../utils/constants';
 import authService from '../services/authService';
 
@@ -99,6 +101,8 @@ export function AuthProvider({ children }) {
       await authService.logout();
     } finally {
       dispatch(logoutAction());
+      dispatch(resetGoals());
+      dispatch(resetObservability());
     }
   };
 
