@@ -1,5 +1,6 @@
 const repos = require('../repositories');
 const { VALID_TRANSITIONS } = require('../models/task.model');
+const webhookService = require('./webhook.service');
 
 class TaskService {
   async list(userId, filters = {}) {
@@ -111,6 +112,15 @@ class TaskService {
 
     if (updated.planned_date) {
       await this.recalculateProgress(userId, updated);
+    }
+
+    if (status === 'done') {
+      await webhookService.publish('task.completed', {
+        userId,
+        taskId: updated.id,
+        goalId: updated.goal_id,
+        completedAt: updated.completed_at,
+      });
     }
 
     return updated;

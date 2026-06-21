@@ -10,20 +10,36 @@ const pool = new Pool({
   connectionTimeoutMillis: 5000,
 });
 
+const SLOW_QUERY_THRESHOLD_MS = 500;
+
 pool.on('error', (err) => {
   logger.error({ err: err.message }, 'Unexpected idle pool error');
 });
 
 async function query(text, params, client) {
   const c = client || pool;
-  if (client) return c.query(text, params);
-
-  return withRetry(() => c.query(text, params), {
+  const start = Date.now();
+  const runQuery = () => c.query(text, params);
+  const result = client
+    ? await runQuery()
+    : await withRetry(runQuery, {
     maxAttempts: 2,
     delayMs: 100,
     shouldRetry: isTransientPgError,
     label: 'db.query',
   });
+
+  const durationMs = Date.now() - start;
+  if (durationMs > SLOW_QUERY_THRESHOLD_MS) {
+    logger.warn({
+      event: 'db_slow_query',
+      duration_ms: durationMs,
+      has_client: !!client,
+      query_preview: String(text).replace(/\s+/g, ' ').trim().slice(0, 160),
+    }, 'Database query exceeded slow-query threshold');
+  }
+
+  return result;
 }
 
 async function withTransaction(fn) {
@@ -57,4 +73,4 @@ async function isHealthy() {
   }
 }
 
-module.exports = { pool, query, withTransaction, isHealthy };
+module.exports = { pool, query, withTransaction, isHealthy, SLOW_QUERY_THRESHOLD_MS };

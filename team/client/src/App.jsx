@@ -22,6 +22,20 @@ const ProgressPage = lazy(() => import('./pages/ProgressPage'));
 const CoachPage = lazy(() => import('./features/coach/components/CoachPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 
+function FeatureProviders({ children }) {
+  return (
+    <GoalsProvider>
+      <CoachProvider>
+        {children}
+      </CoachProvider>
+    </GoalsProvider>
+  );
+}
+
+function withFeatureProviders(children) {
+  return <FeatureProviders>{children}</FeatureProviders>;
+}
+
 function RootPage() {
   const { isAuthenticated } = useAuth();
   return isAuthenticated ? <CheckInGateway><DashboardPage /></CheckInGateway> : <HomePage />;

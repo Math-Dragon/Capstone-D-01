@@ -50,21 +50,23 @@ const GoalCard = memo(function GoalCard({ goal }) {
         <div className="flex items-center justify-between gap-4 text-sm text-primary-400">
           <div className="flex items-center gap-4">
             {goal.deadline && (
-              <span>📅 {new Date(goal.deadline).toLocaleDateString('id-ID')}</span>
+              <span>Deadline: {new Date(goal.deadline).toLocaleDateString('id-ID')}</span>
             )}
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={(e) => { e.stopPropagation(); navigate(`/goals/${goal.id}`); }}
               className="text-xs px-2 py-1 rounded bg-primary-100 text-primary-700 hover:bg-primary-200 transition-colors"
+              aria-label={`Edit goal ${goal.title}`}
             >
-              ✏️ Edit
+              Edit
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); setShowDeleteModal(true); }}
               className="text-xs px-2 py-1 rounded bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+              aria-label={`Hapus goal ${goal.title}`}
             >
-              🗑️ Hapus
+              Hapus
             </button>
           </div>
         </div>

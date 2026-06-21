@@ -1,3 +1,5 @@
+process.env.SKIP_DB_CHECK = 'true';
+
 const {
   buildGeminiPayload,
   buildOaiCompatPayload,
@@ -21,6 +23,15 @@ describe('converter', () => {
       const result = buildGeminiPayload('sys', 'user', 'model-x');
       expect(result.contentConfig.generationConfig).toEqual({ responseMimeType: 'application/json' });
     });
+
+    test('passes max output tokens when provided', () => {
+      const result = buildGeminiPayload('sys', 'user', 'model-x', 0.7, 900);
+      expect(result.contentConfig.generationConfig).toEqual({
+        responseMimeType: 'application/json',
+        temperature: 0.7,
+        maxOutputTokens: 900,
+      });
+    });
   });
 
   describe('buildOaiCompatPayload', () => {
@@ -42,6 +53,11 @@ describe('converter', () => {
     test('builds payload without temperature', () => {
       const result = buildOaiCompatPayload('http://api', 'sys', 'user', 'gpt-4');
       expect(result.body.temperature).toBeUndefined();
+    });
+
+    test('passes max_tokens when provided', () => {
+      const result = buildOaiCompatPayload('http://api', 'sys', 'user', 'gpt-4', 0.5, 700);
+      expect(result.body.max_tokens).toBe(700);
     });
   });
 

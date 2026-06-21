@@ -16,26 +16,54 @@ for (const p of envPaths) {
 }
 
 const llmProvider = process.env.LLM_PROVIDER || 'gemini';
+const nodeEnv = process.env.NODE_ENV || 'development';
+const isProduction = nodeEnv === 'production';
 
 const ollamaBaseUrl = (process.env.OLLAMA_BASE_URL || 'http://localhost:11434').replace(/\/+$/, '');
 const ollamaModel = (process.env.OLLAMA_MODEL || '').trim();
 
+const providerRequirements = {
+  gemini: ['GEMINI_API_KEY'],
+  mock: [],
+  ollama: ['OLLAMA_MODEL'],
+  openrouter: ['OPENROUTER_API_KEY'],
+  glm: ['GLM_API_KEY'],
+};
+
+if (!Object.prototype.hasOwnProperty.call(providerRequirements, llmProvider)) {
+  throw new Error(`Unsupported LLM_PROVIDER: ${llmProvider}`);
+}
+
 const required = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET'];
-if (llmProvider === 'gemini') {
-  required.push('GEMINI_API_KEY');
+required.push(...providerRequirements[llmProvider]);
+if (isProduction) {
+  required.push('ALLOWED_ORIGINS');
+  required.push('REDIS_URL');
 }
 for (const key of required) {
   if (!process.env[key]) {
-    process.stderr.write(`Missing required env: ${key}\n`);
-    process.exit(1);
+    throw new Error(`Missing required env: ${key}`);
   }
 }
 
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:5173')
-  .split(',').map(s => s.trim());
+const defaultAllowedOrigins = 'http://localhost:3000,http://localhost:5173';
+const allowedOrigins = (isProduction ? process.env.ALLOWED_ORIGINS : (process.env.ALLOWED_ORIGINS || defaultAllowedOrigins))
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+const refreshCookieOptions = {
+  httpOnly: true,
+  secure: isProduction,
+  sameSite: isProduction ? 'none' : 'strict',
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+};
+
+const aiConfigured = providerRequirements[llmProvider].every((key) => !!process.env[key]);
 
 module.exports = {
-  nodeEnv: process.env.NODE_ENV || 'development',
+  nodeEnv,
+  isProduction,
   port: parseInt(process.env.PORT, 10) || 3000,
   databaseUrl: process.env.DATABASE_URL,
   jwtSecret: process.env.JWT_SECRET,
@@ -59,8 +87,11 @@ module.exports = {
   ),
   openrouterKey: (process.env.OPENROUTER_API_KEY || '').trim() || null,
   openrouterModel: process.env.OPENROUTER_MODEL || 'qwen/qwen3-next-80b-a3b-instruct:free',
+  llmMaxOutputTokens: parseInt(process.env.LLM_MAX_OUTPUT_TOKENS, 10) || 1200,
   redisUrl: process.env.REDIS_URL,
   allowedOrigins,
+  refreshCookieOptions,
+  aiConfigured,
   metricsApiKey: process.env.METRICS_API_KEY || '',
   adminEmails: (process.env.ADMIN_EMAILS || '').split(',').map(s => s.trim()).filter(Boolean),
   firebaseProjectId: process.env.FIREBASE_PROJECT_ID || 'auth-aiweb',

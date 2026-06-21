@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: stepup-team-server
+    runtime: node
+    plan: free
+    rootDir: team/server
+    buildCommand: npm ci
+    startCommand: npm run migrate:up && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash-lite
+      - key: METRICS_API_KEY
+        sync: false

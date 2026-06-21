@@ -1,6 +1,21 @@
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const rawApiUrl = import.meta.env.VITE_API_URL?.trim();
+const productionBuild = import.meta.env.PROD || import.meta.env.MODE === 'production';
+
+export const API_BASE_URL = rawApiUrl || 'http://localhost:3000/api';
+export const IS_PROD = Boolean(productionBuild);
+
+if (IS_PROD && !rawApiUrl) {
+  console.warn('VITE_API_URL is not set for production build');
+}
+
 export const APP_NAME = import.meta.env.VITE_APP_NAME || 'Dicoding AIWeb';
 export const JWT_EXPIRY = import.meta.env.VITE_JWT_EXPIRY || 3600000;
+
+const PUBLIC_APP_PATHS = new Set(['/', '/login', '/register']);
+
+export function isPublicAppPath(pathname = '/') {
+  return PUBLIC_APP_PATHS.has(pathname);
+}
 
 export const ROUTES = {
   HOME: '/',

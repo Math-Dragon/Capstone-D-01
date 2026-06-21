@@ -14,6 +14,7 @@ describe('GET /health', () => {
     expect(res.body.data).toHaveProperty('status');
     expect(res.body.data).toHaveProperty('timestamp');
     expect(res.body.data).toHaveProperty('database');
+    expect(res.body.data.ai.status).toBeDefined();
   });
 });
 

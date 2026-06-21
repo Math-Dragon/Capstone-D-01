@@ -1,3 +1,5 @@
+process.env.SKIP_DB_CHECK = 'true';
+
 jest.mock('../../src/services/llm-client', () => ({
   isMock: false,
   callWithRetry: jest.fn(),

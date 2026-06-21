@@ -1,8 +1,9 @@
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-function buildGeminiPayload(systemPrompt, userMessage, model, temperature) {
+function buildGeminiPayload(systemPrompt, userMessage, model, temperature, maxOutputTokens) {
   const generationConfig = { responseMimeType: 'application/json' };
   if (temperature !== undefined) generationConfig.temperature = temperature;
+  if (maxOutputTokens !== undefined) generationConfig.maxOutputTokens = maxOutputTokens;
   return {
     modelConfig: {
       model,
@@ -15,7 +16,7 @@ function buildGeminiPayload(systemPrompt, userMessage, model, temperature) {
   };
 }
 
-function buildOaiCompatPayload(url, systemPrompt, userMessage, model, temperature) {
+function buildOaiCompatPayload(url, systemPrompt, userMessage, model, temperature, maxOutputTokens) {
   const body = {
     model,
     messages: [
@@ -26,17 +27,18 @@ function buildOaiCompatPayload(url, systemPrompt, userMessage, model, temperatur
     stream: false,
   };
   if (temperature !== undefined) body.temperature = temperature;
+  if (maxOutputTokens !== undefined) body.max_tokens = maxOutputTokens;
   return { url, body };
 }
 
-function buildOpenRouterPayload(systemPrompt, userMessage, model, temperature) {
-  const result = buildOaiCompatPayload(OPENROUTER_BASE_URL, systemPrompt, userMessage, model, temperature);
+function buildOpenRouterPayload(systemPrompt, userMessage, model, temperature, maxOutputTokens) {
+  const result = buildOaiCompatPayload(OPENROUTER_BASE_URL, systemPrompt, userMessage, model, temperature, maxOutputTokens);
   result.body.thinking = { type: 'disabled' };
   return result;
 }
 
-function buildGlmPayload(url, systemPrompt, userMessage, model, temperature) {
-  const result = buildOaiCompatPayload(url, systemPrompt, userMessage, model, temperature);
+function buildGlmPayload(url, systemPrompt, userMessage, model, temperature, maxOutputTokens) {
+  const result = buildOaiCompatPayload(url, systemPrompt, userMessage, model, temperature, maxOutputTokens);
   result.body.thinking = { type: 'disabled' };
   return result;
 }

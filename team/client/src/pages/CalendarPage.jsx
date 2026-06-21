@@ -196,6 +196,7 @@ export default function CalendarPage() {
   const [manualTaskDuration, setManualTaskDuration] = useState(30);
   const [manualTaskSlot, setManualTaskSlot] = useState('morning');
   const [calendarNotice, setCalendarNotice] = useState('');
+  const [exportLoading, setExportLoading] = useState(false);
   const [planAdvice, setPlanAdvice] = useState(null);
   const [aiAdvice, setAiAdvice] = useState('');
   const [aiAdviceLoading, setAiAdviceLoading] = useState(false);
@@ -524,6 +525,26 @@ export default function CalendarPage() {
     loadTasks(undefined, { showLoading: true, clearOnError: true });
   };
 
+  const handleExportCalendar = async () => {
+    setExportLoading(true);
+    try {
+      const blob = typeof api.downloadCalendarExport === 'function'
+        ? await api.downloadCalendarExport()
+        : await api.get('/calendar/export.ics', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'stepup-calendar.ics';
+      link.click();
+      window.URL.revokeObjectURL(url);
+      setCalendarNotice('Kalender berhasil diekspor.');
+    } catch (err) {
+      setCalendarNotice(err.message || 'Gagal mengekspor kalender.');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   const handleCalendarKeyDown = (event, dates, index) => {
     const date = dates[index];
     const focusByIndex = (nextIndex) => {
@@ -638,14 +659,24 @@ export default function CalendarPage() {
               {completedTasks}/{totalTasks} task selesai dalam filter aktif - {unassignedTasks} belum terjadwal
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setManualFormOpen((open) => !open)}
-            disabled={!visibleGoalId}
-            className="btn-secondary text-sm disabled:opacity-50"
-          >
-            Tambah task manual
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={handleExportCalendar}
+              disabled={exportLoading}
+              className="btn-secondary text-sm disabled:opacity-50"
+            >
+              {exportLoading ? 'Mengekspor...' : 'Export Calendar'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setManualFormOpen((open) => !open)}
+              disabled={!visibleGoalId}
+              className="btn-secondary text-sm disabled:opacity-50"
+            >
+              Tambah task manual
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

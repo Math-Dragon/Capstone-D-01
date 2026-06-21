@@ -1,5 +1,12 @@
 const repos = require('../../repositories');
 
+function truncateText(value, maxLength = 180) {
+  if (!value || typeof value !== 'string') return '';
+  const trimmed = value.trim().replace(/\s+/g, ' ');
+  if (trimmed.length <= maxLength) return trimmed;
+  return `${trimmed.slice(0, maxLength - 1)}…`;
+}
+
 async function checkLastMoodDrained(userId) {
   try {
     const dbModule = require('../../db');
@@ -65,16 +72,16 @@ async function buildContext(userId, sessionType, payload) {
     else if (ratio > 0.3) currentLevel = 'intermediate';
   }
 
-  let profileGoal = activeGoal.title || '';
-  let profileSubjects = activeGoal.description || '';
+  let profileGoal = truncateText(activeGoal.title || '', 120);
+  let profileSubjects = truncateText(activeGoal.description || '', 220);
   let profileDeadline = activeGoal.deadline || null;
   let profileWeeklyHours = profile?.weekly_target_hours || 5;
   let profilePreferredSlots = [profile?.preferred_time || 'morning'];
   let profileAvailableDays = profile?.availability || ['mon', 'tue', 'wed', 'thu', 'fri'];
 
   if (payload && payload.goal) {
-    profileGoal = payload.goal.title || profileGoal;
-    profileSubjects = payload.goal.description || profileSubjects;
+    profileGoal = truncateText(payload.goal.title || profileGoal, 120);
+    profileSubjects = truncateText(payload.goal.description || profileSubjects, 220);
     profileDeadline = payload.goal.deadline || profileDeadline;
   }
   if (payload && payload.profile) {
