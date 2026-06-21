@@ -21,6 +21,7 @@ const progressRoutes = require('./routes/progress');
 const coachRoutes = require('./routes/coach');
 const adminRoutes = require('./routes/admin');
 const webhookRoutes = require('./routes/webhooks');
+const exportRoutes = require('./routes/export');
 
 const app = express();
 app.use(cors({
@@ -65,6 +66,7 @@ app.use('/api/progress', generalLimiter, progressRoutes);
 app.use('/api/coach', coachRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/webhooks', authenticate, generalLimiter, webhookRoutes);
+app.use('/api/export', generalLimiter, exportRoutes);
 
 app.use(errorHandler);
 
