@@ -11,20 +11,27 @@ async function checkLastMoodDrained(userId) {
   try {
     const dbModule = require('../../db');
     const result = await dbModule.query(
-      'SELECT last_mood, mood_history FROM student_metrics WHERE user_id = $1',
+      'SELECT last_mood FROM student_metrics WHERE user_id = $1',
       [userId]
     );
     const row = result.rows[0];
     if (!row || row.last_mood !== 'drained') return 0;
-    if (Array.isArray(row.mood_history)) {
-      let count = 1;
-      for (let i = row.mood_history.length - 1; i >= 0; i--) {
-        if (row.mood_history[i] === 'drained') count++;
-        else break;
-      }
-      return count;
+
+    const auditResult = await dbModule.query(
+      `SELECT metadata FROM audit_logs
+       WHERE user_id = $1 AND action = 'COACH_STATIC_CHECKIN'
+       ORDER BY created_at DESC LIMIT 20`,
+      [userId]
+    );
+
+    let count = 1;
+    const pastEntries = auditResult.rows.slice(1);
+    for (const entry of pastEntries) {
+      const metadata = entry.metadata || {};
+      if (metadata.mood === 'drained') count++;
+      else break;
     }
-    return 1;
+    return count;
   } catch {
     return 0;
   }
