@@ -322,7 +322,7 @@ class DispatchService {
 
   async decideTask(userId, recId, taskId, decision, sessionId, overrides) {
     return db.withTransaction(async (client) => {
-      const rec = await repos.aiRec.findByIdAndUserId(recId, userId, client);
+      const rec = await repos.aiRec.findByIdAndUserId(recId, userId, client, { forUpdate: true });
       if (!rec) {
         const err = new Error('Recommendation not found');
         err.status = 404;
