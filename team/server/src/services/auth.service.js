@@ -166,33 +166,47 @@ class AuthService {
       throw err;
     }
 
-    const stored = await repos.refreshToken.findByTokenHash(hashToken(refreshToken));
-    if (!stored) {
-      const err = new Error('Refresh token revoked or expired');
-      err.statusCode = 401;
-      throw err;
-    }
+    return db.withTransaction(async (client) => {
+      const stored = await repos.refreshToken.findByTokenHash(
+        hashToken(refreshToken),
+        client,
+        { forUpdate: true }
+      );
+      if (!stored) {
+        const err = new Error('Refresh token revoked or expired');
+        err.statusCode = 401;
+        throw err;
+      }
 
-    await repos.refreshToken.revokeByTokenHash(hashToken(refreshToken));
+      const revoked = await repos.refreshToken.revokeByTokenHash(
+        hashToken(refreshToken),
+        client
+      );
+      if (!revoked) {
+        const err = new Error('Refresh token already revoked');
+        err.statusCode = 401;
+        throw err;
+      }
 
-    const accessToken = jwt.sign(
-      { id: stored.user_id, email: stored.email },
-      config.jwtSecret,
-      { expiresIn: config.jwtAccessExpiry }
-    );
-    const newRefreshToken = jwt.sign(
-      { id: stored.user_id, jti: crypto.randomUUID() },
-      config.jwtRefreshSecret,
-      { expiresIn: config.jwtRefreshExpiry }
-    );
+      const accessToken = jwt.sign(
+        { id: stored.user_id, email: stored.email },
+        config.jwtSecret,
+        { expiresIn: config.jwtAccessExpiry }
+      );
+      const newRefreshToken = jwt.sign(
+        { id: stored.user_id, jti: crypto.randomUUID() },
+        config.jwtRefreshSecret,
+        { expiresIn: config.jwtRefreshExpiry }
+      );
 
-    await repos.refreshToken.create({
-      user_id: stored.user_id,
-      token_hash: hashToken(newRefreshToken),
-      expires_at: refreshExpiryDate(),
+      await repos.refreshToken.create({
+        user_id: stored.user_id,
+        token_hash: hashToken(newRefreshToken),
+        expires_at: refreshExpiryDate(),
+      }, client);
+
+      return { accessToken, refreshToken: newRefreshToken };
     });
-
-    return { accessToken, refreshToken: newRefreshToken };
   }
 
   async logout(userId, refreshToken) {

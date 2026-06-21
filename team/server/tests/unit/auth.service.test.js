@@ -138,7 +138,7 @@ describe('authService', () => {
         user_id: 'uuid-1',
         email: 'test@example.com',
       });
-      repos.refreshToken.revokeByTokenHash.mockResolvedValue();
+      repos.refreshToken.revokeByTokenHash.mockResolvedValue(true);
       repos.refreshToken.create.mockResolvedValue({});
 
       const result = await authService.refresh(refreshToken);
