@@ -12,7 +12,7 @@ export const createGoal = createAsyncThunk('goals/createGoal', async (payload) =
 });
 
 export const updateGoal = createAsyncThunk('goals/updateGoal', async ({ id, ...data }) => {
-  const result = await api.put(`/goals/${id}`, data);
+  const result = await api.patch(`/goals/${id}`, data);
   return result;
 });
 
