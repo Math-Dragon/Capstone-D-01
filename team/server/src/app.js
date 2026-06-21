@@ -20,6 +20,7 @@ const aiRoutes = require('./routes/ai');
 const progressRoutes = require('./routes/progress');
 const coachRoutes = require('./routes/coach');
 const adminRoutes = require('./routes/admin');
+const webhookRoutes = require('./routes/webhooks');
 
 const app = express();
 app.use(cors({
@@ -63,6 +64,7 @@ app.use('/api/ai', authenticate, aiLimiter, aiRoutes);
 app.use('/api/progress', generalLimiter, progressRoutes);
 app.use('/api/coach', coachRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/webhooks', authenticate, generalLimiter, webhookRoutes);
 
 app.use(errorHandler);
 
