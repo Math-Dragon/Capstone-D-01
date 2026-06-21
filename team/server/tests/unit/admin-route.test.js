@@ -27,7 +27,6 @@ jest.mock('../../src/services/admin.service', () => ({
 
 const request = require('supertest');
 const express = require('express');
-const { validate } = require('../../src/middleware/validate');
 const router = require('../../src/routes/admin');
 
 function createApp() {

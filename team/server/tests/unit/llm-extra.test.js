@@ -1,4 +1,4 @@
-const { validateAIOutput, validateChatOutput, validateWithWarnings, sanitizeContext } = require('../../src/services/llm');
+const { validateAIOutput, validateChatOutput, validateWithWarnings } = require('../../src/services/llm');
 
 describe('validateAIOutput — additional edge cases', () => {
   test('strips markdown code fences from string', () => {

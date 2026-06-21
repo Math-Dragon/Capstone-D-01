@@ -5,7 +5,6 @@ const config = require('../config');
 const { authenticate } = require('../middleware/authenticate');
 const { validate } = require('../middleware/validate');
 const { registerSchema, loginSchema } = require('../models/user.model');
-const config = require('../config');
 
 router.post('/register', validate({ body: registerSchema }), async (req, res, next) => {
   try {
