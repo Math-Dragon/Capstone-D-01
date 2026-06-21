@@ -36,6 +36,12 @@ const aiCostUsdTotal = new promClient.Counter({
   labelNames: ['type', 'status', 'provider', 'model'],
 });
 
+const aiAcceptanceRate = new promClient.Gauge({
+  name: 'ai_acceptance_rate',
+  help: 'Percentage of AI suggestions accepted',
+  labelNames: [],
+});
+
 const DEFAULT_PRICING_USD_PER_1M_TOKENS = {
   gemini: {
     default: { input: 0.075, output: 0.30 },
@@ -151,6 +157,12 @@ function getAIUsageSnapshot() {
   return JSON.parse(JSON.stringify(aiUsageSnapshot));
 }
 
+function updateAcceptanceRate(accepted, rejected) {
+  const total = accepted + rejected;
+  const rate = total > 0 ? (accepted / total) * 100 : 0;
+  aiAcceptanceRate.set(rate);
+}
+
 function resetAIUsageForTests() {
   aiRequestCount.reset();
   aiTokensTotal.reset();
@@ -172,8 +184,10 @@ module.exports = {
   aiRequestCount,
   aiTokensTotal,
   aiCostUsdTotal,
+  aiAcceptanceRate,
   estimateAIUsageCost,
   recordAIUsage,
   getAIUsageSnapshot,
   resetAIUsageForTests,
+  updateAcceptanceRate,
 };

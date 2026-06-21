@@ -117,6 +117,32 @@ class AIService {
           totalTokens: successAttempt.usage.total_tokens,
           latencyMs: successAttempt.duration_ms,
         });
+
+        const llmMeta = {
+          provider: successAttempt.source,
+          model: successAttempt.model || 'unknown',
+          prompt_tokens: successAttempt.usage.prompt_tokens,
+          completion_tokens: successAttempt.usage.completion_tokens,
+          total_tokens: successAttempt.usage.total_tokens,
+          latency_ms: successAttempt.duration_ms,
+        };
+
+        await repos.audit.create({
+          user_id: userContext.user_id,
+          action: 'AI_LLM_CALL',
+          metadata: {
+            type: 'ai.suggestPlan',
+            provider: llmMeta.provider,
+            model: llmMeta.model,
+            input_tokens: llmMeta.prompt_tokens,
+            output_tokens: llmMeta.completion_tokens,
+            total_tokens: llmMeta.total_tokens,
+            latency_ms: llmMeta.latency_ms,
+            status: 'success',
+            llm: llmMeta,
+          },
+          involves_llm: true,
+        });
       }
     } catch (err) {
       if (err.name === 'AbortError') {

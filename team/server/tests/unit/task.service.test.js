@@ -68,6 +68,27 @@ describe('taskService.getById', () => {
   });
 });
 
+describe('taskService.update — reschedule', () => {
+  test('updates planned_date and planned_slot when rescheduling', async () => {
+    repos.task.findByIdAndUser.mockResolvedValue({ id: 't1', status: 'todo', planned_date: '2026-05-04', planned_slot: 'morning' });
+    repos.task.update.mockResolvedValue({ id: 't1', status: 'todo', planned_date: '2026-05-06', planned_slot: 'afternoon' });
+
+    const result = await taskService.update('u1', 't1', { planned_date: '2026-05-06', planned_slot: 'afternoon' });
+
+    expect(result.planned_date).toBe('2026-05-06');
+    expect(result.planned_slot).toBe('afternoon');
+    expect(repos.task.update).toHaveBeenCalledWith('t1', { planned_date: '2026-05-06', planned_slot: 'afternoon' });
+  });
+
+  test('does not recalculate progress when only date changes', async () => {
+    repos.task.findByIdAndUser.mockResolvedValue({ id: 't1', status: 'todo', planned_date: '2026-05-04' });
+    repos.task.update.mockResolvedValue({ id: 't1', status: 'todo', planned_date: '2026-05-06' });
+
+    await taskService.update('u1', 't1', { planned_date: '2026-05-06' });
+    expect(repos.progress.upsert).not.toHaveBeenCalled();
+  });
+});
+
 describe('taskService.update', () => {
   test('sets completed_at when status changes to done', async () => {
     repos.task.findByIdAndUser.mockResolvedValue({ id: 't1', status: 'todo' });
@@ -148,13 +169,42 @@ describe('taskService.recalculateProgress', () => {
     expect(repos.task.findByUserAndWeek).not.toHaveBeenCalled();
   });
 
-  test('handles planned=0 gracefully', async () => {
+  test('handles empty week gracefully', async () => {
     repos.task.findByUserAndWeek.mockResolvedValue([]);
     await taskService.recalculateProgress('u1', { id: 't1', planned_date: '2026-05-04' });
-    expect(repos.progress.upsert).toHaveBeenCalledWith(expect.objectContaining({ completion_rate: 0 }));
+    expect(repos.progress.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      planned_hours: 0,
+      completed_hours: 0,
+      completion_rate: 0,
+    }));
   });
 
-  test('calculates with actual_duration when present', async () => {
+  test('calculates completion_rate from done/total by duration', async () => {
+    repos.task.findByUserAndWeek.mockResolvedValue([
+      { status: 'done', duration_estimate: 60, actual_duration: null },
+      { status: 'todo', duration_estimate: 30, actual_duration: null },
+    ]);
+    repos.progress.upsert.mockResolvedValue({});
+
+    await taskService.recalculateProgress('u1', { id: 't1', planned_date: '2026-05-04' });
+    const call = repos.progress.upsert.mock.calls[0][0];
+    expect(call.planned_hours).toBe(1.5);
+    expect(call.completed_hours).toBe(1);
+    expect(call.completion_rate).toBeCloseTo(0.67, 1);
+  });
+
+  test('completion_rate can exceed 1.0 when actual_duration > estimate', async () => {
+    repos.task.findByUserAndWeek.mockResolvedValue([
+      { status: 'done', duration_estimate: 30, actual_duration: 60 },
+    ]);
+    repos.progress.upsert.mockResolvedValue({});
+
+    await taskService.recalculateProgress('u1', { id: 't1', planned_date: '2026-05-04' });
+    const call = repos.progress.upsert.mock.calls[0][0];
+    expect(call.completion_rate).toBe(2);
+  });
+
+  test('uses actual_duration when present, falls back to estimate', async () => {
     repos.task.findByUserAndWeek.mockResolvedValue([
       { status: 'done', duration_estimate: 30, actual_duration: 25 },
       { status: 'done', duration_estimate: 45, actual_duration: null },
@@ -163,8 +213,34 @@ describe('taskService.recalculateProgress', () => {
 
     await taskService.recalculateProgress('u1', { id: 't1', planned_date: '2026-05-04' });
     const call = repos.progress.upsert.mock.calls[0][0];
-    expect(call.completed_hours).toBeGreaterThan(0);
-    expect(call.planned_hours).toBeGreaterThan(0);
+    expect(call.completed_hours).toBe(1.2);
+    expect(call.planned_hours).toBe(1.3);
+  });
+
+  test('calculates rate from completed/planned by duration', async () => {
+    repos.task.findByUserAndWeek.mockResolvedValue([
+      { status: 'done', duration_estimate: 30, actual_duration: null },
+      { status: 'done', duration_estimate: 45, actual_duration: 40 },
+    ]);
+    repos.progress.upsert.mockResolvedValue({});
+
+    await taskService.recalculateProgress('u1', { id: 't1', planned_date: '2026-05-04' });
+    const call = repos.progress.upsert.mock.calls[0][0];
+    expect(call.completion_rate).toBeCloseTo(0.93, 2);
+  });
+
+  test('ignores non-done tasks in completed_hours', async () => {
+    repos.task.findByUserAndWeek.mockResolvedValue([
+      { status: 'done', duration_estimate: 30, actual_duration: null },
+      { status: 'skipped', duration_estimate: 45, actual_duration: null },
+      { status: 'todo', duration_estimate: 60, actual_duration: null },
+    ]);
+    repos.progress.upsert.mockResolvedValue({});
+
+    await taskService.recalculateProgress('u1', { id: 't1', planned_date: '2026-05-04' });
+    const call = repos.progress.upsert.mock.calls[0][0];
+    expect(call.completed_hours).toBe(0.5);
+    expect(call.planned_hours).toBe(2.3);
   });
 });
 

@@ -19,7 +19,7 @@ const calendarRoutes = require('./routes/calendar');
 const aiRoutes = require('./routes/ai');
 const progressRoutes = require('./routes/progress');
 const coachRoutes = require('./routes/coach');
-const webhookRoutes = require('./routes/webhooks');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 app.use(cors({
@@ -62,7 +62,7 @@ app.use('/api/calendar', generalLimiter, calendarRoutes);
 app.use('/api/ai', authenticate, aiLimiter, aiRoutes);
 app.use('/api/progress', generalLimiter, progressRoutes);
 app.use('/api/coach', coachRoutes);
-app.use('/api/webhooks', generalLimiter, webhookRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.use(errorHandler);
 

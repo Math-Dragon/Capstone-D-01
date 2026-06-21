@@ -1,13 +1,13 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Skeleton, SkeletonCard } from '../components/ui/Skeleton';
 import api from '../services/api';
 import { useAuth } from '../features/auth/hooks/useAuth';
 import { onDataChanged } from '../utils/invalidation';
 
-const focusTypes = ['practice', 'synthesize', 'assess', 'interleave'];
+const DashboardCharts = lazy(() => import('../components/DashboardCharts'));
 
-const PRIORITY_COLORS = { high: '#3b82f6', medium: '#22c55e', low: '#fbbf24' };
+const focusTypes = ['practice', 'synthesize', 'assess', 'interleave'];
 
 function CircularGauge({ pct }) {
   const r = 28;
@@ -174,14 +174,27 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-32" role="status" aria-live="polite">
-        <div className="flex flex-col items-center gap-4">
-          <svg className="animate-spin h-10 w-10 text-primary-500" viewBox="0 0 24 24" aria-hidden="true">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-          </svg>
-          <p className="text-sm text-primary-400 font-medium">Memuat dashboard...</p>
+      <div className="space-y-8" role="status" aria-live="polite" aria-busy="true">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-50 via-white to-accent-50/40 border border-primary-100/60 p-6 sm:p-8">
+          <div className="flex gap-6">
+            <div className="flex-1 space-y-3">
+              <Skeleton className="h-8 w-64" />
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-4 w-56" />
+            </div>
+            <Skeleton variant="circular" className="h-24 w-24" />
+          </div>
         </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+        <div className="grid lg:grid-cols-2 gap-6">
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+        <SkeletonCard />
       </div>
     );
   }
@@ -227,7 +240,7 @@ export default function DashboardPage() {
       </section>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-live="polite" aria-atomic="true">
         {STAT_CARDS.map(stat => (
           <div
             key={stat.label}
@@ -250,111 +263,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Weekly Momentum */}
-        <div className="bg-white rounded-2xl border border-primary-100/80 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="font-bold text-primary-900">Weekly Momentum</h3>
-            <span className="text-[10px] text-primary-400 font-semibold tracking-widest uppercase">
-              Last 7 Days
-            </span>
-          </div>
-          <p className="text-xs text-primary-400 mb-6">Tasks completed per day</p>
-          {totalCount === 0 ? (
-            <div className="flex items-center justify-center h-[220px] rounded-xl bg-primary-50/50" role="status">
-              <div className="text-center">
-                <p className="text-sm text-primary-500">No task data yet</p>
-                <p className="text-xs text-primary-500 mt-1">Tambahkan task agar grafik mingguan bisa dihitung.</p>
-              </div>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={weeklyData} margin={{ top: 4, right: 4, left: -20, bottom: 4 }}>
-                <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#94a3b8', fontWeight: 500 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 12, border: '1px solid #e2e8f0',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 13,
-                  }}
-                  formatter={(value) => [`${value} tasks`, 'Completed']}
-                  cursor={{ fill: '#f1f5f9', radius: 4 }}
-                />
-                <Bar dataKey="count" fill="#06b6d4" radius={[6, 6, 0, 0]} maxBarSize={36} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* Priority Focus */}
-        <div className="bg-white rounded-2xl border border-primary-100/80 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="font-bold text-primary-900">Priority Focus</h3>
-            <span className="text-[10px] text-primary-400 font-semibold tracking-widest uppercase">
-              Importance Ratio
-            </span>
-          </div>
-          <p className="text-xs text-primary-400 mb-6">Task importance ratio</p>
-          {totalCount === 0 ? (
-            <div className="flex items-center justify-center h-[220px] rounded-xl bg-primary-50/50" role="status">
-              <div className="text-center">
-                <p className="text-sm text-primary-500">No task data yet</p>
-                <p className="text-xs text-primary-500 mt-1">Isi prioritas task untuk melihat distribusinya.</p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center">
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={priorityData}
-                    cx="50%" cy="50%"
-                    innerRadius={65}
-                    outerRadius={90}
-                    dataKey="value"
-                    nameKey="name"
-                    paddingAngle={3}
-                  >
-                    {priorityData.map((entry, i) => {
-                      let fill = '#94a3b8';
-                      if (entry.name === 'High') fill = PRIORITY_COLORS.high;
-                      else if (entry.name === 'Medium') fill = PRIORITY_COLORS.medium;
-                      else if (entry.name === 'Low') fill = PRIORITY_COLORS.low;
-                      return <Cell key={i} fill={fill} />;
-                    })}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: 12, border: '1px solid #e2e8f0',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 13,
-                    }}
-                    formatter={(value, name) => [`${value} tasks`, name]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              {priorityData[0]?.name === 'No priority data' ? (
-                <p className="text-sm text-primary-400 -mt-2 bg-primary-50/80 px-4 py-1.5 rounded-full">
-                  No priority data available
-                </p>
-              ) : (
-                <div className="flex gap-6 -mt-2">
-                  {[
-                    { label: 'High', color: PRIORITY_COLORS.high, value: priorityData.find(d => d.name === 'High')?.value || 0 },
-                    { label: 'Medium', color: PRIORITY_COLORS.medium, value: priorityData.find(d => d.name === 'Medium')?.value || 0 },
-                    { label: 'Low', color: PRIORITY_COLORS.low, value: priorityData.find(d => d.name === 'Low')?.value || 0 },
-                  ].map(item => (
-                    <div key={item.label} className="flex items-center gap-2 text-sm">
-                      <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: item.color }} />
-                      <span className="text-primary-700 font-medium">{item.label}</span>
-                      <span className="text-primary-400 tabular-nums">{item.value}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+      <Suspense fallback={<div className="grid lg:grid-cols-2 gap-6"><SkeletonCard /><SkeletonCard /></div>}>
+        <DashboardCharts weeklyData={weeklyData} priorityData={priorityData} totalCount={totalCount} />
+      </Suspense>
 
       {/* Focus Mode Card */}
       <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-warm-50 via-warm-50/80 to-amber-50/60 border border-warm-200 p-6 sm:p-8 shadow-sm">
@@ -394,7 +305,7 @@ export default function DashboardPage() {
       </section>
 
       {/* Up Next Today */}
-      <section className="bg-white rounded-2xl border border-primary-100/80 p-6 shadow-sm">
+      <section className="bg-white rounded-2xl border border-primary-100/80 p-6 shadow-sm" aria-live="polite" aria-atomic="true">
         <div className="flex items-center justify-between mb-1">
           <h3 className="font-bold text-primary-900">Up Next Today</h3>
           <span className="text-[10px] text-primary-400 font-semibold tracking-widest uppercase">

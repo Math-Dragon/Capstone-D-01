@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useCoach } from '../hooks/useCoach';
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import CoachObservability from './CoachObservability';
+import CoachObservabilityDrawer from './CoachObservabilityDrawer';
 import AdaptationBanner from '../../../components/AdaptationBanner';
 import AdjustmentPanel from '../../../components/AdjustmentPanel';
 import RationaleDisplay from '../../../components/RationaleDisplay';
@@ -528,6 +528,7 @@ export default function CoachPage() {
   const { messages, status, sendMessage, generatePlan, retryGeneratePlan, getLastPayload, decideTask, mode, recommendation, error, banner, pipelineTrace, observabilityRefresh, trimmedTasks, dismissTrimmed } = useCoach();
   const [input, setInput] = useState('');
   const [formOpen, setFormOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [adjustmentExpanded, setAdjustmentExpanded] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -541,6 +542,17 @@ export default function CoachPage() {
       navigate(location.pathname, { replace: true });
     }
   }, [searchParams, mode, navigate, location.pathname]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'o' || e.key === 'O')) {
+        e.preventDefault();
+        setDrawerOpen((p) => !p);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -569,7 +581,29 @@ export default function CoachPage() {
   const handleEditForm = () => setFormOpen(true);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-10rem)]">
+    <div className="flex h-[calc(100vh-10rem)]">
+      <div className="flex h-full">
+        <button
+          onClick={() => setDrawerOpen((p) => !p)}
+          className={`w-5 h-full bg-transparent hover:bg-primary-100 transition-colors flex items-center justify-center cursor-pointer group ${!drawerOpen ? 'border-r border-primary-100' : ''}`}
+          aria-label={drawerOpen ? 'Tutup panel observabilitas' : 'Buka panel observabilitas'}
+          title={drawerOpen ? 'Tutup panel observabilitas (Ctrl+Shift+O)' : 'Buka panel observabilitas (Ctrl+Shift+O)'}
+        >
+          <svg
+            className={`w-4 h-4 text-primary-300 group-hover:text-primary-600 transition-all duration-300 ${drawerOpen ? 'rotate-180' : ''}`}
+            fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <CoachObservabilityDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          pipelineTrace={pipelineTrace}
+          onRefresh={observabilityRefresh}
+        />
+      </div>
+      <div className="flex-1 min-w-0 flex flex-col pl-5">
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold text-primary-900 mb-2">AI Learning Coach</h2>
@@ -712,7 +746,8 @@ export default function CoachPage() {
         </div>
       )}
 
-      <CoachObservability pipelineTrace={pipelineTrace} onRefresh={observabilityRefresh} />
+      </div>
+
     </div>
   );
 }

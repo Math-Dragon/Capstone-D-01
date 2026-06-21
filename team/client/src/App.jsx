@@ -1,11 +1,11 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
-import { useSelector } from 'react-redux';
-import { AuthProvider } from './features/auth/context/AuthContext';
+import { AuthProvider, useAuth } from './features/auth/context/AuthContext';
 import { CoachProvider } from './features/coach/context/CoachContext';
 import Layout from './layouts/MainLayout';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 import CheckInGateway from './components/CheckInGateway';
 import { SkeletonList } from './components/ui/Skeleton';
 import { GoalsProvider } from './features/goals/context/GoalsContext';
@@ -20,6 +20,7 @@ const GoalDetailPage = lazy(() => import('./pages/GoalDetailPage'));
 const CalendarPage = lazy(() => import('./pages/CalendarPage'));
 const ProgressPage = lazy(() => import('./pages/ProgressPage'));
 const CoachPage = lazy(() => import('./features/coach/components/CoachPage'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
 
 function FeatureProviders({ children }) {
   return (
@@ -36,15 +37,8 @@ function withFeatureProviders(children) {
 }
 
 function RootPage() {
-  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
-
-  return isAuthenticated
-    ? withFeatureProviders(
-      <CheckInGateway>
-        <DashboardPage />
-      </CheckInGateway>
-    )
-    : <HomePage />;
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? <CheckInGateway><DashboardPage /></CheckInGateway> : <HomePage />;
 }
 
 export default function App() {
@@ -52,77 +46,27 @@ export default function App() {
     <ErrorBoundary>
       <Router>
         <AuthProvider>
-          <ToastProvider>
-            <Suspense fallback={<SkeletonList count={5} />}>
-              <Routes>
-                <Route path="/" element={<Layout />}>
-                  <Route index element={<RootPage />} />
-                  <Route path="login" element={<LoginPage />} />
-                  <Route path="register" element={<RegisterPage />} />
-                  <Route
-                    path="goals"
-                    element={(
-                      <ProtectedRoute>
-                        {withFeatureProviders(
-                          <CheckInGateway>
-                            <GoalsPage />
-                          </CheckInGateway>
-                        )}
-                      </ProtectedRoute>
-                    )}
-                  />
-                  <Route
-                    path="goals/:id"
-                    element={(
-                      <ProtectedRoute>
-                        {withFeatureProviders(
-                          <CheckInGateway>
-                            <GoalDetailPage />
-                          </CheckInGateway>
-                        )}
-                      </ProtectedRoute>
-                    )}
-                  />
-                  <Route
-                    path="calendar"
-                    element={(
-                      <ProtectedRoute>
-                        {withFeatureProviders(
-                          <CheckInGateway>
-                            <CalendarPage />
-                          </CheckInGateway>
-                        )}
-                      </ProtectedRoute>
-                    )}
-                  />
-                  <Route
-                    path="progress"
-                    element={(
-                      <ProtectedRoute>
-                        {withFeatureProviders(
-                          <CheckInGateway>
-                            <ProgressPage />
-                          </CheckInGateway>
-                        )}
-                      </ProtectedRoute>
-                    )}
-                  />
-                  <Route
-                    path="coach"
-                    element={(
-                      <ProtectedRoute>
-                        {withFeatureProviders(
-                          <CheckInGateway>
-                            <CoachPage />
-                          </CheckInGateway>
-                        )}
-                      </ProtectedRoute>
-                    )}
-                  />
-                </Route>
-              </Routes>
-            </Suspense>
-          </ToastProvider>
+          <GoalsProvider>
+            <ToastProvider>
+              <CoachProvider>
+                <Suspense fallback={<SkeletonList count={5} />}>
+                  <Routes>
+                    <Route path="/" element={<Layout />}>
+                      <Route index element={<RootPage />} />
+                      <Route path="login" element={<LoginPage />} />
+                      <Route path="register" element={<RegisterPage />} />
+                      <Route path="goals" element={<ProtectedRoute><CheckInGateway><GoalsPage /></CheckInGateway></ProtectedRoute>} />
+                      <Route path="goals/:id" element={<ProtectedRoute><CheckInGateway><GoalDetailPage /></CheckInGateway></ProtectedRoute>} />
+                      <Route path="calendar" element={<ProtectedRoute><CheckInGateway><CalendarPage /></CheckInGateway></ProtectedRoute>} />
+                      <Route path="progress" element={<ProtectedRoute><CheckInGateway><ProgressPage /></CheckInGateway></ProtectedRoute>} />
+                      <Route path="coach" element={<ProtectedRoute><CheckInGateway><CoachPage /></CheckInGateway></ProtectedRoute>} />
+                      <Route path="admin" element={<AdminRoute><CheckInGateway><AdminPage /></CheckInGateway></AdminRoute>} />
+                    </Route>
+                  </Routes>
+                </Suspense>
+              </CoachProvider>
+            </ToastProvider>
+          </GoalsProvider>
         </AuthProvider>
       </Router>
     </ErrorBoundary>

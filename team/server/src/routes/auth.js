@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authService = require('../services/auth.service');
+const config = require('../config');
 const { authenticate } = require('../middleware/authenticate');
 const { validate } = require('../middleware/validate');
 const { registerSchema, loginSchema } = require('../models/user.model');
@@ -50,7 +51,8 @@ router.post('/refresh', async (req, res, next) => {
 });
 
 router.get('/me', authenticate, (req, res) => {
-  res.json({ success: true, data: req.user });
+  const isAdmin = config.adminEmails.includes(req.user.email);
+  res.json({ success: true, data: { ...req.user, isAdmin } });
 });
 
 router.post('/logout', authenticate, async (req, res, next) => {
