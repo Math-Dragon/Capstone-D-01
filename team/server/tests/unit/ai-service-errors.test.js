@@ -10,7 +10,7 @@ jest.mock('../../src/repositories', () => ({
   user: { findById: jest.fn() },
   profile: { findByUserId: jest.fn() },
   goal: { findByIdAndUserId: jest.fn() },
-  task: { findByGoalId: jest.fn(), createMany: jest.fn() },
+  task: { findByGoalId: jest.fn(), createMany: jest.fn(), findByRecommendationId: jest.fn() },
   cache: { get: jest.fn(), set: jest.fn() },
   aiRec: { create: jest.fn(), findByIdAndUserId: jest.fn(), updateStatus: jest.fn() },
   audit: { create: jest.fn() },
@@ -89,7 +89,7 @@ describe('aiService.acceptRecommendation error branches', () => {
   });
 
   test('throws 409 when already processed', async () => {
-    repos.aiRec.findByIdAndUserId.mockResolvedValue({ id: 'rec1', status: 'accepted', output: { tasks: [] } });
+    repos.aiRec.findByIdAndUserId.mockResolvedValue({ id: 'rec1', status: 'rejected', output: { tasks: [] } });
     await expect(aiService.acceptRecommendation('u1', 'rec1')).rejects.toThrow('already processed');
   });
 });
