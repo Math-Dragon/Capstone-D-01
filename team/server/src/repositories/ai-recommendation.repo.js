@@ -1,7 +1,7 @@
 const db = require('../db');
 
-async function findByIdAndUserId(id, userId, client) {
-  const lock = client ? ' FOR UPDATE' : '';
+async function findByIdAndUserId(id, userId, client, options = {}) {
+  const lock = client && options.forUpdate ? ' FOR UPDATE' : '';
   const result = await db.query(
     `SELECT * FROM ai_recommendations WHERE id = $1 AND user_id = $2${lock}`,
     [id, userId],

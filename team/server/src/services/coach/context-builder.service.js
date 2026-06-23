@@ -1,23 +1,37 @@
 const repos = require('../../repositories');
 
+function truncateText(value, maxLength = 180) {
+  if (!value || typeof value !== 'string') return '';
+  const trimmed = value.trim().replace(/\s+/g, ' ');
+  if (trimmed.length <= maxLength) return trimmed;
+  return `${trimmed.slice(0, maxLength - 1)}…`;
+}
+
 async function checkLastMoodDrained(userId) {
   try {
     const dbModule = require('../../db');
     const result = await dbModule.query(
-      'SELECT last_mood, mood_history FROM student_metrics WHERE user_id = $1',
+      'SELECT last_mood FROM student_metrics WHERE user_id = $1',
       [userId]
     );
     const row = result.rows[0];
     if (!row || row.last_mood !== 'drained') return 0;
-    if (Array.isArray(row.mood_history)) {
-      let count = 1;
-      for (let i = row.mood_history.length - 1; i >= 0; i--) {
-        if (row.mood_history[i] === 'drained') count++;
-        else break;
-      }
-      return count;
+
+    const auditResult = await dbModule.query(
+      `SELECT metadata FROM audit_logs
+       WHERE user_id = $1 AND action = 'COACH_STATIC_CHECKIN'
+       ORDER BY created_at DESC LIMIT 20`,
+      [userId]
+    );
+
+    let count = 1;
+    const pastEntries = auditResult.rows.slice(1);
+    for (const entry of pastEntries) {
+      const metadata = entry.metadata || {};
+      if (metadata.mood === 'drained') count++;
+      else break;
     }
-    return 1;
+    return count;
   } catch {
     return 0;
   }
@@ -65,16 +79,16 @@ async function buildContext(userId, sessionType, payload) {
     else if (ratio > 0.3) currentLevel = 'intermediate';
   }
 
-  let profileGoal = activeGoal.title || '';
-  let profileSubjects = activeGoal.description || '';
+  let profileGoal = truncateText(activeGoal.title || '', 120);
+  let profileSubjects = truncateText(activeGoal.description || '', 220);
   let profileDeadline = activeGoal.deadline || null;
   let profileWeeklyHours = profile?.weekly_target_hours || 5;
   let profilePreferredSlots = [profile?.preferred_time || 'morning'];
   let profileAvailableDays = profile?.availability || ['mon', 'tue', 'wed', 'thu', 'fri'];
 
   if (payload && payload.goal) {
-    profileGoal = payload.goal.title || profileGoal;
-    profileSubjects = payload.goal.description || profileSubjects;
+    profileGoal = truncateText(payload.goal.title || profileGoal, 120);
+    profileSubjects = truncateText(payload.goal.description || profileSubjects, 220);
     profileDeadline = payload.goal.deadline || profileDeadline;
   }
   if (payload && payload.profile) {

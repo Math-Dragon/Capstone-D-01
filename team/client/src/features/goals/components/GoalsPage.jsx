@@ -83,7 +83,7 @@ export default function GoalsPage() {
         </div>
       ) : filteredGoals.length === 0 && goals.length > 0 ? (
         <div className="card p-12 text-center" role="status" aria-live="polite">
-          <div className="text-5xl mb-4">🔍</div>
+          <div className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-primary-400">Filter</div>
           <h3 className="text-xl font-semibold text-primary-900 mb-2">Tidak ada goal yang cocok</h3>
           <p className="text-primary-500 mb-6">Coba ubah kata kunci atau filter status.</p>
           <button
@@ -95,7 +95,7 @@ export default function GoalsPage() {
         </div>
       ) : goals.length === 0 ? (
         <div className="card p-12 text-center" role="status" aria-live="polite">
-          <div className="text-5xl mb-4">🎯</div>
+          <div className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-primary-400">Goals</div>
           <h3 className="text-xl font-semibold text-primary-900 mb-2">Belum ada target belajar</h3>
           <p className="text-primary-500 mb-6">Mulai dengan membuat target belajar pertamamu.</p>
           <button onClick={() => navigate('/coach?create=true')} className="btn-primary">

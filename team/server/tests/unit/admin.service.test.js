@@ -6,25 +6,8 @@ jest.mock('../../src/utils/logger', () => ({ info: jest.fn(), warn: jest.fn(), e
 
 const db = require('../../src/db');
 const repos = require('../../src/repositories');
-const { getAIUsageSnapshot, resetAIUsageForTests, recordAIUsage } = require('../../src/utils/metrics');
+const { resetAIUsageForTests, recordAIUsage } = require('../../src/utils/metrics');
 const { getAdminMetrics } = require('../../src/services/admin.service');
-
-function makeRow(overrides = {}) {
-  return {
-    id: '00000000-0000-0000-0000-000000000000',
-    user_id: 'u1',
-    action: 'COACH_LLM_CALL',
-    metadata: { provider: 'gemini', model: 'gemini-2.0-flash', input_tokens: 100, output_tokens: 50, total_tokens: 150, latency_ms: 500, llm: { prompt_tokens: 100, completion_tokens: 50 } },
-    created_at: '2026-06-01T00:00:00Z',
-    provider: 'gemini',
-    model: 'gemini-2.0-flash',
-    input_tokens: 100,
-    output_tokens: 50,
-    total_tokens: 150,
-    latency_ms: 500,
-    ...overrides,
-  };
-}
 
 function makeDbRow(overrides = {}) {
   return {
@@ -42,7 +25,7 @@ beforeEach(() => {
   resetAIUsageForTests();
   repos.aiRec.computeAllMetrics.mockResolvedValue({ suggested: 10, accepted: 6, rejected: 2, pending: 2 });
 
-  db.query.mockImplementation((sql, params) => {
+  db.query.mockImplementation((sql, _params) => {
     if (sql.includes('COUNT(*)::int AS total')) {
       return Promise.resolve({ rows: [{ total: 1 }] });
     }

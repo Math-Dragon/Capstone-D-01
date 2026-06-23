@@ -1,4 +1,10 @@
+process.env.SKIP_DB_CHECK = 'true';
+
 const repos = require('../../src/repositories');
+
+jest.mock('../../src/services/webhook.service', () => ({
+  publish: jest.fn(),
+}));
 
 jest.mock('../../src/repositories', () => ({
   goal: { findByIdAndUserId: jest.fn() },
@@ -19,6 +25,7 @@ jest.mock('../../src/repositories', () => ({
 }));
 
 const taskService = require('../../src/services/task.service');
+const webhookService = require('../../src/services/webhook.service');
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -271,6 +278,10 @@ describe('taskService.updateStatus', () => {
       total_completed: 6,
       consecutive_skips: 0,
     }));
+    expect(webhookService.publish).toHaveBeenCalledWith('task.completed', expect.objectContaining({
+      userId: 'u1',
+      taskId: 't1',
+    }));
   });
 
   test('todo → done: uses provided actual_duration', async () => {
@@ -344,5 +355,40 @@ describe('taskService.updateStatus', () => {
 
     const result = await taskService.updateStatus('u1', 't1', 'done', {});
     expect(result.status).toBe('done');
+  });
+  test('skipped transition does not publish task.completed', async () => {
+    repos.task.findByIdAndUser.mockResolvedValue(todoTask);
+    repos.task.update.mockResolvedValue({ ...todoTask, status: 'skipped' });
+    repos.studentMetrics.findByUserId.mockResolvedValue({ total_skipped: 0, consecutive_skips: 0 });
+    repos.studentMetrics.computeRollingMetrics.mockResolvedValue({});
+    repos.task.findByUserAndWeek.mockResolvedValue([]);
+    repos.progress.upsert.mockResolvedValue({});
+
+    await taskService.updateStatus('u1', 't1', 'skipped', { skip_reason: 'too_hard' });
+
+    expect(webhookService.publish).not.toHaveBeenCalled();
+  });
+
+  test('reschedule updates planned_date and slot without publishing task.completed', async () => {
+    repos.task.findByIdAndUser.mockResolvedValue(todoTask);
+    repos.task.update.mockResolvedValue({
+      ...todoTask,
+      planned_date: '2026-05-06',
+      planned_slot: 'afternoon',
+    });
+    repos.task.findByUserAndWeek.mockResolvedValue([]);
+    repos.progress.upsert.mockResolvedValue({});
+
+    const result = await taskService.reschedule('u1', 't1', {
+      planned_date: '2026-05-06',
+      planned_slot: 'afternoon',
+    });
+
+    expect(result.planned_date).toBe('2026-05-06');
+    expect(repos.task.update).toHaveBeenCalledWith('t1', expect.objectContaining({
+      planned_date: '2026-05-06',
+      planned_slot: 'afternoon',
+    }));
+    expect(webhookService.publish).not.toHaveBeenCalled();
   });
 });

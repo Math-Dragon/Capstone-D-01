@@ -51,7 +51,7 @@ function setIsMock(value) {
 }
 
 function isRetryable(err) {
-  if (err.name === 'AbortError') return false;
+  if (err.name === 'AbortError') return true;
   if (err.code === 'AI_OUTPUT_INVALID') return false;
   if (err.statusCode === 401 || err.statusCode === 403) return false;
   if (err.message?.includes('API key')) return false;
@@ -66,6 +66,24 @@ function _is429(err) {
 
 function _genOllamaUrl() {
   return `${config.ollamaBaseUrl}/v1/chat/completions`;
+}
+
+function getCircuitBreakerState() {
+  const providers = {
+    gemini: _gemini429 ? 'open' : 'closed',
+    geminiPaid: _geminiPaid429 ? 'open' : 'closed',
+    glm: _onCooldown(_glmCooldownUntil) ? 'open' : 'closed',
+    openrouter: _onCooldown(_openrouterCooldownUntil) ? 'open' : 'closed',
+    ollama: 'closed',
+    mock: 'closed',
+  };
+
+  const primaryProvider = isMock ? 'mock' : config.llmProvider;
+  return {
+    status: providers[primaryProvider] || 'closed',
+    provider: primaryProvider,
+    providers,
+  };
 }
 
 async function callGemini(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
@@ -429,5 +447,6 @@ module.exports = {
   DEFAULT_TIMEOUT_MS,
   isRetryable,
   callWithRetry,
+  getCircuitBreakerState,
   validateConnection,
 };

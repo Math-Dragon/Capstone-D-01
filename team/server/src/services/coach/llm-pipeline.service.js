@@ -5,6 +5,77 @@ const logger = require('../../utils/logger');
 const { aiRequestCount } = require('../../utils/metrics');
 const { TEMPLATES, TEMPERATURES } = require('./templates');
 
+function toIsoDate(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function buildFallbackInitialPlan(ctx) {
+  const today = new Date();
+  const preferredSlot = Array.isArray(ctx.profile?.preferred_slots) && ctx.profile.preferred_slots.length > 0
+    ? ctx.profile.preferred_slots[0]
+    : 'morning';
+  const availableDays = Array.isArray(ctx.profile?.available_days) && ctx.profile.available_days.length > 0
+    ? ctx.profile.available_days
+    : ['mon', 'tue', 'wed', 'thu', 'fri'];
+  const goalLabel = ctx.profile?.goal || ctx.payload?.goal?.title || 'tujuan belajar';
+
+  const plannedDates = [];
+  const cursor = new Date(today);
+  cursor.setHours(0, 0, 0, 0);
+
+  while (plannedDates.length < 3) {
+    const dayKey = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][cursor.getDay()];
+    if (availableDays.includes(dayKey)) {
+      plannedDates.push(toIsoDate(cursor));
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  const topicLabel = goalLabel.length > 48 ? `${goalLabel.slice(0, 45)}...` : goalLabel;
+
+  return {
+    tasks: [
+      {
+        title: `Pahami konsep inti ${topicLabel}`,
+        description: `Baca atau tonton materi dasar yang paling relevan untuk memulai ${goalLabel}. Catat 3 poin penting.`,
+        task_type: 'acquire',
+        duration_estimate: 45,
+        planned_date: plannedDates[0],
+        planned_slot: preferredSlot,
+        rationale: [
+          { factor: 'sequence_fit', explanation: 'Mulai dari fondasi agar langkah berikutnya lebih mudah dipahami.' },
+        ],
+        confidence: 'medium',
+      },
+      {
+        title: `Latihan terarah untuk ${topicLabel}`,
+        description: `Kerjakan satu latihan kecil atau mini project sederhana agar konsep ${goalLabel} langsung dipraktikkan.`,
+        task_type: 'practice',
+        duration_estimate: 45,
+        planned_date: plannedDates[1],
+        planned_slot: preferredSlot,
+        rationale: [
+          { factor: 'learning_science', explanation: 'Praktik cepat membantu memindahkan konsep ke pemahaman aktif.' },
+        ],
+        confidence: 'medium',
+      },
+      {
+        title: `Refleksi dan cek hambatan ${topicLabel}`,
+        description: 'Tulis apa yang sudah dipahami, apa yang masih membingungkan, lalu tentukan fokus belajar berikutnya.',
+        task_type: 'reflect',
+        duration_estimate: 25,
+        planned_date: plannedDates[2],
+        planned_slot: preferredSlot,
+        rationale: [
+          { factor: 'workload_balance', explanation: 'Refleksi ringan menjaga ritme belajar tetap realistis dan konsisten.' },
+        ],
+        confidence: 'medium',
+      },
+    ],
+    summary: `Rencana dasar disiapkan untuk mulai belajar ${goalLabel} sambil menunggu layanan AI kembali stabil.`,
+  };
+}
+
 function _buildUserMessage(ctx) {
   const safeCtx = sanitizeContext(ctx);
   const template = TEMPLATES[safeCtx.sessionType] || TEMPLATES.chat;
@@ -126,17 +197,20 @@ async function callLLM(ctx, isChat) {
   let allAttempts = [];
   let totalDuration = 0;
   let retryHint = '';
+  let compactRetry = ctx.sessionType === 'initial_plan';
 
   for (let attempt = 0; attempt <= MAX_BUSINESS_RETRIES; attempt++) {
-    const msg = attempt === 0 ? baseMessage : baseMessage + retryHint;
+    const promptContext = compactRetry ? { ...ctx, compactMode: true } : ctx;
+    const promptBody = compactRetry ? _buildUserMessage(promptContext) : baseMessage;
+    const msg = attempt === 0 ? promptBody : promptBody + retryHint;
 
     const start = Date.now();
     let raw, attempts;
     try {
       const result = await callWithRetry(msg, {
-        maxRetries: 1,
+        maxRetries: ctx.sessionType === 'initial_plan' ? 2 : 1,
         label: `coach.${ctx.sessionType}`,
-        timeoutMs: isChat ? 25000 : 30000,
+        timeoutMs: isChat ? 25000 : (ctx.sessionType === 'initial_plan' ? 35000 : 30000),
         temperature: TEMPERATURES[ctx.sessionType],
       });
       raw = result.content;
@@ -148,8 +222,33 @@ async function callLLM(ctx, isChat) {
       if (isChat) {
         return { validated: { message: 'Maaf, saya sedang mengalami gangguan. Coba lagi sebentar.', plan: null }, llmMeta };
       }
-      err._llmMeta = llmMeta;
-      throw err;
+      if (attempt < MAX_BUSINESS_RETRIES) {
+        compactRetry = true;
+        retryHint = '\n\n[Latency mitigation: respond with exactly 3 tasks and very short rationale explanations.]';
+        continue;
+      }
+      if (ctx.sessionType === 'initial_plan') {
+        logger.warn({ err: err.message }, 'Falling back to deterministic initial plan');
+        return {
+          validated: buildFallbackInitialPlan(ctx),
+          llmMeta: {
+            ...llmMeta,
+            fallback_used: 'deterministic_initial_plan',
+          },
+        };
+      }
+      const mappedError = err.name === 'AbortError'
+        ? Object.assign(new Error('AI request timed out. Please try again.'), {
+          code: 'AI_TIMEOUT',
+          statusCode: 504,
+        })
+        : Object.assign(new Error('AI service is temporarily unavailable. Please try again in a moment.'), {
+          code: 'AI_UNAVAILABLE',
+          statusCode: 503,
+          originalError: err.message,
+        });
+      mappedError._llmMeta = llmMeta;
+      throw mappedError;
     }
 
     const durationMs = Date.now() - start;

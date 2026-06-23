@@ -1,3 +1,5 @@
+process.env.SKIP_DB_CHECK = 'true';
+
 jest.mock('../../src/db', () => ({ query: jest.fn() }));
 const db = require('../../src/db');
 const chatMessageRepo = require('../../src/repositories/chat-message.repo');
@@ -8,6 +10,8 @@ const profileRepo = require('../../src/repositories/profile.repo');
 const refreshTokenRepo = require('../../src/repositories/refresh-token.repo');
 const taskRepo = require('../../src/repositories/task.repo');
 const goalRepo = require('../../src/repositories/goal.repo');
+const webhookSubscriptionRepo = require('../../src/repositories/webhook-subscription.repo');
+const { webhookRegistrationSchema } = require('../../src/models/webhook-subscription.model');
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -468,5 +472,60 @@ describe('profile.repo extended', () => {
     db.query.mockResolvedValue({ rows: [row] });
     const result = await profileRepo.update('u1', { timezone: 'UTC', preferred_time: 'evening', weekly_target_hours: 10, availability: { mon: 2 } });
     expect(result).toEqual(row);
+  });
+});
+
+describe('webhook-subscription.model', () => {
+  test('validates supported events', () => {
+    expect(() => webhookRegistrationSchema.parse({
+      url: 'https://example.com/hook',
+      events: ['task.completed'],
+    })).not.toThrow();
+  });
+
+  test('rejects non-https urls', () => {
+    expect(() => webhookRegistrationSchema.parse({
+      url: 'http://example.com/hook',
+      events: ['task.completed'],
+    })).toThrow('Webhook URL must use https');
+  });
+});
+
+describe('webhook-subscription.repo', () => {
+  test('upsertForUser inserts and returns row', async () => {
+    const row = { id: 'w1', user_id: 'u1', target_url: 'https://example.com/hook', events: ['task.completed'] };
+    db.query.mockResolvedValue({ rows: [row] });
+
+    const result = await webhookSubscriptionRepo.upsertForUser('u1', {
+      url: 'https://example.com/hook',
+      events: ['task.completed'],
+      secret: 'super-secret',
+    });
+
+    expect(result).toEqual(row);
+    expect(db.query).toHaveBeenCalledWith(expect.stringContaining('ON CONFLICT (user_id, target_url)'), expect.any(Array), undefined);
+  });
+
+  test('findActiveByEvent filters by user and event', async () => {
+    const rows = [{ id: 'w1' }];
+    db.query.mockResolvedValue({ rows });
+
+    const result = await webhookSubscriptionRepo.findActiveByEvent('u1', 'task.completed');
+
+    expect(result).toEqual(rows);
+    expect(db.query).toHaveBeenCalledWith(expect.stringContaining('status = \'active\''), ['u1', 'task.completed'], undefined);
+  });
+
+  test('updateDeliveryResult patches status fields and returns row', async () => {
+    const row = { id: 'w1', last_delivery_status: 202, last_delivery_error: null };
+    db.query.mockResolvedValue({ rows: [row] });
+
+    const result = await webhookSubscriptionRepo.updateDeliveryResult('w1', {
+      last_delivery_status: 202,
+      last_delivery_error: null,
+    });
+
+    expect(result).toEqual(row);
+    expect(db.query).toHaveBeenCalledWith(expect.stringContaining('updated_at = NOW()'), [202, null, 'w1'], undefined);
   });
 });

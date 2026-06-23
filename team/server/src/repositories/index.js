@@ -10,6 +10,7 @@ const chatMessageRepo = require('./chat-message.repo');
 const studentMetricsRepo = require('./student-metrics.repo');
 const cacheRepo = require('./cache.repo');
 const planSnapshotRepo = require('./plan-snapshot.repo');
+const webhookSubscriptionRepo = require('./webhook-subscription.repo');
 
 module.exports = {
   user: userRepo,
@@ -24,4 +25,5 @@ module.exports = {
   studentMetrics: studentMetricsRepo,
   cache: cacheRepo,
   planSnapshot: planSnapshotRepo,
+  webhookSubscription: webhookSubscriptionRepo,
 };

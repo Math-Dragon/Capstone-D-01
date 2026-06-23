@@ -8,6 +8,7 @@ const db = require('../db');
 const logger = require('../utils/logger');
 const { recordAIUsage } = require('../utils/metrics');
 const { createTaskSchema } = require('../models/task.model');
+const webhookService = require('./webhook.service');
 
 class AIService {
   async suggestPlan(userId, goalId, context = {}) {
@@ -161,35 +162,51 @@ class AIService {
   }
 
   async acceptRecommendation(userId, recommendationId) {
-    const rec = await repos.aiRec.findByIdAndUserId(recommendationId, userId);
-    if (!rec) {
-      const err = new Error('Recommendation not found');
-      err.statusCode = 404;
-      throw err;
-    }
-    if (rec.status !== 'pending') {
-      const err = new Error('Recommendation already processed');
-      err.statusCode = 409;
-      err.code = 'CONFLICT';
-      throw err;
-    }
+    const result = await db.withTransaction(async (client) => {
+      const rec = await repos.aiRec.findByIdAndUserId(
+        recommendationId,
+        userId,
+        client,
+        { forUpdate: true }
+      );
 
-    const tasksToCreate = rec.output.tasks.map(t => ({
-      goal_id: rec.goal_id,
-      title: t.title,
-      description: t.description,
-      duration_estimate: t.duration_estimate,
-      planned_date: t.planned_date,
-      planned_slot: t.planned_slot,
-      rationale: t.rationale,
-      confidence: t.confidence || 'medium',
-      source: 'ai',
-      status: 'todo',
-    }));
+      if (!rec) {
+        const err = new Error('Recommendation not found');
+        err.statusCode = 404;
+        throw err;
+      }
 
-    z.array(createTaskSchema).parse(tasksToCreate);
+      if (rec.status === 'accepted') {
+        return {
+          tasks: await repos.task.findByRecommendationId(recommendationId, client),
+          shouldPublish: false,
+          goalId: rec.goal_id,
+        };
+      }
 
-    const savedTasks = await db.withTransaction(async (client) => {
+      if (rec.status !== 'pending') {
+        const err = new Error('Recommendation already processed');
+        err.statusCode = 409;
+        err.code = 'CONFLICT';
+        throw err;
+      }
+
+      const tasksToCreate = rec.output.tasks.map(t => ({
+        goal_id: rec.goal_id,
+        recommendation_id: recommendationId,
+        title: t.title,
+        description: t.description,
+        duration_estimate: t.duration_estimate,
+        planned_date: t.planned_date,
+        planned_slot: t.planned_slot,
+        rationale: t.rationale,
+        confidence: t.confidence || 'medium',
+        source: 'ai',
+        status: 'todo',
+      }));
+
+      z.array(createTaskSchema).parse(tasksToCreate);
+
       const tasks = await repos.task.createMany(tasksToCreate, client);
       await repos.aiRec.updateStatus(recommendationId, 'accepted', client);
       await repos.audit.create({
@@ -198,10 +215,23 @@ class AIService {
         action: 'AI_RECOMMENDATION_ACCEPTED',
         metadata: { task_count: tasks.length },
       }, client);
-      return tasks;
+      return {
+        tasks,
+        shouldPublish: true,
+        goalId: rec.goal_id,
+      };
     });
 
-    return savedTasks;
+    if (result.shouldPublish) {
+      await webhookService.publish('ai.recommendation.accepted', {
+        userId,
+        recommendationId,
+        taskIds: result.tasks.map((task) => task.id),
+        goalId: result.goalId,
+      });
+    }
+
+    return result.tasks;
   }
 
   async rejectRecommendation(userId, recommendationId) {

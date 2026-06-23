@@ -12,7 +12,7 @@ export const createGoal = createAsyncThunk('goals/createGoal', async (payload) =
 });
 
 export const updateGoal = createAsyncThunk('goals/updateGoal', async ({ id, ...data }) => {
-  const result = await api.put(`/goals/${id}`, data);
+  const result = await api.patch(`/goals/${id}`, data);
   return result;
 });
 
@@ -32,6 +32,11 @@ const goalsSlice = createSlice({
     clearGoalsError: (state) => {
       state.error = null;
     },
+    resetGoals: () => ({
+      items: [],
+      loading: false,
+      error: null,
+    }),
   },
   extraReducers: (builder) => {
     builder
@@ -62,5 +67,5 @@ const goalsSlice = createSlice({
   },
 });
 
-export const { clearGoalsError } = goalsSlice.actions;
+export const { clearGoalsError, resetGoals } = goalsSlice.actions;
 export default goalsSlice.reducer;

@@ -1,0 +1,90 @@
+services:
+  db:
+    image: postgres:16
+    container_name: app_db
+    restart: always
+    environment:
+      POSTGRES_DB: planner
+      POSTGRES_USER: ${DB_USER:-user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-user} -d planner']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  redis:
+    image: redis:7-alpine
+    container_name: app_redis
+    restart: always
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.production
+    container_name: app_server
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: ${PORT:-3000}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash-lite}
+      GEMINI_PAID_API_KEY: ${GEMINI_PAID_API_KEY}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      ADMIN_EMAILS: ${ADMIN_EMAILS}
+    ports:
+      - '${PORT:-3000}:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.production
+    container_name: app_client
+    restart: always
+    ports:
+      - '8080:80'
+    depends_on:
+      - server
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+volumes:
+  pgdata:
+  redis_data:

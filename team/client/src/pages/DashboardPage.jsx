@@ -4,6 +4,7 @@ import { Skeleton, SkeletonCard } from '../components/ui/Skeleton';
 import api from '../services/api';
 import { useAuth } from '../features/auth/hooks/useAuth';
 import { onDataChanged } from '../utils/invalidation';
+import { toDateKey } from '../utils/helpers';
 
 const DashboardCharts = lazy(() => import('../components/DashboardCharts'));
 
@@ -68,7 +69,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = toDateKey(new Date());
 
   const loadData = useCallback(async (signal) => {
     try {
