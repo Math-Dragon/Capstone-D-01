@@ -63,9 +63,7 @@ function buildDescription(task) {
 }
 
 function buildUid(userId, taskId) {
-  const safeUserId = String(userId).replace(/[^a-zA-Z0-9_-]/g, '-');
-  const safeTaskId = String(taskId).replace(/[^a-zA-Z0-9_-]/g, '-');
-  return `${safeTaskId}-${safeUserId}@stepup`;
+  return `${taskId}-${userId}@stepup`;
 }
 
 function buildEvent(userId, task) {
