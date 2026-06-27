@@ -56,6 +56,8 @@ services:
       GEMINI_PAID_API_KEY: ${GEMINI_PAID_API_KEY}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
       ADMIN_EMAILS: ${ADMIN_EMAILS}
+      FIREBASE_SERVICE_ACCOUNT: ${FIREBASE_SERVICE_ACCOUNT}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-auth-aiweb}
     ports:
       - '${PORT:-3000}:3000'
     depends_on:
@@ -73,6 +75,11 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile.production
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY}
+        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN}
+        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID:-auth-aiweb}
     container_name: app_client
     restart: always
     ports:

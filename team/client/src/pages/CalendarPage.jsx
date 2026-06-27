@@ -526,11 +526,14 @@ export default function CalendarPage() {
   };
 
   const handleExportCalendar = async () => {
+    const scheduledCount = tasks.filter((t) => t.planned_date).length;
+    if (scheduledCount === 0) {
+      setCalendarNotice('Tidak ada task terjadwal yang bisa diekspor.');
+      return;
+    }
     setExportLoading(true);
     try {
-      const blob = typeof api.downloadCalendarExport === 'function'
-        ? await api.downloadCalendarExport()
-        : await api.get('/calendar/export.ics', { responseType: 'blob' });
+      const blob = await api.downloadCalendarExport();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
