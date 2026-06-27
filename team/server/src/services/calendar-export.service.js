@@ -8,13 +8,32 @@ function pad(value) {
   return String(value).padStart(2, '0');
 }
 
-function toUtcDate(date, time) {
-  const [year, month, day] = date.split('-').map(Number);
-  const [hours, minutes] = time.split(':').map(Number);
-  return new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+function formatDateTimeFloating(dateStr, timeStr) {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return [
+    String(year),
+    pad(month),
+    pad(day),
+    'T',
+    pad(hours),
+    pad(minutes),
+    '00',
+  ].join('');
 }
 
-function formatDateTime(date) {
+function endSlot(dateStr, timeStr, durationMinutes) {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  const endMs = Date.UTC(year, month - 1, day, hours, minutes, 0) + durationMinutes * 60 * 1000;
+  const endDate = new Date(endMs);
+  return {
+    date: [endDate.getUTCFullYear(), pad(endDate.getUTCMonth() + 1), pad(endDate.getUTCDate())].join('-'),
+    time: [pad(endDate.getUTCHours()), pad(endDate.getUTCMinutes())].join(':'),
+  };
+}
+
+function formatDateTimeUtc(date) {
   return [
     date.getUTCFullYear(),
     pad(date.getUTCMonth() + 1),
@@ -23,11 +42,8 @@ function formatDateTime(date) {
     pad(date.getUTCHours()),
     pad(date.getUTCMinutes()),
     '00',
+    'Z',
   ].join('');
-}
-
-function formatDateTimeUtc(date) {
-  return `${formatDateTime(date)}Z`;
 }
 
 function escapeText(value) {
@@ -55,8 +71,7 @@ function buildUid(userId, taskId) {
 function buildEvent(userId, task) {
   const startTime = SLOT_START[task.planned_slot] || SLOT_START.morning;
   const durationMinutes = Number(task.duration_estimate) > 0 ? Number(task.duration_estimate) : 30;
-  const start = toUtcDate(task.planned_date, startTime);
-  const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
+  const end = endSlot(task.planned_date, startTime, durationMinutes);
   const stampSource = task.updated_at || task.created_at || `${task.planned_date}T00:00:00.000Z`;
   const stamp = new Date(stampSource);
   const description = buildDescription(task);
@@ -64,9 +79,9 @@ function buildEvent(userId, task) {
   return [
     'BEGIN:VEVENT',
     `UID:${escapeText(buildUid(userId, task.id))}`,
-    `DTSTAMP:${formatDateTimeUtc(Number.isNaN(stamp.getTime()) ? start : stamp)}`,
-    `DTSTART:${formatDateTime(start)}`,
-    `DTEND:${formatDateTime(end)}`,
+    `DTSTAMP:${formatDateTimeUtc(Number.isNaN(stamp.getTime()) ? new Date() : stamp)}`,
+    `DTSTART:${formatDateTimeFloating(task.planned_date, startTime)}`,
+    `DTEND:${formatDateTimeFloating(end.date, end.time)}`,
     `SUMMARY:${escapeText(task.title || 'Scheduled task')}`,
     description ? `DESCRIPTION:${escapeText(description)}` : null,
     'END:VEVENT',
