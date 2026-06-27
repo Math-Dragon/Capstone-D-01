@@ -5,10 +5,7 @@ const SLOT_START = {
 };
 
 const logger = require('../utils/logger');
-
-function pad(value) {
-  return String(value).padStart(2, '0');
-}
+const { normalizeDate, pad } = require('../utils/date');
 
 function formatDateTimeFloating(dateStr, timeStr) {
   const [year, month, day] = dateStr.split('-').map(Number);
@@ -69,13 +66,14 @@ function buildUid(userId, taskId) {
 }
 
 function buildEvent(userId, task) {
+  const dateStr = normalizeDate(task.planned_date);
   const startTime = SLOT_START[task.planned_slot];
   if (!startTime) {
     logger.warn({ slot: task.planned_slot, taskId: task.id }, 'calendar-export: unknown planned_slot, falling back to morning');
   }
   const effectiveStart = startTime || SLOT_START.morning;
   const durationMinutes = Number(task.duration_estimate) > 0 ? Number(task.duration_estimate) : 30;
-  const end = endSlot(task.planned_date, effectiveStart, durationMinutes);
+  const end = endSlot(dateStr, effectiveStart, durationMinutes);
   const stamp = new Date(task.updated_at || task.created_at);
   const description = buildDescription(task);
 
@@ -83,7 +81,7 @@ function buildEvent(userId, task) {
     'BEGIN:VEVENT',
     `UID:${escapeText(buildUid(userId, task.id))}`,
     `DTSTAMP:${formatDateTimeUtc(stamp)}`,
-    `DTSTART:${formatDateTimeFloating(task.planned_date, effectiveStart)}`,
+    `DTSTART:${formatDateTimeFloating(dateStr, effectiveStart)}`,
     `DTEND:${formatDateTimeFloating(end.date, end.time)}`,
     `SUMMARY:${escapeText(task.title || 'Scheduled task')}`,
     description ? `DESCRIPTION:${escapeText(description)}` : null,
