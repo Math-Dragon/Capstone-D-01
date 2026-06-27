@@ -72,14 +72,13 @@ function buildEvent(userId, task) {
   const startTime = SLOT_START[task.planned_slot] || SLOT_START.morning;
   const durationMinutes = Number(task.duration_estimate) > 0 ? Number(task.duration_estimate) : 30;
   const end = endSlot(task.planned_date, startTime, durationMinutes);
-  const stampSource = task.updated_at || task.created_at || `${task.planned_date}T00:00:00.000Z`;
-  const stamp = new Date(stampSource);
+  const stamp = new Date(task.updated_at || task.created_at);
   const description = buildDescription(task);
 
   return [
     'BEGIN:VEVENT',
     `UID:${escapeText(buildUid(userId, task.id))}`,
-    `DTSTAMP:${formatDateTimeUtc(Number.isNaN(stamp.getTime()) ? new Date() : stamp)}`,
+    `DTSTAMP:${formatDateTimeUtc(stamp)}`,
     `DTSTART:${formatDateTimeFloating(task.planned_date, startTime)}`,
     `DTEND:${formatDateTimeFloating(end.date, end.time)}`,
     `SUMMARY:${escapeText(task.title || 'Scheduled task')}`,
