@@ -60,7 +60,15 @@ const TEMPLATES = {
     `Remaining plan:\n${ctx.remainingTasksJson}\n\n` +
     'Based on this check-in, adjust the remaining plan if needed. If the student is on track, keep the plan unchanged. Respond with JSON only. No conversational text.',
 
-  adjustment: (ctx) =>
+  adjustment: (ctx) => {
+    const typeInstructions = {
+      less_work: 'Siswa kelebihan beban. KURANGI jumlah task. MODIFY task yang ada, jangan ADD task baru. Hanya pertahankan task paling esensial. Target: lebih sedikit dari jumlah task saat ini.',
+      more_challenge: 'Siswa ingin tantangan lebih. Naikkan tipe task (acquire -> interleave/practice -> synthesize/dst) dari task existing. MODIFY task yang ada, jangan ADD task baru secara signifikan. Pastikan setidaknya satu task bertipe interleave/synthesize/assess.',
+      change_focus: 'Siswa ingin mengubah fokus belajarnya. Ubah judul dan deskripsi task yang ada agar selaras dengan fokus baru. MODIFY task yang ada, jangan ADD task baru. Jaga jumlah task tetap sama.',
+      shift_dates: 'Geser jadwal task yang ada. MODIFY task yang ada, jangan ADD task baru.',
+    };
+    const instruction = typeInstructions[ctx.payload.type] || 'Sesuaikan rencana berdasarkan perubahan ini. MODIFY task yang terpengaruh, jangan menambah task baru secara tidak perlu.';
+    return (
     '[session_type: adjustment]\n\n' +
     `Adjustment reason: ${ctx.payload.type || 'custom'}\n` +
     `Detail: ${ctx.payload.message || ''}\n\n` +
@@ -73,7 +81,10 @@ const TEMPLATES = {
     `Weekly target hours: ${ctx.profile.weekly_available_hours}\n` +
     `Preferred slots: ${ctx.profile.preferred_slots}\n` +
     `Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
-    'Adjust the plan to accommodate this change. Only modify tasks that are affected. Respond with JSON only in this exact structure:\n{"tasks": [{...}], "summary": "brief description of changes", "adaptation_notes": "explanation of what was adjusted and why"}\nNo conversational text outside the JSON.',
+    `${instruction}\n\n` +
+    'Respond with JSON only in this exact structure:\n{"tasks": [{...}], "summary": "brief description of changes", "adaptation_notes": "explanation of what was adjusted and why"}\nNo conversational text outside the JSON.'
+    );
+  },
 
   chat: (ctx) => {
     let body = '[session_type: chat]\n\n';

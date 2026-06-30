@@ -8,6 +8,7 @@ const staticResponse = require('./static-response.service');
 const contextBuilder = require('./context-builder.service');
 const llmPipeline = require('./llm-pipeline.service');
 const responseFormatter = require('./response-formatter.service');
+const planValidator = require('./plan-validator.service');
 const adaptationTrigger = require('../adaptation-trigger.service');
 
 class DispatchService {
@@ -269,6 +270,10 @@ class DispatchService {
     }
 
     if (['crisis', 'milestone', 'adjustment'].includes(effectiveSessionType)) {
+      if (effectiveSessionType === 'adjustment') {
+        validated = planValidator.validateAdjustment(ctx, validated, ctx.payload.type, ctx.payload.message);
+      }
+
       const synthesizedMessage = validated.adaptation_notes || validated.summary || 'Rencana telah disesuaikan.';
       await repos.chatMessage.create({
         user_id: userId,
@@ -293,7 +298,11 @@ class DispatchService {
       }
     }
 
-    await responseFormatter.persistPlan(userId, validated, goalId);
+    if (['crisis', 'milestone', 'adjustment'].includes(effectiveSessionType)) {
+      await responseFormatter.replacePlan(userId, validated, goalId);
+    } else {
+      await responseFormatter.persistPlan(userId, validated, goalId);
+    }
 
     if (validated && validated.tasks) {
       const planUsage = this._llmUsageMeta(llmMeta);

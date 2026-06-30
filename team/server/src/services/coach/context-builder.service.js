@@ -139,6 +139,7 @@ async function buildContext(userId, sessionType, payload) {
     payload: payload || {},
     remainingTasksJson: remainingTasksJson || 'No remaining tasks.',
     remainingTasksSummary: remainingTasksSummary || 'No tasks.',
+    pendingTasks: pendingTasks || [],
     completedSummary: completedTasks.slice(-5).map((t) => `- ${t.title}`).join('\n') || 'None',
     skippedSummary: skippedTasks.slice(-5).map((t) => `- ${t.title}`).join('\n') || 'None',
     chatHistory: chatHistoryStr || 'No prior conversation.',

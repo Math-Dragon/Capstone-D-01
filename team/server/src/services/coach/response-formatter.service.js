@@ -142,4 +142,51 @@ async function undoPlan(userId, sessionId) {
   return { type: 'message', data: { message: 'Rencana sebelumnya telah dikembalikan.', plan: null }, meta: { attempts: [], duration_ms: 0 } };
 }
 
-module.exports = { persistPlan, stageRecommendation, acceptProposal, undoPlan };
+async function replacePlan(userId, plan, goalId) {
+  if (!plan || !plan.tasks || plan.tasks.length === 0) return;
+
+  await db.withTransaction(async (client) => {
+    let targetGoalId = goalId;
+    if (!targetGoalId) {
+      const goals = await repos.goal.list(userId, {}, client);
+      const activeGoal = goals[0];
+      if (!activeGoal) {
+        logger.warn({ userId }, 'No active goal found for plan replacement');
+        return;
+      }
+      targetGoalId = activeGoal.id;
+    }
+
+    const currentTasks = await repos.task.findActiveByUser(userId, client);
+    for (const task of currentTasks) {
+      if (task.goal_id === targetGoalId) {
+        await repos.task.remove(task.id, userId, client);
+      }
+    }
+
+    const tasksToCreate = plan.tasks.map(t => ({
+      goal_id: targetGoalId,
+      title: t.title,
+      description: t.description || null,
+      duration_estimate: t.duration_estimate,
+      planned_date: t.planned_date || null,
+      planned_slot: t.planned_slot || null,
+      task_type: t.task_type || null,
+      rationale: t.rationale || null,
+      source: 'coach',
+      status: 'todo',
+    }));
+
+    await repos.task.createMany(tasksToCreate, client);
+
+    if (plan.difficulty_assessment) {
+      await repos.goal.update(targetGoalId, userId, {
+        difficulty: plan.difficulty_assessment.level,
+      }, client);
+      logger.info({ userId, goalId: targetGoalId, difficulty: plan.difficulty_assessment.level }, 'Goal difficulty saved from plan');
+    }
+  });
+  logger.info({ userId, taskCount: plan.tasks.length }, 'Plan replaced (old tasks removed, new tasks inserted)');
+}
+
+module.exports = { persistPlan, stageRecommendation, acceptProposal, undoPlan, replacePlan };

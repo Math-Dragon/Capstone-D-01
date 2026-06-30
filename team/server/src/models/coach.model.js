@@ -90,6 +90,14 @@ const coachRequestSchema = z.discriminatedUnion('action', [
     app_version: z.string().optional(),
   }),
   z.object({
+    action: z.literal('CHAT_MESSAGE'),
+    payload: z.object({
+      message: z.string().min(1).max(2000),
+    }),
+    client_timestamp: z.number().optional(),
+    app_version: z.string().optional(),
+  }),
+  z.object({
     action: z.literal('CRISIS_SIGNAL'),
     payload: z.object({
       note: z.string().max(500).optional(),
