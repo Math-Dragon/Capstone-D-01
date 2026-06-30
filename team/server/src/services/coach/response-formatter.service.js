@@ -31,18 +31,27 @@ async function persistPlan(userId, plan, goalId) {
     }));
 
     await repos.task.createMany(tasksToCreate, client);
+
+    if (plan.difficulty_assessment) {
+      await repos.goal.update(targetGoalId, userId, {
+        difficulty: plan.difficulty_assessment.level,
+      }, client);
+      logger.info({ userId, goalId: targetGoalId, difficulty: plan.difficulty_assessment.level }, 'Goal difficulty saved from plan');
+    }
   });
   logger.info({ userId, taskCount: plan.tasks.length }, 'Plan tasks persisted');
 }
 
 async function stageRecommendation(userId, plan, ctx) {
   const goalData = ctx.payload?.goal || {};
+  const goalDifficulty = plan.difficulty_assessment?.level || null;
   const newGoal = await repos.goal.create({
     user_id: userId,
     title: goalData.title || 'Rencana Belajar',
     description: goalData.description || '',
     deadline: goalData.deadline || null,
     status: 'active',
+    difficulty: goalDifficulty,
   });
 
   const recId = `rec_${Date.now()}`;
