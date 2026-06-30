@@ -198,6 +198,7 @@ async function callLLM(ctx, isChat) {
     title: ctx.profile.goal,
     description: ctx.profile.subjects,
     deadline: ctx.profile.deadline,
+    difficulty: ctx.profile.difficulty,
     weeklyHours: ctx.profile.weekly_available_hours,
   });
 

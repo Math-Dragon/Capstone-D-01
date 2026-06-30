@@ -38,15 +38,23 @@ async function checkLastMoodDrained(userId) {
 }
 
 async function buildContext(userId, sessionType, payload) {
-  const [user, profile, goals, tasks, metrics, chatHistory] = await Promise.all([
+  const [user, profile, tasks, metrics, chatHistory] = await Promise.all([
     repos.user.findById(userId),
     repos.profile.findByUserId(userId),
-    repos.goal.list(userId),
     repos.task.listByUser(userId),
     repos.studentMetrics.findByUserId(userId).then(r => r || {}),
     sessionType === 'chat' ? repos.chatMessage.findRecentByUser(userId, 6) : [],
   ]);
-  const activeGoal = goals[0] || {};
+
+  const goalId = payload?.goal_id || null;
+  let activeGoal;
+  if (goalId) {
+    activeGoal = await repos.goal.findByIdAndUserId(goalId, userId);
+  }
+  if (!activeGoal) {
+    const goals = await repos.goal.list(userId, { limit: 1 });
+    activeGoal = goals[0] || {};
+  }
 
   const pendingTasks = tasks.filter(
     (t) => t.status === 'todo'
@@ -79,16 +87,17 @@ async function buildContext(userId, sessionType, payload) {
     else if (ratio > 0.3) currentLevel = 'intermediate';
   }
 
-  let profileGoal = truncateText(activeGoal.title || '', 120);
-  let profileSubjects = truncateText(activeGoal.description || '', 220);
+  let profileGoal = activeGoal.title || '';
+  let profileSubjects = activeGoal.description || '';
   let profileDeadline = activeGoal.deadline || null;
+  let profileDifficulty = activeGoal.difficulty || null;
   let profileWeeklyHours = profile?.weekly_target_hours || 5;
   let profilePreferredSlots = [profile?.preferred_time || 'morning'];
   let profileAvailableDays = profile?.availability || ['mon', 'tue', 'wed', 'thu', 'fri'];
 
   if (payload && payload.goal) {
-    profileGoal = truncateText(payload.goal.title || profileGoal, 120);
-    profileSubjects = truncateText(payload.goal.description || profileSubjects, 220);
+    profileGoal = payload.goal.title || profileGoal;
+    profileSubjects = payload.goal.description || profileSubjects;
     profileDeadline = payload.goal.deadline || profileDeadline;
   }
   if (payload && payload.profile) {
@@ -119,6 +128,7 @@ async function buildContext(userId, sessionType, payload) {
       preferred_slots: profilePreferredSlots,
       available_days: profileAvailableDays,
       deadline: profileDeadline,
+      difficulty: profileDifficulty,
     },
     metrics: {
       ...metrics,
@@ -140,6 +150,7 @@ async function buildContext(userId, sessionType, payload) {
     skippedSummary: skippedTasks.slice(-5).map((t) => `- ${t.title}`).join('\n') || 'None',
     chatHistory: chatHistoryStr || 'No prior conversation.',
     sessionType,
+    goalId: activeGoal.id || null,
   };
 }
 
