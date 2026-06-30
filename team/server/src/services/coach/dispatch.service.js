@@ -65,6 +65,7 @@ class DispatchService {
     }
 
     const ctx = await contextBuilder.buildContext(userId, sessionType, payload);
+    const goalId = ctx.goalId || null;
 
     if (!triggerFired && isTaskAction) {
       triggerFired = adaptationTrigger.evaluate(ctx.metrics);
@@ -151,7 +152,7 @@ class DispatchService {
       const message = validated.message || 'Tindakan dicatat.';
 
       if (validated.plan) {
-        await responseFormatter.persistPlan(userId, validated.plan);
+        await responseFormatter.persistPlan(userId, validated.plan, goalId);
       }
 
       await repos.chatMessage.create({
@@ -215,7 +216,7 @@ class DispatchService {
       });
 
       if (validated.plan) {
-        await responseFormatter.persistPlan(userId, validated.plan);
+        await responseFormatter.persistPlan(userId, validated.plan, goalId);
         return {
           type: 'combined',
           data: { message, plan: validated.plan },
@@ -292,7 +293,7 @@ class DispatchService {
       }
     }
 
-    await responseFormatter.persistPlan(userId, validated);
+    await responseFormatter.persistPlan(userId, validated, goalId);
 
     if (validated && validated.tasks) {
       const planUsage = this._llmUsageMeta(llmMeta);
