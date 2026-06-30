@@ -1,6 +1,7 @@
 const { validateChatOutput, validateWithWarnings, sanitizeContext } = require('../llm');
 const { generateMockSuggestion, generateMockChat, generateMockTaskAction } = require('../llm-mock');
 const { isMock, callWithRetry } = require('../llm-client');
+const { composeSystemPrompt } = require('../../utils/prompt-composer');
 const logger = require('../../utils/logger');
 const { aiRequestCount } = require('../../utils/metrics');
 const { TEMPLATES, TEMPERATURES } = require('./templates');
@@ -193,6 +194,13 @@ async function callLLM(ctx, isChat) {
     return { validated, llmMeta: { attempts: [], duration_ms: 0 } };
   }
 
+  const systemPrompt = composeSystemPrompt(ctx.sessionType, {
+    title: ctx.profile.goal,
+    description: ctx.profile.subjects,
+    deadline: ctx.profile.deadline,
+    weeklyHours: ctx.profile.weekly_available_hours,
+  });
+
   const MAX_BUSINESS_RETRIES = 1;
   let allAttempts = [];
   let totalDuration = 0;
@@ -208,6 +216,7 @@ async function callLLM(ctx, isChat) {
     let raw, attempts;
     try {
       const result = await callWithRetry(msg, {
+        systemPrompt,
         maxRetries: ctx.sessionType === 'initial_plan' ? 2 : 1,
         label: `coach.${ctx.sessionType}`,
         timeoutMs: isChat ? 25000 : (ctx.sessionType === 'initial_plan' ? 35000 : 30000),
