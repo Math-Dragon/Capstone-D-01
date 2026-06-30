@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useCoach } from '../features/coach/hooks/useCoach';
+import { useGoals } from '../features/goals/hooks/useGoals';
 
 const QUICK_ACTIONS = [
   { type: 'less_work', icon: '🔽', label: 'Kurangi Beban' },
@@ -10,8 +11,16 @@ const QUICK_ACTIONS = [
 
 export default function AdjustmentPanel({ onRequestAdjustment }) {
   const { dispatchTaskAction } = useCoach();
+  const { goals } = useGoals();
+  const activeGoalId = goals?.[0]?.id || null;
   const [customMessage, setCustomMessage] = useState('');
   const [sending, setSending] = useState(false);
+
+  const buildPayload = (type, message) => ({
+    type,
+    message,
+    ...(activeGoalId ? { goal_id: activeGoalId } : {}),
+  });
 
   const handleQuickAction = async (type) => {
     setSending(true);
@@ -19,7 +28,7 @@ export default function AdjustmentPanel({ onRequestAdjustment }) {
       if (onRequestAdjustment) {
         onRequestAdjustment(type, null);
       } else {
-        await dispatchTaskAction('REQUEST_ADJUSTMENT', { type, message: null });
+        await dispatchTaskAction('REQUEST_ADJUSTMENT', buildPayload(type, null));
       }
     } finally {
       setSending(false);
@@ -33,7 +42,7 @@ export default function AdjustmentPanel({ onRequestAdjustment }) {
       if (onRequestAdjustment) {
         onRequestAdjustment('custom', customMessage.trim());
       } else {
-        await dispatchTaskAction('REQUEST_ADJUSTMENT', { type: 'custom', message: customMessage.trim() });
+        await dispatchTaskAction('REQUEST_ADJUSTMENT', buildPayload('custom', customMessage.trim()));
       }
       setCustomMessage('');
     } finally {

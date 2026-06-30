@@ -74,10 +74,10 @@ export const coachService = {
     return data;
   },
 
-  requestAdjustment: async (type, message) => {
+  requestAdjustment: async (type, message, goalId) => {
     const data = await api.post('/coach', {
       action: 'REQUEST_ADJUSTMENT',
-      payload: { type, message },
+      payload: { type, message, ...(goalId ? { goal_id: goalId } : {}) },
     });
     return data;
   },
