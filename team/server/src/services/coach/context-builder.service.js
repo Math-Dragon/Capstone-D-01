@@ -1,12 +1,5 @@
 const repos = require('../../repositories');
 
-function truncateText(value, maxLength = 180) {
-  if (!value || typeof value !== 'string') return '';
-  const trimmed = value.trim().replace(/\s+/g, ' ');
-  if (trimmed.length <= maxLength) return trimmed;
-  return `${trimmed.slice(0, maxLength - 1)}…`;
-}
-
 async function checkLastMoodDrained(userId) {
   try {
     const dbModule = require('../../db');
