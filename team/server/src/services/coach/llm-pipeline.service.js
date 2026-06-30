@@ -206,7 +206,7 @@ async function callLLM(ctx, isChat) {
   let allAttempts = [];
   let totalDuration = 0;
   let retryHint = '';
-  let compactRetry = ctx.sessionType === 'initial_plan';
+  let compactRetry = false;
 
   for (let attempt = 0; attempt <= MAX_BUSINESS_RETRIES; attempt++) {
     const promptContext = compactRetry ? { ...ctx, compactMode: true } : ctx;
@@ -234,7 +234,7 @@ async function callLLM(ctx, isChat) {
       }
       if (attempt < MAX_BUSINESS_RETRIES) {
         compactRetry = true;
-        retryHint = '\n\n[Latency mitigation: respond with exactly 3 tasks and very short rationale explanations.]';
+        retryHint = '\n\n[Latency mitigation: keep response concise, limit tasks to fit weekly hours, use short rationale explanations.]';
         continue;
       }
       if (ctx.sessionType === 'initial_plan') {

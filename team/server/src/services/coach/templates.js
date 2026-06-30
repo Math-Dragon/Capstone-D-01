@@ -3,8 +3,8 @@ const TEMPLATES = {
     (() => {
       const compactMode = !!ctx.compactMode;
       const taskInstruction = compactMode
-        ? 'Generate exactly 3 tasks. Keep each rationale explanation under 18 words.'
-        : 'Generate a personalized study plan for this student.';
+        ? 'Keep the response concise. Limit tasks to 3-5 with short rationale explanations under 18 words.'
+        : 'Generate a personalized study plan with a responsive number of tasks appropriate for the goal scope. A focused weekly goal may need 3-5 tasks, a broader goal may need 5-10. Spread tasks across available days and respect the weekly hourly limit.';
       return (
     '[session_type: initial_plan]\n\n' +
     `Today's date: ${new Date().toISOString().slice(0, 10)}\n` +
