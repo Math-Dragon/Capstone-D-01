@@ -17,7 +17,7 @@ const TEMPLATES = {
     `Preferred study slots: ${ctx.profile.preferred_slots}\n` +
     `Available days: ${(ctx.profile.available_days || ['mon', 'tue', 'wed', 'thu', 'fri']).join(', ')}\n` +
     `Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
-    `${taskInstruction} Respond with JSON only in this exact structure:\n` +
+    `${taskInstruction} Every task description must reference the specific goal topic — never output a bare generic description. Respond with JSON only in this exact structure:\n` +
     `{${TASK_STRUCT}, "summary": "brief overview of the plan"}\n` +
     'No conversational text outside the JSON.'
       );

@@ -85,6 +85,45 @@ describe('scheduleTasks', () => {
   });
 });
 
+describe('assignSlots behavior', () => {
+  test('all tasks on the same day get the same preferredSlot', () => {
+    const tasks = [
+      baseTask({ id: 't1', duration_estimate: 30, task_type: 'acquire' }),
+      baseTask({ id: 't2', duration_estimate: 30, task_type: 'practice' }),
+      baseTask({ id: 't3', duration_estimate: 30, task_type: 'reflect' }),
+    ];
+
+    const result = scheduleTasks(tasks, {
+      availableDays: ['mon'],
+      weeklyTargetHours: 15,
+      deadline: new Date(Date.now() + 7 * 86400000).toISOString(),
+      preferredSlot: 'evening',
+    });
+
+    expect(result.length).toBe(3);
+    const slots = result.map(t => t.planned_slot);
+    expect(slots.every(s => s === 'evening')).toBe(true);
+  });
+
+  test('fallback to morning when preferredSlot is undefined', () => {
+    const tasks = [
+      baseTask({ id: 't1', duration_estimate: 30 }),
+      baseTask({ id: 't2', duration_estimate: 30 }),
+    ];
+
+    const result = scheduleTasks(tasks, {
+      availableDays: ['mon'],
+      weeklyTargetHours: 15,
+      deadline: new Date(Date.now() + 7 * 86400000).toISOString(),
+      preferredSlot: undefined,
+    });
+
+    expect(result.length).toBe(2);
+    expect(result[0].planned_slot).toBe('morning');
+    expect(result[1].planned_slot).toBe('morning');
+  });
+});
+
 describe('scheduleTasks with validDays', () => {
   test('uses provided validDays when available', () => {
     const tasks = [baseTask({ id: 't1', duration_estimate: 30 })];

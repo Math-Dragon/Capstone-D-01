@@ -85,6 +85,7 @@ async function stageRecommendation(userId, plan, ctx) {
   const recId = `rec_${Date.now()}`;
   const tasksWithIds = plan.tasks.map((t, i) => ({
     ...t,
+    rationale: normalizeRationale(t.rationale),
     task_id: `${recId}_task_${i}`,
     status: 'pending',
     decided_at: null,
@@ -217,4 +218,4 @@ async function replacePlan(userId, plan, goalId) {
   logger.info({ userId, taskCount: plan.tasks.length }, 'Plan replaced (old tasks removed, new tasks inserted)');
 }
 
-module.exports = { persistPlan, stageRecommendation, acceptProposal, undoPlan, replacePlan };
+module.exports = { persistPlan, stageRecommendation, acceptProposal, undoPlan, replacePlan, normalizeRationale };

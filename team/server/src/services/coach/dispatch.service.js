@@ -8,6 +8,7 @@ const staticResponse = require('./static-response.service');
 const contextBuilder = require('./context-builder.service');
 const llmPipeline = require('./llm-pipeline.service');
 const responseFormatter = require('./response-formatter.service');
+const { normalizeRationale } = require('./response-formatter.service');
 const planValidator = require('./plan-validator.service');
 const adaptationTrigger = require('../adaptation-trigger.service');
 
@@ -404,7 +405,7 @@ class DispatchService {
           planned_date: task.planned_date || null,
           planned_slot: task.planned_slot || null,
           task_type: task.task_type || null,
-          rationale: task.rationale || null,
+          rationale: normalizeRationale(task.rationale),
           confidence: task.confidence || 'medium',
           source: 'coach',
           status: 'todo',
@@ -588,8 +589,17 @@ class DispatchService {
 
     const inputContext = rec.input_context || {};
     const profile = inputContext.profile || {};
+    const goal = inputContext.goal || {};
     const weeklyTargetHours = profile.weekly_target_hours || 5;
-    const maxMinutes = Math.round(weeklyTargetHours * 60 * 1.2);
+    const deadline = goal.deadline || profile.deadline;
+
+    let weeksUntilDeadline = 6;
+    if (deadline) {
+      const msDiff = new Date(deadline).getTime() - Date.now();
+      weeksUntilDeadline = Math.max(1, Math.ceil(msDiff / (7 * 24 * 60 * 60 * 1000)));
+    }
+
+    const maxMinutes = Math.round(weeklyTargetHours * 60 * weeksUntilDeadline * 1.2);
 
     const sorted = [...tasks].sort((a, b) => {
       const p = { high: 0, medium: 1, low: 2 };
