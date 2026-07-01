@@ -27,7 +27,12 @@ Respond using this JSON format. Do not include any text outside the JSON.
       "priority": "high | medium | low",
       "completion_criteria": "...",
       "prerequisites": [],
-      "rationale": [...],
+      "rationale": [
+        {
+          "factor": "preference_match | availability | learning_science | difficulty_fit | sequence_fit | workload_balance",
+          "explanation": "..."
+        }
+      ],
       "confidence": "low | medium | high"
     }
   ],

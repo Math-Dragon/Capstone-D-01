@@ -1,5 +1,12 @@
 const logger = require('../../utils/logger');
 
+const HARDER_TYPES = {
+  acquire: 'interleave',
+  practice: 'synthesize',
+  recall: 'synthesize',
+  review: 'interleave',
+};
+
 function tokenize(str) {
   return (str || '')
     .toLowerCase()
@@ -28,6 +35,22 @@ function sumDurationStr(tasks) {
   return h > 0 ? `${h}j ${m}m` : `${m}m`;
 }
 
+function boostDurations(tasks, factor) {
+  tasks.forEach(t => {
+    t.duration_estimate = Math.min(90, Math.round((t.duration_estimate || 25) * factor));
+  });
+}
+
+function maxTitleJaccard(beforeTitles, afterTitles) {
+  let maxSim = 0;
+  for (const a of afterTitles) {
+    for (const b of beforeTitles) {
+      maxSim = Math.max(maxSim, jaccardSimilarity(a, b));
+    }
+  }
+  return maxSim;
+}
+
 function validateAdjustment(beforeCtx, plan, type, userMessage) {
   if (!plan || !plan.tasks) return plan;
 
@@ -43,20 +66,23 @@ function validateAdjustment(beforeCtx, plan, type, userMessage) {
 
   switch (type) {
     case 'less_work': {
+      let clamped = false;
       if (afterCount >= beforeCount) {
         const targetCount = Math.max(1, Math.ceil(beforeCount * 0.6));
         plan.tasks = plan.tasks.slice(0, targetCount);
         diffs.push(`task turun dari ${beforeCount} ke ${plan.tasks.length} (auto-clamp)`);
         modified = true;
+        clamped = true;
       }
-      const newTotal = sumDuration(plan.tasks);
-      if (newTotal >= beforeMin) {
-        const targetMin = Math.round(beforeMin * 0.6);
-        while (sumDuration(plan.tasks) > targetMin && plan.tasks.length > 1) {
-          plan.tasks.pop();
+      if (!clamped) {
+        const newTotal = sumDuration(plan.tasks);
+        if (newTotal >= beforeMin) {
+          while (sumDuration(plan.tasks) > Math.round(beforeMin * 0.6) && plan.tasks.length > 1) {
+            plan.tasks.pop();
+          }
+          diffs.push(`durasi turun dari ${sumDurationStr(before)} ke ${sumDurationStr(plan.tasks)} (auto-clamp)`);
+          modified = true;
         }
-        diffs.push(`durasi turun dari ${sumDurationStr(before)} ke ${sumDurationStr(plan.tasks)} (auto-clamp)`);
-        modified = true;
       }
       break;
     }
@@ -68,51 +94,34 @@ function validateAdjustment(beforeCtx, plan, type, userMessage) {
         const upgradeTarget = after.reduce((a, b) =>
           (b.duration_estimate || 0) > (a.duration_estimate || 0) ? b : a
         );
-        if (upgradeTarget.task_type === 'acquire') upgradeTarget.task_type = 'interleave';
-        else if (upgradeTarget.task_type === 'practice') upgradeTarget.task_type = 'synthesize';
-        else upgradeTarget.task_type = 'synthesize';
-        diffs.push(`task "${upgradeTarget.title}" dinaikkan ke ${upgradeTarget.task_type}`);
-        modified = true;
+        const originalType = upgradeTarget.task_type;
+        const harder = HARDER_TYPES[originalType];
+        if (harder) {
+          upgradeTarget.task_type = harder;
+          diffs.push(`task "${upgradeTarget.title}" tipe naik: ${originalType} → ${harder}`);
+          modified = true;
+        }
       }
+
+      boostDurations(plan.tasks, 1.15);
+      diffs.push('durasi semua task naik 15%');
+      modified = true;
 
       const beforeTitles = before.map(t => t.title || '');
       const afterTitles = after.map(t => t.title || '');
-      let maxSimilarity = 0;
-      for (const aTitle of afterTitles) {
-        for (const bTitle of beforeTitles) {
-          maxSimilarity = Math.max(maxSimilarity, jaccardSimilarity(aTitle, bTitle));
-        }
-      }
-      if (maxSimilarity > 0.8) {
-        diffs.push(`judul terlalu mirip dengan task sebelum (${Math.round(maxSimilarity * 100)}%) — LLM tidak memodifikasi secara substansial`);
-        after.forEach(t => {
-          if (t.title && !t.title.toLowerCase().includes('lanjutan') && !t.title.toLowerCase().includes('tingkat')) {
-            t.title = `${t.title} (Tingkat Lanjut)`;
-          }
-        });
-        modified = true;
+      const sim = maxTitleJaccard(beforeTitles, afterTitles);
+      if (sim > 0.8) {
+        logger.warn({ similarity: sim, type }, 'more_challenge: semantic drift minimal — judul task terlalu mirip dengan sebelum');
       }
       break;
     }
 
     case 'change_focus': {
-      if (userMessage) {
-        const msgTokens = tokenize(userMessage);
-        if (msgTokens.length > 0) {
-          let keywordHit = 0;
-          for (const t of after) {
-            const titleTokens = tokenize(t.title);
-            const overlap = msgTokens.filter(w => titleTokens.includes(w));
-            if (overlap.length > 0) keywordHit++;
-          }
-          const hitRate = keywordHit / Math.min(after.length, 1);
-          if (hitRate < 0.3 && after.length > 0) {
-            const fokusWords = msgTokens.slice(0, 3).join(' ');
-            after[0].title = `Fokus: ${fokusWords} — ${after[0].title}`;
-            diffs.push(`fokus "${fokusWords}" di-inject ke judul task pertama`);
-            modified = true;
-          }
-        }
+      const beforeTitles = before.map(t => t.title || '');
+      const afterTitles = after.map(t => t.title || '');
+      const sim = maxTitleJaccard(beforeTitles, afterTitles);
+      if (sim > 0.8) {
+        logger.warn({ similarity: sim, type, userMessage }, 'change_focus: judul task baru terlalu mirip dengan sebelum — LLM mungkin tidak mengubah fokus secara substansial');
       }
       break;
     }

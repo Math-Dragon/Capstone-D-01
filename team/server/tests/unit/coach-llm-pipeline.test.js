@@ -70,7 +70,7 @@ describe('coach llm pipeline provider error mapping', () => {
     );
 
     expect(callWithRetry).toHaveBeenCalled();
-    expect(callWithRetry.mock.calls[0][0]).toContain('responsive number of tasks');
+    expect(callWithRetry.mock.calls[0][0]).toContain('as many tasks as the goal scope requires');
     expect(callWithRetry.mock.calls[0][0]).not.toContain('Limit tasks to 3-5');
     expect(callWithRetry.mock.calls[0][1]).toMatchObject({
       maxRetries: 2,
@@ -151,7 +151,7 @@ describe('coach llm pipeline provider error mapping', () => {
     expect(result.validated.tasks).toHaveLength(3);
     expect(callWithRetry).toHaveBeenCalledTimes(2);
     expect(callWithRetry.mock.calls[0][0]).not.toContain('Limit tasks');
-    expect(callWithRetry.mock.calls[1][0]).toContain('Limit tasks to 3-5');
+    expect(callWithRetry.mock.calls[1][0]).toContain('Task count proportional to goal scope');
     expect(callWithRetry.mock.calls[1][0]).toContain('Latency mitigation: keep response concise');
   });
 });

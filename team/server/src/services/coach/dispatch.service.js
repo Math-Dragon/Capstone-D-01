@@ -118,7 +118,8 @@ class DispatchService {
 
     if (validated && !violations) {
       const tasksToSchedule = usesChatSchema ? validated.plan?.tasks : validated.tasks;
-      if (tasksToSchedule && tasksToSchedule.length > 0) {
+      if (tasksToSchedule && tasksToSchedule.length > 0 &&
+          !['adjustment', 'crisis', 'milestone'].includes(effectiveSessionType)) {
         const scheduled = scheduleTasks(tasksToSchedule, {
           availableDays: ctx.profile.available_days,
           weeklyTargetHours: ctx.profile.weekly_available_hours,

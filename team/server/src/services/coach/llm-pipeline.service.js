@@ -234,7 +234,7 @@ async function callLLM(ctx, isChat) {
       }
       if (attempt < MAX_BUSINESS_RETRIES) {
         compactRetry = true;
-        retryHint = '\n\n[Latency mitigation: keep response concise, limit tasks to fit weekly hours, use short rationale explanations.]';
+        retryHint = '\n\n[Latency mitigation: keep response concise. Task count proportional to goal scope. Each rationale must remain an array of factor objects; keep explanations brief.]';
         continue;
       }
       if (ctx.sessionType === 'initial_plan') {
