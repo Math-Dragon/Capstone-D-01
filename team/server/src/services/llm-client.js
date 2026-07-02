@@ -1,5 +1,3 @@
-const fs = require('fs');
-const path = require('path');
 const config = require('../config');
 const { withRetry } = require('../utils/retry');
 const { buildGeminiPayload, buildOpenRouterPayload, buildGlmPayload, buildOllamaPayload, extractContent } = require('../utils/converter');
@@ -19,19 +17,11 @@ function _clearCooldown() { return 0; }
 
 let genAI;
 let genAIPaid;
-let systemPrompt;
-
-function _loadSystemPrompt() {
-  if (!systemPrompt) {
-    systemPrompt = fs.readFileSync(path.join(__dirname, '../prompts/system-final.md'), 'utf8');
-  }
-}
 
 function initGemini() {
   if (genAI) return;
   const { GoogleGenerativeAI } = require('@google/generative-ai');
   genAI = new GoogleGenerativeAI(config.geminiKey);
-  _loadSystemPrompt();
 }
 
 function initGeminiPaid() {
@@ -39,7 +29,6 @@ function initGeminiPaid() {
   if (!config.geminiPaidKey) return;
   const { GoogleGenerativeAI } = require('@google/generative-ai');
   genAIPaid = new GoogleGenerativeAI(config.geminiPaidKey);
-  _loadSystemPrompt();
 }
 
 if (!isMock && config.llmProvider === 'gemini') {
@@ -86,7 +75,7 @@ function getCircuitBreakerState() {
   };
 }
 
-async function callGemini(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
+async function callGemini(systemPrompt, userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
   initGemini();
   const { modelConfig, contentConfig } = buildGeminiPayload(systemPrompt, userMessage, config.geminiModel, temperature);
   const model = genAI.getGenerativeModel(modelConfig);
@@ -106,7 +95,7 @@ async function callGemini(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperatu
   }
 }
 
-async function callGeminiPaid(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
+async function callGeminiPaid(systemPrompt, userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
   initGeminiPaid();
   if (!genAIPaid) throw new Error('Gemini Paid not configured');
   const { modelConfig, contentConfig } = buildGeminiPayload(systemPrompt, userMessage, config.geminiPaidModel, temperature);
@@ -127,8 +116,7 @@ async function callGeminiPaid(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, tempe
   }
 }
 
-async function callGlm(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
-  _loadSystemPrompt();
+async function callGlm(systemPrompt, userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
   const { url, body } = buildGlmPayload(config.glmBaseUrl, systemPrompt, userMessage, config.glmModel, temperature);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -162,8 +150,7 @@ async function callGlm(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature)
   }
 }
 
-async function callOpenRouter(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
-  _loadSystemPrompt();
+async function callOpenRouter(systemPrompt, userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
   const { url, body } = buildOpenRouterPayload(systemPrompt, userMessage, config.openrouterModel, temperature);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -197,8 +184,7 @@ async function callOpenRouter(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, tempe
   }
 }
 
-async function callOllama(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
-  _loadSystemPrompt();
+async function callOllama(systemPrompt, userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperature) {
   const { body } = buildOllamaPayload(systemPrompt, userMessage, config.ollamaModel, temperature);
   const url = _genOllamaUrl();
   const controller = new AbortController();
@@ -230,7 +216,7 @@ async function callOllama(userMessage, timeoutMs = DEFAULT_TIMEOUT_MS, temperatu
   }
 }
 
-async function callWithRetry(userMessage, { maxRetries = 1, label = 'llm', timeoutMs = DEFAULT_TIMEOUT_MS, temperature } = {}) {
+async function callWithRetry(userMessage, { systemPrompt = '', maxRetries = 1, label = 'llm', timeoutMs = DEFAULT_TIMEOUT_MS, temperature } = {}) {
   if (isMock) {
     throw new Error('llm-client.callWithRetry called while LLM_PROVIDER=mock');
   }
@@ -261,7 +247,7 @@ async function callWithRetry(userMessage, { maxRetries = 1, label = 'llm', timeo
 
   if (config.llmProvider === 'ollama') {
     const content = await withRetry(
-      makeTracker('ollama', config.ollamaModel, () => callOllama(userMessage, timeoutMs, temperature)),
+      makeTracker('ollama', config.ollamaModel, () => callOllama(systemPrompt, userMessage, timeoutMs, temperature)),
       { maxAttempts: maxRetries, delayMs: 500, maxDelayMs: 8000, shouldRetry: isRetryable, label: `${label}:ollama` }
     );
     return { content, attempts };
@@ -284,7 +270,7 @@ async function callWithRetry(userMessage, { maxRetries = 1, label = 'llm', timeo
     try {
       const effectiveTimeout = provider.timeout || timeoutMs;
       const content = await withRetry(
-        makeTracker(provider.name, provider.model, () => provider.call(userMessage, effectiveTimeout, temperature)),
+        makeTracker(provider.name, provider.model, () => provider.call(systemPrompt, userMessage, effectiveTimeout, temperature)),
         { maxAttempts: maxRetries, delayMs: 500, maxDelayMs: 8000, shouldRetry: isRetryable, label: `${label}:${provider.name}` }
       );
       return { content, attempts };
@@ -336,7 +322,6 @@ async function validateGeminiPaid() {
 }
 
 async function validateGlm() {
-  _loadSystemPrompt();
   const { url, body } = buildGlmPayload(config.glmBaseUrl, 'Respond with valid JSON.', 'Say ok', config.glmModel);
   const resp = await fetch(url, {
     method: 'POST',
@@ -357,7 +342,6 @@ async function validateGlm() {
 }
 
 async function validateOpenRouter() {
-  _loadSystemPrompt();
   const { url, body } = buildOpenRouterPayload('Respond with valid JSON.', 'Say ok', config.openrouterModel);
   const resp = await fetch(url, {
     method: 'POST',
@@ -443,7 +427,6 @@ module.exports = {
   get isMock() { return isMock; },
   setIsMock,
   get hasFallback() { return config.hasFallback; },
-  systemPrompt,
   DEFAULT_TIMEOUT_MS,
   isRetryable,
   callWithRetry,

@@ -32,18 +32,18 @@ async function findByIdAndUserId(goalId, userId, client) {
   return result.rows[0] || null;
 }
 
-async function create({ user_id, title, description, deadline, status }, client) {
+async function create({ user_id, title, description, deadline, status, difficulty }, client) {
   const result = await db.query(
-    `INSERT INTO goals (user_id, title, description, deadline, status)
-     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [user_id, title, description || null, deadline || null, status || 'active'],
+    `INSERT INTO goals (user_id, title, description, deadline, status, difficulty)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    [user_id, title, description || null, deadline || null, status || 'active', difficulty || 'medium'],
     client
   );
   return result.rows[0];
 }
 
 async function update(goalId, userId, data, client) {
-  const allowed = ['title', 'description', 'deadline', 'status'];
+  const allowed = ['title', 'description', 'deadline', 'status', 'difficulty'];
   const sets = [];
   const vals = [];
   let i = 1;

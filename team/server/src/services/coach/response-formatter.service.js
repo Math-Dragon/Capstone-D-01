@@ -2,6 +2,34 @@ const db = require('../../db');
 const repos = require('../../repositories');
 const logger = require('../../utils/logger');
 
+const DEFAULT_RATIONALE = [
+  { factor: 'preference_match', explanation: 'Task ini sesuai dengan preferensi dan gaya belajar siswa' },
+  { factor: 'learning_science', explanation: 'Task ini menggunakan teknik belajar berbasis bukti (spaced repetition, retrieval practice, atau active recall)' },
+  { factor: 'difficulty_fit', explanation: 'Tingkat kesulitan task ini sesuai dengan kemampuan dan progress siswa saat ini' },
+  { factor: 'workload_balance', explanation: 'Durasi dan jumlah task ini seimbang dengan ketersediaan waktu mingguan siswa' },
+];
+
+function normalizeRationale(r) {
+  if (!r || (Array.isArray(r) && r.length === 0)) {
+    return DEFAULT_RATIONALE.map(x => ({ ...x }));
+  }
+  if (typeof r === 'string' && r.trim()) {
+    const result = DEFAULT_RATIONALE.map(x => ({ ...x }));
+    result[0].explanation = r.trim();
+    return result;
+  }
+  if (Array.isArray(r)) {
+    const provided = new Map(
+      r.filter(x => x && x.factor).map(x => [x.factor, x.explanation])
+    );
+    return DEFAULT_RATIONALE.map(d => ({
+      factor: d.factor,
+      explanation: provided.get(d.factor) || d.explanation,
+    }));
+  }
+  return DEFAULT_RATIONALE.map(x => ({ ...x }));
+}
+
 async function persistPlan(userId, plan, goalId) {
   if (!plan || !plan.tasks || plan.tasks.length === 0) return;
 
@@ -25,29 +53,39 @@ async function persistPlan(userId, plan, goalId) {
       planned_date: t.planned_date || null,
       planned_slot: t.planned_slot || null,
       task_type: t.task_type || null,
-      rationale: t.rationale || null,
+      rationale: normalizeRationale(t.rationale),
       source: 'coach',
       status: 'todo',
     }));
 
     await repos.task.createMany(tasksToCreate, client);
+
+    if (plan.difficulty_assessment) {
+      await repos.goal.update(targetGoalId, userId, {
+        difficulty: plan.difficulty_assessment.level,
+      }, client);
+      logger.info({ userId, goalId: targetGoalId, difficulty: plan.difficulty_assessment.level }, 'Goal difficulty saved from plan');
+    }
   });
   logger.info({ userId, taskCount: plan.tasks.length }, 'Plan tasks persisted');
 }
 
 async function stageRecommendation(userId, plan, ctx) {
   const goalData = ctx.payload?.goal || {};
+  const goalDifficulty = plan.difficulty_assessment?.level || null;
   const newGoal = await repos.goal.create({
     user_id: userId,
     title: goalData.title || 'Rencana Belajar',
     description: goalData.description || '',
     deadline: goalData.deadline || null,
     status: 'active',
+    difficulty: goalDifficulty,
   });
 
   const recId = `rec_${Date.now()}`;
   const tasksWithIds = plan.tasks.map((t, i) => ({
     ...t,
+    rationale: normalizeRationale(t.rationale),
     task_id: `${recId}_task_${i}`,
     status: 'pending',
     decided_at: null,
@@ -133,4 +171,51 @@ async function undoPlan(userId, sessionId) {
   return { type: 'message', data: { message: 'Rencana sebelumnya telah dikembalikan.', plan: null }, meta: { attempts: [], duration_ms: 0 } };
 }
 
-module.exports = { persistPlan, stageRecommendation, acceptProposal, undoPlan };
+async function replacePlan(userId, plan, goalId) {
+  if (!plan || !plan.tasks || plan.tasks.length === 0) return;
+
+  await db.withTransaction(async (client) => {
+    let targetGoalId = goalId;
+    if (!targetGoalId) {
+      const goals = await repos.goal.list(userId, {}, client);
+      const activeGoal = goals[0];
+      if (!activeGoal) {
+        logger.warn({ userId }, 'No active goal found for plan replacement');
+        return;
+      }
+      targetGoalId = activeGoal.id;
+    }
+
+    const currentTasks = await repos.task.findActiveByUser(userId, client);
+    for (const task of currentTasks) {
+      if (task.goal_id === targetGoalId) {
+        await repos.task.remove(task.id, userId, client);
+      }
+    }
+
+    const tasksToCreate = plan.tasks.map(t => ({
+      goal_id: targetGoalId,
+      title: t.title,
+      description: t.description || null,
+      duration_estimate: t.duration_estimate,
+      planned_date: t.planned_date || null,
+      planned_slot: t.planned_slot || null,
+      task_type: t.task_type || null,
+      rationale: normalizeRationale(t.rationale),
+      source: 'coach',
+      status: 'todo',
+    }));
+
+    await repos.task.createMany(tasksToCreate, client);
+
+    if (plan.difficulty_assessment) {
+      await repos.goal.update(targetGoalId, userId, {
+        difficulty: plan.difficulty_assessment.level,
+      }, client);
+      logger.info({ userId, goalId: targetGoalId, difficulty: plan.difficulty_assessment.level }, 'Goal difficulty saved from plan');
+    }
+  });
+  logger.info({ userId, taskCount: plan.tasks.length }, 'Plan replaced (old tasks removed, new tasks inserted)');
+}
+
+module.exports = { persistPlan, stageRecommendation, acceptProposal, undoPlan, replacePlan, normalizeRationale };

@@ -1,6 +1,7 @@
 const { validateChatOutput, validateWithWarnings, sanitizeContext } = require('../llm');
 const { generateMockSuggestion, generateMockChat, generateMockTaskAction } = require('../llm-mock');
 const { isMock, callWithRetry } = require('../llm-client');
+const { composeSystemPrompt } = require('../../utils/prompt-composer');
 const logger = require('../../utils/logger');
 const { aiRequestCount } = require('../../utils/metrics');
 const { TEMPLATES, TEMPERATURES } = require('./templates');
@@ -193,11 +194,19 @@ async function callLLM(ctx, isChat) {
     return { validated, llmMeta: { attempts: [], duration_ms: 0 } };
   }
 
+  const systemPrompt = composeSystemPrompt(ctx.sessionType, {
+    title: ctx.profile.goal,
+    description: ctx.profile.subjects,
+    deadline: ctx.profile.deadline,
+    difficulty: ctx.profile.difficulty,
+    weeklyHours: ctx.profile.weekly_available_hours,
+  });
+
   const MAX_BUSINESS_RETRIES = 1;
   let allAttempts = [];
   let totalDuration = 0;
   let retryHint = '';
-  let compactRetry = ctx.sessionType === 'initial_plan';
+  let compactRetry = false;
 
   for (let attempt = 0; attempt <= MAX_BUSINESS_RETRIES; attempt++) {
     const promptContext = compactRetry ? { ...ctx, compactMode: true } : ctx;
@@ -208,6 +217,7 @@ async function callLLM(ctx, isChat) {
     let raw, attempts;
     try {
       const result = await callWithRetry(msg, {
+        systemPrompt,
         maxRetries: ctx.sessionType === 'initial_plan' ? 2 : 1,
         label: `coach.${ctx.sessionType}`,
         timeoutMs: isChat ? 25000 : (ctx.sessionType === 'initial_plan' ? 35000 : 30000),
@@ -224,7 +234,7 @@ async function callLLM(ctx, isChat) {
       }
       if (attempt < MAX_BUSINESS_RETRIES) {
         compactRetry = true;
-        retryHint = '\n\n[Latency mitigation: respond with exactly 3 tasks and very short rationale explanations.]';
+        retryHint = '\n\n[Latency mitigation: keep response concise. Task count proportional to goal scope. Each rationale must remain an array of factor objects; keep explanations brief.]';
         continue;
       }
       if (ctx.sessionType === 'initial_plan') {

@@ -43,8 +43,8 @@ describe('TEMPLATES.initial_plan', () => {
 
   test('uses compact prompt when compact mode is enabled', () => {
     const result = TEMPLATES.initial_plan({ profile: baseProfile, compactMode: true });
-    expect(result).toContain('Generate exactly 3 tasks');
-    expect(result).toContain('Keep each rationale explanation under 18 words');
+    expect(result).toContain('Task count proportional to goal scope');
+    expect(result).toContain('rationale must remain an array');
   });
 });
 

@@ -8,6 +8,7 @@ const coachRequestSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('INITIAL_PLAN'),
     payload: z.object({
+      goal_id: z.string().uuid().optional(),
       goal: z.object({
         title: z.string().optional(),
         description: z.string().optional(),
@@ -71,6 +72,9 @@ const coachRequestSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('REQUEST_ADJUSTMENT'),
     payload: z.object({
+      type: z.string().optional(),
+      message: z.string().nullable().optional(),
+      goal_id: z.string().uuid().optional(),
       goal: z.object({
         title: z.string().optional(),
         description: z.string().optional(),

@@ -8,6 +8,8 @@ const staticResponse = require('./static-response.service');
 const contextBuilder = require('./context-builder.service');
 const llmPipeline = require('./llm-pipeline.service');
 const responseFormatter = require('./response-formatter.service');
+const { normalizeRationale } = require('./response-formatter.service');
+const planValidator = require('./plan-validator.service');
 const adaptationTrigger = require('../adaptation-trigger.service');
 
 class DispatchService {
@@ -65,6 +67,7 @@ class DispatchService {
     }
 
     const ctx = await contextBuilder.buildContext(userId, sessionType, payload);
+    const goalId = ctx.goalId || null;
 
     if (!triggerFired && isTaskAction) {
       triggerFired = adaptationTrigger.evaluate(ctx.metrics);
@@ -116,7 +119,8 @@ class DispatchService {
 
     if (validated && !violations) {
       const tasksToSchedule = usesChatSchema ? validated.plan?.tasks : validated.tasks;
-      if (tasksToSchedule && tasksToSchedule.length > 0) {
+      if (tasksToSchedule && tasksToSchedule.length > 0 &&
+          !['adjustment', 'crisis', 'milestone'].includes(effectiveSessionType)) {
         const scheduled = scheduleTasks(tasksToSchedule, {
           availableDays: ctx.profile.available_days,
           weeklyTargetHours: ctx.profile.weekly_available_hours,
@@ -151,7 +155,7 @@ class DispatchService {
       const message = validated.message || 'Tindakan dicatat.';
 
       if (validated.plan) {
-        await responseFormatter.persistPlan(userId, validated.plan);
+        await responseFormatter.persistPlan(userId, validated.plan, goalId);
       }
 
       await repos.chatMessage.create({
@@ -215,7 +219,7 @@ class DispatchService {
       });
 
       if (validated.plan) {
-        await responseFormatter.persistPlan(userId, validated.plan);
+        await responseFormatter.persistPlan(userId, validated.plan, goalId);
         return {
           type: 'combined',
           data: { message, plan: validated.plan },
@@ -268,6 +272,10 @@ class DispatchService {
     }
 
     if (['crisis', 'milestone', 'adjustment'].includes(effectiveSessionType)) {
+      if (effectiveSessionType === 'adjustment') {
+        validated = planValidator.validateAdjustment(ctx, validated, ctx.payload.type, ctx.payload.message);
+      }
+
       const synthesizedMessage = validated.adaptation_notes || validated.summary || 'Rencana telah disesuaikan.';
       await repos.chatMessage.create({
         user_id: userId,
@@ -292,7 +300,11 @@ class DispatchService {
       }
     }
 
-    await responseFormatter.persistPlan(userId, validated);
+    if (['crisis', 'milestone', 'adjustment'].includes(effectiveSessionType)) {
+      await responseFormatter.replacePlan(userId, validated, goalId);
+    } else {
+      await responseFormatter.persistPlan(userId, validated, goalId);
+    }
 
     if (validated && validated.tasks) {
       const planUsage = this._llmUsageMeta(llmMeta);
@@ -393,7 +405,7 @@ class DispatchService {
           planned_date: task.planned_date || null,
           planned_slot: task.planned_slot || null,
           task_type: task.task_type || null,
-          rationale: task.rationale || null,
+          rationale: normalizeRationale(task.rationale),
           confidence: task.confidence || 'medium',
           source: 'coach',
           status: 'todo',
@@ -577,8 +589,17 @@ class DispatchService {
 
     const inputContext = rec.input_context || {};
     const profile = inputContext.profile || {};
+    const goal = inputContext.goal || {};
     const weeklyTargetHours = profile.weekly_target_hours || 5;
-    const maxMinutes = Math.round(weeklyTargetHours * 60 * 1.2);
+    const deadline = goal.deadline || profile.deadline;
+
+    let weeksUntilDeadline = 6;
+    if (deadline) {
+      const msDiff = new Date(deadline).getTime() - Date.now();
+      weeksUntilDeadline = Math.max(1, Math.ceil(msDiff / (7 * 24 * 60 * 60 * 1000)));
+    }
+
+    const maxMinutes = Math.round(weeklyTargetHours * 60 * weeksUntilDeadline * 1.2);
 
     const sorted = [...tasks].sort((a, b) => {
       const p = { high: 0, medium: 1, low: 2 };

@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, useRef, useEffect } f
 import { useDispatch } from 'react-redux';
 import { setPipelineTrace as setPipelineTraceRedux } from '../../../store/slices/observabilitySlice';
 import coachService, { setSessionId } from '../services/coachService';
+import { notifyMutation } from '../../../utils/invalidation';
 
 const CoachContext = createContext(null);
 
@@ -174,6 +175,10 @@ export function CoachProvider({ children }) {
         setPipelineTrace(result._meta);
       }
       setObservabilityRefresh((n) => n + 1);
+
+      if (action === 'REQUEST_ADJUSTMENT') {
+        notifyMutation();
+      }
 
       if (result?.adaptationType) {
         if (result.adaptationType === 'crisis' || result.adaptationType === 'milestone') {

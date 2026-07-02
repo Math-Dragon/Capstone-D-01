@@ -54,11 +54,8 @@ function generateCandidateDates(startDate, availableDays, deadline) {
 }
 
 function assignSlots(tasksPerDate, preferredSlot) {
-  const slotIdx = SLOT_CYCLE.indexOf(preferredSlot);
-  if (slotIdx === -1) {
-    return tasksPerDate.map((t, i) => ({ ...t, planned_slot: SLOT_CYCLE[i % 3] }));
-  }
-  return tasksPerDate.map((t, i) => ({ ...t, planned_slot: SLOT_CYCLE[(slotIdx + i) % 3] }));
+  const validSlot = SLOT_CYCLE.includes(preferredSlot) ? preferredSlot : SLOT_CYCLE[0];
+  return tasksPerDate.map((t) => ({ ...t, planned_slot: validSlot }));
 }
 
 function scheduleTasks(tasks, { availableDays, weeklyTargetHours, deadline, preferredSlot }) {
@@ -109,6 +106,9 @@ function scheduleTasks(tasks, { availableDays, weeklyTargetHours, deadline, pref
   for (const task of sorted) {
     let assigned = false;
 
+    let bestDate = null;
+    let bestRemaining = -1;
+
     for (const date of candidateDates) {
       const dateKey = toLocalDateString(date);
       if (!dateBuckets[dateKey]) {
@@ -118,11 +118,18 @@ function scheduleTasks(tasks, { availableDays, weeklyTargetHours, deadline, pref
       const newTotal = bucket.totalMin + (task.duration_estimate || 0);
 
       if (newTotal <= dailyMinuteLimit) {
-        bucket.totalMin = newTotal;
-        bucket.tasks.push({ ...task, planned_date: dateKey });
-        assigned = true;
-        break;
+        const remaining = dailyMinuteLimit - newTotal;
+        if (remaining > bestRemaining) {
+          bestDate = dateKey;
+          bestRemaining = remaining;
+        }
       }
+    }
+
+    if (bestDate) {
+      dateBuckets[bestDate].totalMin += task.duration_estimate || 0;
+      dateBuckets[bestDate].tasks.push({ ...task, planned_date: bestDate });
+      assigned = true;
     }
 
     if (!assigned) {
@@ -144,10 +151,19 @@ function scheduleTasks(tasks, { availableDays, weeklyTargetHours, deadline, pref
         if (!dateBuckets[dk]) dateBuckets[dk] = { totalMin: 0, tasks: [] };
       });
 
-      const candidate = dateKeys.find((dk) => {
+      let candidate = null;
+      let candidateRemaining = -1;
+      for (const dk of dateKeys) {
         const bucket = dateBuckets[dk];
-        return bucket.totalMin + (task.duration_estimate || 0) <= compressedLimit;
-      });
+        const newTotal = bucket.totalMin + (task.duration_estimate || 0);
+        if (newTotal <= compressedLimit) {
+          const remaining = compressedLimit - newTotal;
+          if (remaining > candidateRemaining) {
+            candidate = dk;
+            candidateRemaining = remaining;
+          }
+        }
+      }
 
       if (candidate) {
         dateBuckets[candidate].totalMin += task.duration_estimate || 0;

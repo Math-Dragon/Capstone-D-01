@@ -11,4 +11,4 @@ COPY --from=builder /app .
 USER appuser
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://localhost:3000/health || exit 1
-CMD ["node", "src/index.js"]
+CMD ["sh", "-c", "npm run migrate:up && node src/index.js"]
