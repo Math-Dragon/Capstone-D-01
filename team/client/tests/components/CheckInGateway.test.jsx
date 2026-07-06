@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { toDateKey } from '../../src/utils/helpers';
 
 vi.mock('../../src/features/coach/hooks/useCoach', () => ({
   useCoach: () => ({ handleCheckIn: vi.fn().mockResolvedValue({}) }),
@@ -14,7 +15,7 @@ describe('CheckInGateway', () => {
   });
 
   it('renders children when already checked in', () => {
-    localStorage.setItem('lastCheckIn', new Date().toISOString().slice(0, 10));
+    localStorage.setItem('lastCheckIn', toDateKey(new Date()));
     render(<CheckInGateway><div>Dashboard</div></CheckInGateway>);
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
   });

@@ -25,6 +25,14 @@ function renderPage() {
   );
 }
 
+function getLocalDate() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 describe('DashboardPage', () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -81,7 +89,7 @@ describe('DashboardPage', () => {
   });
 
   it('shows today tasks when available', async () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDate();
     api.get.mockImplementation((url) => {
       if (url === '/tasks') return Promise.resolve([
         { id: '1', title: 'Study React', status: 'todo', planned_date: today, task_type: 'practice', planned_slot: 'morning' },
@@ -95,7 +103,7 @@ describe('DashboardPage', () => {
   });
 
   it('shows completed celebration when all today tasks done', async () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDate();
     api.get.mockImplementation((url) => {
       if (url === '/tasks') return Promise.resolve([
         { id: '1', title: 'Done Task', status: 'done', planned_date: today },
@@ -135,7 +143,7 @@ describe('DashboardPage', () => {
   });
 
   it('shows focus mode when tasks present', async () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDate();
     api.get.mockImplementation((url) => {
       if (url === '/tasks') return Promise.resolve([
         { id: '1', title: 'Deep Work', status: 'todo', planned_date: today, task_type: 'practice' },
