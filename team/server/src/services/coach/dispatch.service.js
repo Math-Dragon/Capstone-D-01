@@ -391,9 +391,12 @@ class DispatchService {
             title: ctxGoal.title || 'Rencana Belajar',
             description: ctxGoal.description || '',
             deadline: ctxGoal.deadline || null,
+            difficulty: ctxGoal.difficulty || null,
             status: 'active',
           }, client);
           targetGoalId = fallbackGoal.id;
+          rec.goal_id = targetGoalId;
+          await repos.aiRec.updateGoalId(recId, targetGoalId, client);
         }
 
         const taskRationale = Array.isArray(task.rationale) ? task.rationale : (task.rationale ? [task.rationale] : []);

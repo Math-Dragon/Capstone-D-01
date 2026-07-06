@@ -38,6 +38,15 @@ async function updateOutput(id, output, client) {
   return result.rows[0];
 }
 
+async function updateGoalId(id, goalId, client) {
+  const result = await db.query(
+    'UPDATE ai_recommendations SET goal_id = $1 WHERE id = $2 RETURNING *',
+    [goalId, id],
+    client
+  );
+  return result.rows[0];
+}
+
 async function computeAllMetrics(userId) {
   const result = await db.query(`
     SELECT
@@ -101,6 +110,7 @@ module.exports = {
   create,
   updateStatus,
   updateOutput,
+  updateGoalId,
   computeAllMetrics,
   computeRationaleMetrics,
 };

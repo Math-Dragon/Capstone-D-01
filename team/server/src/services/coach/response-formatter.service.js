@@ -71,16 +71,10 @@ async function persistPlan(userId, plan, goalId) {
 }
 
 async function stageRecommendation(userId, plan, ctx) {
-  const goalData = ctx.payload?.goal || {};
-  const goalDifficulty = plan.difficulty_assessment?.level || null;
-  const newGoal = await repos.goal.create({
-    user_id: userId,
-    title: goalData.title || 'Rencana Belajar',
-    description: goalData.description || '',
-    deadline: goalData.deadline || null,
-    status: 'active',
-    difficulty: goalDifficulty,
-  });
+  const goalData = {
+    ...ctx.payload?.goal,
+    difficulty: plan.difficulty_assessment?.level || null,
+  };
 
   const recId = `rec_${Date.now()}`;
   const tasksWithIds = plan.tasks.map((t, i) => ({
@@ -93,7 +87,6 @@ async function stageRecommendation(userId, plan, ctx) {
 
   const rec = await repos.aiRec.create({
     user_id: userId,
-    goal_id: newGoal.id,
     type: 'coach_plan',
     input_context: {
       goal: goalData,
@@ -106,7 +99,7 @@ async function stageRecommendation(userId, plan, ctx) {
     status: 'pending',
   });
 
-  logger.info({ userId, recId: rec.id, goalId: newGoal.id, taskCount: tasksWithIds.length }, 'Recommendation staged with new goal');
+  logger.info({ userId, recId: rec.id, taskCount: tasksWithIds.length }, 'Recommendation staged');
 
   return rec;
 }

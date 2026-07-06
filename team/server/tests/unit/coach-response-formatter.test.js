@@ -6,7 +6,7 @@ jest.mock('../../src/db', () => ({
 jest.mock('../../src/repositories', () => ({
   goal: { list: jest.fn(), create: jest.fn() },
   task: { createMany: jest.fn(), findActiveByUser: jest.fn(), remove: jest.fn(), update: jest.fn() },
-  aiRec: { create: jest.fn() },
+  aiRec: { create: jest.fn(), updateGoalId: jest.fn() },
   planSnapshot: { findLatest: jest.fn(), remove: jest.fn() },
   audit: { create: jest.fn() },
 }));
@@ -68,30 +68,47 @@ describe('persistPlan', () => {
 });
 
 describe('stageRecommendation', () => {
-  test('creates goal and recommendation', async () => {
+  test('creates recommendation without goal', async () => {
     repos.goal.create.mockResolvedValue({ id: 'g1' });
     repos.aiRec.create.mockResolvedValue({ id: 'rec1' });
 
-    const result = await stageRecommendation('u1', { tasks: [{ title: 'T' }], summary: 'Plan' }, {
+    const result = await stageRecommendation('u1', {
+      tasks: [{ title: 'T' }],
+      summary: 'Plan',
+      difficulty_assessment: { level: 'intermediate' },
+    }, {
       payload: { goal: { title: 'Learn JS' }, profile: {} },
     });
 
-    expect(repos.goal.create).toHaveBeenCalledWith(expect.objectContaining({
-      user_id: 'u1', title: 'Learn JS', status: 'active',
-    }));
+    expect(repos.goal.create).not.toHaveBeenCalled();
     expect(repos.aiRec.create).toHaveBeenCalledWith(expect.objectContaining({
-      user_id: 'u1', type: 'coach_plan', status: 'pending',
+      user_id: 'u1',
+      type: 'coach_plan',
+      status: 'pending',
+    }));
+    expect(repos.aiRec.create).toHaveBeenCalledWith(expect.not.objectContaining({
+      goal_id: expect.anything(),
     }));
     expect(result.id).toBe('rec1');
   });
 
-  test('uses default title when goal not provided', async () => {
+  test('stores goal data and difficulty in input_context', async () => {
     repos.goal.create.mockResolvedValue({ id: 'g1' });
     repos.aiRec.create.mockResolvedValue({ id: 'rec1' });
 
-    await stageRecommendation('u1', { tasks: [], summary: '' }, { payload: {} });
-    expect(repos.goal.create).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Rencana Belajar',
+    await stageRecommendation('u1', {
+      tasks: [],
+      summary: '',
+      difficulty_assessment: { level: 'beginner' },
+    }, { payload: {} });
+
+    expect(repos.goal.create).not.toHaveBeenCalled();
+    expect(repos.aiRec.create).toHaveBeenCalledWith(expect.objectContaining({
+      input_context: expect.objectContaining({
+        goal: expect.objectContaining({
+          difficulty: 'beginner',
+        }),
+      }),
     }));
   });
 });

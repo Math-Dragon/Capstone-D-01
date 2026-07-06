@@ -147,6 +147,22 @@ describe('ai-recommendation.repo', () => {
     expect(result).toEqual({ suggested: 0, accepted: 0, rejected: 0, pending: 0 });
   });
 
+  test('computeAllMetrics with userId filters by user', async () => {
+    db.query.mockResolvedValue({ rows: [{ suggested: 3, accepted: 1, rejected: 0, pending: 2 }] });
+    const result = await aiRecRepo.computeAllMetrics('u1');
+    expect(result).toEqual({ suggested: 3, accepted: 1, rejected: 0, pending: 2 });
+    expect(db.query.mock.calls[0][0]).toContain('WHERE user_id = $1');
+    expect(db.query.mock.calls[0][1]).toEqual(['u1']);
+  });
+
+  test('computeAllMetrics without userId uses no filter', async () => {
+    db.query.mockResolvedValue({ rows: [{ suggested: 5, accepted: 2, rejected: 1, pending: 2 }] });
+    const result = await aiRecRepo.computeAllMetrics();
+    expect(result.suggested).toBe(5);
+    const params = db.query.mock.calls[0][1];
+    expect(params).toEqual([]);
+  });
+
   test('computeRationaleMetrics aggregates accepted and suggested tasks by rationale factor', async () => {
     db.query.mockResolvedValue({
       rows: [
@@ -163,6 +179,21 @@ describe('ai-recommendation.repo', () => {
     ]);
     expect(db.query.mock.calls[0][0]).toContain('jsonb_array_elements');
     expect(db.query.mock.calls[0][0]).toContain('rationale');
+  });
+
+  test('computeRationaleMetrics with userId filters by user', async () => {
+    db.query.mockResolvedValue({ rows: [] });
+    await aiRecRepo.computeRationaleMetrics('u1');
+    expect(db.query.mock.calls[0][0]).toContain('WHERE user_id = $1');
+    expect(db.query.mock.calls[0][1]).toEqual(['u1']);
+  });
+
+  test('updateGoalId updates goal_id and returns row', async () => {
+    db.query.mockResolvedValue({ rows: [{ id: 'r1', goal_id: 'g1' }] });
+    const result = await aiRecRepo.updateGoalId('r1', 'g1');
+    expect(result).toEqual({ id: 'r1', goal_id: 'g1' });
+    expect(db.query.mock.calls[0][0]).toContain('UPDATE ai_recommendations');
+    expect(db.query.mock.calls[0][0]).toContain('goal_id');
   });
 });
 
