@@ -32,7 +32,7 @@ router.get('/history', generalLimiter, validate({ query: historyQuerySchema }), 
 
 router.get('/recommendations/metrics', generalLimiter, async (req, res, next) => {
   try {
-    const metrics = await coachRouter.getRecommendationMetrics();
+    const metrics = await coachRouter.getRecommendationMetrics(req.user.id);
     res.json({ success: true, data: metrics });
   } catch (err) {
     next(err);
@@ -82,7 +82,7 @@ router.get('/metrics', generalLimiter, async (req, res, next) => {
   try {
     const [studentMetrics, recMetrics] = await Promise.all([
       repos.studentMetrics.findByUserId(req.user.id),
-      coachRouter.getRecommendationMetrics(),
+      coachRouter.getRecommendationMetrics(req.user.id),
     ]);
     res.json({
       success: true,

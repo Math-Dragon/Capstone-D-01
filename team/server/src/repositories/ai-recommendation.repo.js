@@ -38,7 +38,7 @@ async function updateOutput(id, output, client) {
   return result.rows[0];
 }
 
-async function computeAllMetrics() {
+async function computeAllMetrics(userId) {
   const result = await db.query(`
     SELECT
       COALESCE(SUM(jsonb_array_length(output->'tasks')), 0)::int AS suggested,
@@ -46,15 +46,16 @@ async function computeAllMetrics() {
       COALESCE(SUM((SELECT COUNT(*) FROM jsonb_array_elements(output->'tasks') AS t WHERE t->>'status' = 'rejected')), 0)::int AS rejected,
       COALESCE(SUM((SELECT COUNT(*) FROM jsonb_array_elements(output->'tasks') AS t WHERE t->>'status' = 'pending')), 0)::int AS pending
     FROM ai_recommendations
-  `);
+    ${userId ? 'WHERE user_id = $1' : ''}
+  `, userId ? [userId] : []);
   return result.rows[0] || { suggested: 0, accepted: 0, rejected: 0, pending: 0 };
 }
 
-async function computeRationaleMetrics() {
+async function computeRationaleMetrics(userId) {
   const result = await db.query(`
     WITH task_items AS (
       SELECT task
-      FROM ai_recommendations,
+      FROM ai_recommendations${userId ? ' WHERE user_id = $1' : ''},
       LATERAL jsonb_array_elements(COALESCE(output->'tasks', '[]'::jsonb)) AS task
     ),
     rationale_items AS (
@@ -81,7 +82,7 @@ async function computeRationaleMetrics() {
     FROM factors
     GROUP BY factor
     ORDER BY suggested DESC, factor ASC
-  `);
+  `, userId ? [userId] : []);
 
   return result.rows.map((row) => {
     const suggested = Number(row.suggested) || 0;

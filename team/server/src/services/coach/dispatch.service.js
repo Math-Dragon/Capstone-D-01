@@ -448,10 +448,10 @@ class DispatchService {
     });
   }
 
-  async getRecommendationMetrics() {
+  async getRecommendationMetrics(userId) {
     try {
-      const m = await repos.aiRec.computeAllMetrics();
-      const rationaleMetrics = await repos.aiRec.computeRationaleMetrics();
+      const m = await repos.aiRec.computeAllMetrics(userId);
+      const rationaleMetrics = await repos.aiRec.computeRationaleMetrics(userId);
       const total = m.accepted + m.rejected;
       return {
         ai_tasks_suggested_total: m.suggested,
