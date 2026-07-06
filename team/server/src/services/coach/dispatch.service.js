@@ -399,6 +399,7 @@ class DispatchService {
         const taskRationale = Array.isArray(task.rationale) ? task.rationale : (task.rationale ? [task.rationale] : []);
         await repos.task.create({
           goal_id: targetGoalId,
+          recommendation_id: recId,
           title: task.title,
           description: task.description || null,
           duration_estimate: task.duration_estimate,
