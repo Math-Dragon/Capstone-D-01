@@ -30,6 +30,11 @@ export function Header() {
     return location.pathname.startsWith(path);
   };
 
+  const handleSettings = () => {
+    navigate('/settings');
+    setIsMobileMenuOpen(false);
+  };
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -70,7 +75,15 @@ export function Header() {
                   {avatarInitial}
                 </div>
                 <button
-                  onClick={handleLogout}
+                  type="button"
+                  onClick={handleSettings}
+                  className="px-4 py-2 rounded-lg font-medium text-sm text-primary-600 hover:text-primary-900 hover:bg-primary-50 transition-all duration-200"
+                >
+                  Akun
+                </button>
+              <button
+                type="button"
+                onClick={handleLogout}
                   className="px-4 py-2.5 rounded-xl font-medium text-sm text-primary-700 hover:text-primary-900 hover:bg-primary-50 transition-all duration-200"
                 >
                   Logout
@@ -128,15 +141,25 @@ export function Header() {
               ))}
               <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-primary-100">
                 {isAuthenticated ? (
-                  <button
-                    onClick={() => {
-                      handleLogout();
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="px-4 py-3 rounded-xl font-medium text-sm text-center text-red-600 hover:bg-red-50 transition-all"
-                  >
-                    Logout
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleSettings}
+                      className="px-4 py-3 rounded-xl font-medium text-sm text-center text-primary-700 hover:bg-primary-50 transition-all"
+                    >
+                      Akun & Keamanan
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleLogout();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="px-4 py-3 rounded-xl font-medium text-sm text-center text-red-600 hover:bg-red-50 transition-all"
+                    >
+                      Logout
+                    </button>
+                  </>
                 ) : (
                   <>
                     <Link

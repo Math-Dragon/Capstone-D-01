@@ -96,6 +96,13 @@ export function AuthProvider({ children }) {
     }
   };
 
+
+  const refreshProfile = async () => {
+    const profileData = await authService.getProfile();
+    dispatch(setUser(profileData));
+    return profileData;
+  };
+
   const logout = async () => {
     try {
       await authService.logout();
@@ -107,7 +114,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isInitialized, loading, error, login, loginWithGoogle, register, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, isInitialized, loading, error, login, loginWithGoogle, register, logout, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
