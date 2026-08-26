@@ -102,4 +102,91 @@ const generalLimiter = makeLimiter({
   },
 });
 
-module.exports = { authLimiter, aiLimiter, generalLimiter };
+
+const forgotPasswordMax = parseInt(process.env.FORGOT_PASSWORD_RATE_LIMIT_MAX, 10) || 5;
+const verifyOtpMax = parseInt(process.env.VERIFY_OTP_RATE_LIMIT_MAX, 10) || 10;
+const resetPasswordMax = parseInt(process.env.RESET_PASSWORD_RATE_LIMIT_MAX, 10) || 5;
+const phoneVerifyMax = parseInt(process.env.PHONE_VERIFY_RATE_LIMIT_MAX, 10) || 3;
+const otpWindowMs = 15 * 60 * 1000;
+
+const forgotPasswordLimiter = makeLimiter({
+  windowMs: otpWindowMs,
+  max: forgotPasswordMax,
+  prefix: 'forgot-password',
+  keyGenerator: (req) => req.ip,
+  handler: (req, res) => {
+    const retryAfterSeconds = getRetryAfterSeconds(req);
+    res.status(429).json({
+      success: false,
+      error: {
+        code: 'RATE_LIMITED',
+        message: `Too many password reset requests, please try again in ${retryAfterSeconds} seconds`,
+        retryAfterSeconds,
+      },
+    });
+  },
+});
+
+const verifyOtpLimiter = makeLimiter({
+  windowMs: otpWindowMs,
+  max: verifyOtpMax,
+  prefix: 'verify-otp',
+  keyGenerator: (req) => req.ip,
+  handler: (req, res) => {
+    const retryAfterSeconds = getRetryAfterSeconds(req);
+    res.status(429).json({
+      success: false,
+      error: {
+        code: 'RATE_LIMITED',
+        message: `Too many OTP verification attempts, please try again in ${retryAfterSeconds} seconds`,
+        retryAfterSeconds,
+      },
+    });
+  },
+});
+
+const resetPasswordLimiter = makeLimiter({
+  windowMs: otpWindowMs,
+  max: resetPasswordMax,
+  prefix: 'reset-password',
+  keyGenerator: (req) => req.ip,
+  handler: (req, res) => {
+    const retryAfterSeconds = getRetryAfterSeconds(req);
+    res.status(429).json({
+      success: false,
+      error: {
+        code: 'RATE_LIMITED',
+        message: `Too many reset password attempts, please try again in ${retryAfterSeconds} seconds`,
+        retryAfterSeconds,
+      },
+    });
+  },
+});
+
+const phoneVerifyLimiter = makeLimiter({
+  windowMs: otpWindowMs,
+  max: phoneVerifyMax,
+  prefix: 'phone-verify',
+  keyGenerator: (req) => req.user?.id || req.ip,
+  handler: (req, res) => {
+    const retryAfterSeconds = getRetryAfterSeconds(req);
+    res.status(429).json({
+      success: false,
+      error: {
+        code: 'RATE_LIMITED',
+        message: `Too many phone verification requests, please try again in ${retryAfterSeconds} seconds`,
+        retryAfterSeconds,
+      },
+    });
+  },
+});
+
+module.exports = {
+  authLimiter,
+  aiLimiter,
+  generalLimiter,
+  forgotPasswordLimiter,
+  verifyOtpLimiter,
+  resetPasswordLimiter,
+  phoneVerifyLimiter,
+};

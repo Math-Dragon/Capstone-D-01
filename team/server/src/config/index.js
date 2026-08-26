@@ -61,6 +61,11 @@ const refreshCookieOptions = {
 
 const aiConfigured = providerRequirements[llmProvider].every((key) => !!process.env[key]);
 
+const passwordResetOtpTtlMinutes = parseInt(process.env.PASSWORD_RESET_OTP_TTL_MINUTES, 10) || 10;
+const passwordResetOtpCooldownSeconds = parseInt(process.env.PASSWORD_RESET_OTP_COOLDOWN_SECONDS, 10) || 60;
+const passwordResetMaxAttempts = parseInt(process.env.PASSWORD_RESET_MAX_ATTEMPTS, 10) || 5;
+const passwordResetSessionTtlMinutes = parseInt(process.env.PASSWORD_RESET_SESSION_TTL_MINUTES, 10) || 15;
+
 module.exports = {
   nodeEnv,
   isProduction,
@@ -95,4 +100,23 @@ module.exports = {
   metricsApiKey: process.env.METRICS_API_KEY || '',
   adminEmails: (process.env.ADMIN_EMAILS || '').split(',').map(s => s.trim()).filter(Boolean),
   firebaseProjectId: process.env.FIREBASE_PROJECT_ID || 'auth-aiweb',
+
+  otpHashSecret: process.env.OTP_HASH_SECRET || '',
+  mailFrom: process.env.MAIL_FROM || 'StepUp <no-reply@stepup.local>',
+  smtp: {
+    host: process.env.SMTP_HOST || '',
+    port: parseInt(process.env.SMTP_PORT, 10) || 587,
+    secure: process.env.SMTP_SECURE === 'true',
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+  },
+  twilio: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID || '',
+    authToken: process.env.TWILIO_AUTH_TOKEN || '',
+    fromNumber: process.env.TWILIO_FROM_NUMBER || '',
+  },
+  passwordResetOtpTtlMinutes,
+  passwordResetOtpCooldownSeconds,
+  passwordResetMaxAttempts,
+  passwordResetSessionTtlMinutes,
 };
