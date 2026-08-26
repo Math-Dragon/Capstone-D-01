@@ -1,11 +1,17 @@
 process.env.SKIP_DB_CHECK = 'true';
 
+jest.mock('../../src/repositories', () => ({
+  user: { findById: jest.fn() },
+  profile: { findByUserId: jest.fn() },
+}));
+
 jest.mock('../../src/services/auth.service', () => ({
   register: jest.fn(),
   login: jest.fn(),
   googleLogin: jest.fn(),
   refresh: jest.fn(),
   logout: jest.fn(),
+  formatUserAuthProfile: jest.fn(),
 }));
 
 jest.mock('../../src/middleware/authenticate', () => ({
@@ -158,6 +164,11 @@ describe('POST /api/auth/refresh', () => {
 
 describe('GET /api/auth/me', () => {
   test('returns user when authenticated', async () => {
+    const repos = require('../../src/repositories');
+    const authService = require('../../src/services/auth.service');
+    repos.user.findById.mockResolvedValue({ id: 'u1', email: 'test@test.com' });
+    repos.profile.findByUserId.mockResolvedValue({ timezone: 'Asia/Jakarta' });
+    authService.formatUserAuthProfile.mockReturnValue({ id: 'u1', email: 'test@test.com', phoneVerified: false });
     const request = require('supertest');
     const res = await request(createApp())
       .get('/api/auth/me')
