@@ -49,7 +49,7 @@ async function updatePasswordHash(userId, passwordHash, client) {
 
 async function updatePhoneVerified(userId, phoneNumber, client) {
   const result = await db.query(
-    `UPDATE users SET phone_number = $1, phone_verified_at = NOW() WHERE id = $2 RETURNING *`,
+    'UPDATE users SET phone_number = $1, phone_verified_at = NOW() WHERE id = $2 RETURNING *',
     [phoneNumber, userId],
     client,
   );

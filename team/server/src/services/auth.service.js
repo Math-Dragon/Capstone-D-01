@@ -270,7 +270,7 @@ class AuthService {
   }
 
   async _createOtpChallengeAndNotify({
-    user, identifier, identifierHash, channel, purpose, userId, sendFn,
+    user, identifier, identifierHash, channel, purpose, userId, sendFn, context = {},
   }) {
     await repos.otpChallenge.invalidatePending({
       identifierHash, purpose, channel, userId,
@@ -291,7 +291,7 @@ class AuthService {
 
     this._logAuthEvent(
       purpose === 'password_reset' ? 'AUTH_PASSWORD_RESET_REQUESTED' : 'AUTH_PHONE_VERIFY_REQUESTED',
-      { identifier_hash: identifierHash, channel, purpose },
+      { identifier_hash: identifierHash, channel, purpose, ip: context.ip },
     );
 
     return challenge;
@@ -321,6 +321,7 @@ class AuthService {
       channel,
       purpose: 'password_reset',
       userId: user.id,
+      context,
       sendFn: (otp) => notificationService.sendPasswordResetOtp({
         channel,
         to: normalized,
@@ -453,6 +454,7 @@ class AuthService {
       channel: 'sms',
       purpose: 'phone_verify',
       userId,
+      context,
       sendFn: (otp) => notificationService.sendPhoneVerifyOtp({
         to: phone,
         otp,
