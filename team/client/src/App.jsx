@@ -15,6 +15,10 @@ import { ToastProvider } from './components/ui/Toast';
 const HomePage = lazy(() => import('./pages/HomePage'));
 const LoginPage = lazy(() => import('./features/auth/components/LoginPage'));
 const RegisterPage = lazy(() => import('./features/auth/components/RegisterPage'));
+const ForgotPasswordPage = lazy(() => import('./features/auth/components/ForgotPasswordPage'));
+const VerifyOtpPage = lazy(() => import('./features/auth/components/VerifyOtpPage'));
+const ResetPasswordPage = lazy(() => import('./features/auth/components/ResetPasswordPage'));
+const SettingsPage = lazy(() => import('./features/auth/components/SettingsPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const GoalsPage = lazy(() => import('./features/goals/components/GoalsPage'));
 const GoalDetailPage = lazy(() => import('./pages/GoalDetailPage'));
@@ -38,6 +42,10 @@ function AppContent() {
           <Route index element={<RootPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
+          <Route path="forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="forgot-password/verify" element={<VerifyOtpPage />} />
+          <Route path="reset-password" element={<ResetPasswordPage />} />
+          <Route path="settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
           <Route path="goals" element={<ProtectedRoute><CheckInGateway><GoalsPage /></CheckInGateway></ProtectedRoute>} />
           <Route path="goals/:id" element={<ProtectedRoute><CheckInGateway><GoalDetailPage /></CheckInGateway></ProtectedRoute>} />
           <Route path="calendar" element={<ProtectedRoute><CheckInGateway><CalendarPage /></CheckInGateway></ProtectedRoute>} />

@@ -2,9 +2,27 @@ const express = require('express');
 const router = express.Router();
 const authService = require('../services/auth.service');
 const config = require('../config');
+const repos = require('../repositories');
 const { authenticate } = require('../middleware/authenticate');
 const { validate } = require('../middleware/validate');
 const { registerSchema, loginSchema } = require('../models/user.model');
+const {
+  requestPasswordResetSchema,
+  verifyPasswordResetOtpSchema,
+  resetPasswordSchema,
+  requestPhoneVerifySchema,
+  verifyPhoneSchema,
+} = require('../models/password-reset.model');
+const {
+  forgotPasswordLimiter,
+  verifyOtpLimiter,
+  resetPasswordLimiter,
+  phoneVerifyLimiter,
+} = require('../middleware/rateLimiter');
+
+function requestContext(req) {
+  return { ip: req.ip, userAgent: req.get('user-agent') };
+}
 
 router.post('/register', validate({ body: registerSchema }), async (req, res, next) => {
   try {
@@ -49,9 +67,15 @@ router.post('/refresh', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.get('/me', authenticate, (req, res) => {
-  const isAdmin = config.adminEmails.includes(req.user.email);
-  res.json({ success: true, data: { ...req.user, isAdmin } });
+router.get('/me', authenticate, async (req, res, next) => {
+  try {
+    const user = await repos.user.findById(req.user.id);
+    const profile = await repos.profile.findByUserId(req.user.id);
+    res.json({
+      success: true,
+      data: authService.formatUserAuthProfile(user, profile),
+    });
+  } catch (err) { next(err); }
 });
 
 router.post('/logout', authenticate, async (req, res, next) => {
@@ -61,5 +85,89 @@ router.post('/logout', authenticate, async (req, res, next) => {
     res.json({ success: true, data: { message: 'Logged out' } });
   } catch (err) { next(err); }
 });
+
+router.post(
+  '/forgot-password',
+  forgotPasswordLimiter,
+  validate({ body: requestPasswordResetSchema }),
+  async (req, res, next) => {
+    try {
+      const data = await authService.requestPasswordReset(
+        req.body.identifier,
+        req.body.channel,
+        requestContext(req),
+      );
+      res.json({ success: true, data });
+    } catch (err) { next(err); }
+  },
+);
+
+router.post(
+  '/forgot-password/verify-otp',
+  verifyOtpLimiter,
+  validate({ body: verifyPasswordResetOtpSchema }),
+  async (req, res, next) => {
+    try {
+      const data = await authService.verifyPasswordResetOtp(
+        req.body.identifier,
+        req.body.channel,
+        req.body.otp,
+        requestContext(req),
+      );
+      res.json({ success: true, data });
+    } catch (err) { next(err); }
+  },
+);
+
+router.post(
+  '/reset-password',
+  resetPasswordLimiter,
+  validate({ body: resetPasswordSchema }),
+  async (req, res, next) => {
+    try {
+      const data = await authService.resetPassword(
+        req.body.resetToken,
+        req.body.password,
+        requestContext(req),
+      );
+      res.json({ success: true, data });
+    } catch (err) { next(err); }
+  },
+);
+
+router.post(
+  '/phone/request-verify',
+  authenticate,
+  phoneVerifyLimiter,
+  validate({ body: requestPhoneVerifySchema }),
+  async (req, res, next) => {
+    try {
+      const data = await authService.requestPhoneVerification(
+        req.user.id,
+        req.body.phoneNumber,
+        requestContext(req),
+      );
+      res.json({ success: true, data });
+    } catch (err) { next(err); }
+  },
+);
+
+router.post(
+  '/phone/verify',
+  authenticate,
+  verifyOtpLimiter,
+  validate({ body: verifyPhoneSchema }),
+  async (req, res, next) => {
+    try {
+      const data = await authService.verifyPhone(
+        req.user.id,
+        req.body.phoneNumber,
+        req.body.otp,
+        requestContext(req),
+      );
+      res.json({ success: true, data });
+    } catch (err) { next(err); }
+  },
+);
 
 module.exports = router;

@@ -4,6 +4,10 @@ jest.mock('../../src/middleware/rateLimiter', () => ({
   authLimiter: (_req, _res, next) => next(),
   aiLimiter: (_req, _res, next) => next(),
   generalLimiter: (_req, _res, next) => next(),
+  forgotPasswordLimiter: (_req, _res, next) => next(),
+  verifyOtpLimiter: (_req, _res, next) => next(),
+  resetPasswordLimiter: (_req, _res, next) => next(),
+  phoneVerifyLimiter: (_req, _res, next) => next(),
 }));
 
 jest.mock('../../src/repositories', () => ({

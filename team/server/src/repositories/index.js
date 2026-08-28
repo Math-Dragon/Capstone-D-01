@@ -11,6 +11,8 @@ const studentMetricsRepo = require('./student-metrics.repo');
 const cacheRepo = require('./cache.repo');
 const planSnapshotRepo = require('./plan-snapshot.repo');
 const webhookSubscriptionRepo = require('./webhook-subscription.repo');
+const otpChallengeRepo = require('./otp-challenge.repo');
+const passwordResetSessionRepo = require('./password-reset-session.repo');
 
 module.exports = {
   user: userRepo,
@@ -26,4 +28,6 @@ module.exports = {
   cache: cacheRepo,
   planSnapshot: planSnapshotRepo,
   webhookSubscription: webhookSubscriptionRepo,
+  otpChallenge: otpChallengeRepo,
+  passwordResetSession: passwordResetSessionRepo,
 };

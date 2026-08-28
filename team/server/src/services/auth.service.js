@@ -6,6 +6,21 @@ const db = require('../db');
 const repos = require('../repositories');
 const admin = require('../config/firebase');
 const logger = require('../utils/logger');
+const notificationService = require('./notification.service');
+const {
+  hashOtp,
+  hashIdentifier,
+  hashToken: hashOpaqueToken,
+  generateOtp,
+  generateResetToken,
+  normalizeEmail,
+  normalizePhoneE164,
+  maskPhone,
+} = require('../utils/otp');
+
+const GENERIC_RESET_MSG = 'Jika data akun cocok, kode reset password akan dikirim.';
+const GENERIC_OTP_ERROR = 'Kode OTP tidak valid atau sudah kedaluwarsa.';
+
 
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -207,6 +222,310 @@ class AuthService {
 
       return { accessToken, refreshToken: newRefreshToken };
     });
+  }
+
+  _otpExpiryDate() {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() + config.passwordResetOtpTtlMinutes);
+    return d;
+  }
+
+  _resetSessionExpiryDate() {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() + config.passwordResetSessionTtlMinutes);
+    return d;
+  }
+
+  _logAuthEvent(event, meta = {}) {
+    logger.info({ event, ...meta }, event);
+  }
+
+  async _resolvePasswordResetUser(identifier, channel) {
+    if (channel === 'email') {
+      const email = normalizeEmail(identifier);
+      return { user: await repos.user.findByEmail(email), normalized: email };
+    }
+    const phone = normalizePhoneE164(identifier);
+    return { user: await repos.user.findByPhoneE164(phone), normalized: phone };
+  }
+
+  _isEligibleForPasswordReset(user, channel) {
+    if (!user || !user.password_hash) return false;
+    if (channel === 'sms') {
+      return Boolean(user.phone_verified_at && user.phone_number);
+    }
+    return true;
+  }
+
+  async _assertCooldown(identifierHash, purpose, channel) {
+    const latest = await repos.otpChallenge.findLatestCreated({ identifierHash, purpose, channel });
+    if (!latest) return;
+    const elapsedMs = Date.now() - new Date(latest.created_at).getTime();
+    if (elapsedMs < config.passwordResetOtpCooldownSeconds * 1000) {
+      const err = new Error('Terlalu banyak permintaan. Coba lagi nanti.');
+      err.statusCode = 429;
+      err.code = 'RATE_LIMITED';
+      throw err;
+    }
+  }
+
+  async _createOtpChallengeAndNotify({
+    user, identifier, identifierHash, channel, purpose, userId, sendFn, context = {},
+  }) {
+    await repos.otpChallenge.invalidatePending({
+      identifierHash, purpose, channel, userId,
+    });
+
+    const otp = generateOtp();
+    const challenge = await repos.otpChallenge.create({
+      user_id: userId || user?.id || null,
+      purpose,
+      identifier,
+      identifier_hash: identifierHash,
+      channel,
+      otp_hash: hashOtp(otp),
+      expires_at: this._otpExpiryDate(),
+    });
+
+    await sendFn(otp);
+
+    this._logAuthEvent(
+      purpose === 'password_reset' ? 'AUTH_PASSWORD_RESET_REQUESTED' : 'AUTH_PHONE_VERIFY_REQUESTED',
+      { identifier_hash: identifierHash, channel, purpose, ip: context.ip },
+    );
+
+    return challenge;
+  }
+
+  async requestPasswordReset(identifier, channel, context = {}) {
+    const { user, normalized } = await this._resolvePasswordResetUser(identifier, channel);
+    const identifierHash = hashIdentifier(`${channel}:${normalized}`);
+    const generic = { message: GENERIC_RESET_MSG };
+
+    if (!this._isEligibleForPasswordReset(user, channel)) {
+      this._logAuthEvent('AUTH_PASSWORD_RESET_REQUESTED', {
+        identifier_hash: identifierHash,
+        channel,
+        reason: 'skipped_ineligible',
+        ip: context.ip,
+      });
+      return generic;
+    }
+
+    await this._assertCooldown(identifierHash, 'password_reset', channel);
+
+    await this._createOtpChallengeAndNotify({
+      user,
+      identifier: normalized,
+      identifierHash,
+      channel,
+      purpose: 'password_reset',
+      userId: user.id,
+      context,
+      sendFn: (otp) => notificationService.sendPasswordResetOtp({
+        channel,
+        to: normalized,
+        otp,
+        expiresInMinutes: config.passwordResetOtpTtlMinutes,
+      }),
+    });
+
+    return generic;
+  }
+
+  async verifyPasswordResetOtp(identifier, channel, otp, context = {}) {
+    const { normalized } = await this._resolvePasswordResetUser(identifier, channel);
+    const identifierHash = hashIdentifier(`${channel}:${normalized}`);
+    const challenge = await repos.otpChallenge.findLatestPending({
+      identifierHash, purpose: 'password_reset', channel,
+    });
+
+    if (!challenge) {
+      this._logAuthEvent('AUTH_PASSWORD_RESET_FAILED', {
+        identifier_hash: identifierHash, channel, reason: 'not_found', ip: context.ip,
+      });
+      const err = new Error(GENERIC_OTP_ERROR);
+      err.statusCode = 400;
+      err.code = 'INVALID_OTP';
+      throw err;
+    }
+
+    if (challenge.attempt_count >= config.passwordResetMaxAttempts) {
+      await repos.otpChallenge.lock(challenge.id);
+      const err = new Error(GENERIC_OTP_ERROR);
+      err.statusCode = 400;
+      err.code = 'INVALID_OTP';
+      throw err;
+    }
+
+    if (hashOtp(otp) !== challenge.otp_hash) {
+      const updated = await repos.otpChallenge.incrementAttempt(challenge.id);
+      if (updated.attempt_count >= config.passwordResetMaxAttempts) {
+        await repos.otpChallenge.lock(challenge.id);
+      }
+      this._logAuthEvent('AUTH_PASSWORD_RESET_FAILED', {
+        identifier_hash: identifierHash, channel, reason: 'invalid_otp', ip: context.ip,
+      });
+      const err = new Error(GENERIC_OTP_ERROR);
+      err.statusCode = 400;
+      err.code = 'INVALID_OTP';
+      throw err;
+    }
+
+    const consumed = await repos.otpChallenge.consume(challenge.id);
+    if (!consumed) {
+      const err = new Error(GENERIC_OTP_ERROR);
+      err.statusCode = 400;
+      err.code = 'INVALID_OTP';
+      throw err;
+    }
+
+    const resetToken = generateResetToken();
+    await repos.passwordResetSession.create({
+      user_id: consumed.user_id,
+      otp_challenge_id: consumed.id,
+      token_hash: hashOpaqueToken(resetToken),
+      expires_at: this._resetSessionExpiryDate(),
+    });
+
+    this._logAuthEvent('AUTH_PASSWORD_RESET_OTP_VERIFIED', {
+      identifier_hash: identifierHash, channel, ip: context.ip,
+    });
+
+    return {
+      resetToken,
+      expiresInMinutes: config.passwordResetSessionTtlMinutes,
+    };
+  }
+
+  async resetPassword(resetToken, newPassword, context = {}) {
+    return db.withTransaction(async (client) => {
+      const session = await repos.passwordResetSession.findByTokenHash(
+        hashOpaqueToken(resetToken),
+        client,
+        { forUpdate: true },
+      );
+
+      if (!session) {
+        const err = new Error('Token reset password tidak valid atau sudah kedaluwarsa.');
+        err.statusCode = 400;
+        err.code = 'INVALID_RESET_TOKEN';
+        throw err;
+      }
+
+      const consumed = await repos.passwordResetSession.consume(session.id, client);
+      if (!consumed) {
+        const err = new Error('Token reset password tidak valid atau sudah kedaluwarsa.');
+        err.statusCode = 400;
+        err.code = 'INVALID_RESET_TOKEN';
+        throw err;
+      }
+
+      const password_hash = await bcrypt.hash(newPassword, 12);
+      await repos.user.updatePasswordHash(session.user_id, password_hash, client);
+      await repos.refreshToken.revokeAllForUser(session.user_id, client);
+
+      this._logAuthEvent('AUTH_PASSWORD_RESET_COMPLETED', {
+        user_id: session.user_id, ip: context.ip,
+      });
+
+      return { message: 'Password berhasil diperbarui. Silakan login kembali.' };
+    });
+  }
+
+  async requestPhoneVerification(userId, phoneNumber, context = {}) {
+    const phone = normalizePhoneE164(phoneNumber);
+    const identifierHash = hashIdentifier(`sms:${phone}`);
+
+    const existing = await repos.user.findByPhoneE164(phone);
+    if (existing && existing.id !== userId && existing.phone_verified_at) {
+      const err = new Error('Nomor telepon sudah digunakan akun lain.');
+      err.statusCode = 409;
+      err.code = 'CONFLICT';
+      throw err;
+    }
+
+    await this._assertCooldown(identifierHash, 'phone_verify', 'sms');
+
+    await this._createOtpChallengeAndNotify({
+      user: { id: userId },
+      identifier: phone,
+      identifierHash,
+      channel: 'sms',
+      purpose: 'phone_verify',
+      userId,
+      context,
+      sendFn: (otp) => notificationService.sendPhoneVerifyOtp({
+        to: phone,
+        otp,
+        expiresInMinutes: config.passwordResetOtpTtlMinutes,
+      }),
+    });
+
+    return { message: 'Kode verifikasi telah dikirim ke nomor telepon kamu.' };
+  }
+
+  async verifyPhone(userId, phoneNumber, otp, context = {}) {
+    const phone = normalizePhoneE164(phoneNumber);
+    const identifierHash = hashIdentifier(`sms:${phone}`);
+    const challenge = await repos.otpChallenge.findLatestPending({
+      identifierHash, purpose: 'phone_verify', channel: 'sms',
+    });
+
+    if (!challenge || challenge.user_id !== userId) {
+      const err = new Error(GENERIC_OTP_ERROR);
+      err.statusCode = 400;
+      err.code = 'INVALID_OTP';
+      throw err;
+    }
+
+    if (challenge.attempt_count >= config.passwordResetMaxAttempts) {
+      await repos.otpChallenge.lock(challenge.id);
+      const err = new Error(GENERIC_OTP_ERROR);
+      err.statusCode = 400;
+      err.code = 'INVALID_OTP';
+      throw err;
+    }
+
+    if (hashOtp(otp) !== challenge.otp_hash) {
+      const updated = await repos.otpChallenge.incrementAttempt(challenge.id);
+      if (updated.attempt_count >= config.passwordResetMaxAttempts) {
+        await repos.otpChallenge.lock(challenge.id);
+      }
+      const err = new Error(GENERIC_OTP_ERROR);
+      err.statusCode = 400;
+      err.code = 'INVALID_OTP';
+      throw err;
+    }
+
+    const existing = await repos.user.findByPhoneE164(phone);
+    if (existing && existing.id !== userId && existing.phone_verified_at) {
+      const err = new Error('Nomor telepon sudah digunakan akun lain.');
+      err.statusCode = 409;
+      err.code = 'CONFLICT';
+      throw err;
+    }
+
+    await repos.otpChallenge.consume(challenge.id);
+    await repos.user.updatePhoneVerified(userId, phone);
+
+    this._logAuthEvent('AUTH_PHONE_VERIFY_VERIFIED', { user_id: userId, ip: context.ip });
+
+    return {
+      phoneNumber: maskPhone(phone),
+      phoneVerified: true,
+    };
+  }
+
+  formatUserAuthProfile(user, profile) {
+    return {
+      id: user.id,
+      email: user.email,
+      profile,
+      isAdmin: config.adminEmails.includes(user.email),
+      phoneNumber: user.phone_number ? maskPhone(user.phone_number) : null,
+      phoneVerified: Boolean(user.phone_verified_at),
+    };
   }
 
   async logout(userId, refreshToken) {
