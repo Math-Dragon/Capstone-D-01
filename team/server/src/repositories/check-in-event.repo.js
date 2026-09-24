@@ -53,23 +53,46 @@ async function listByUser(userId, { filter, limit, cursor }, client) {
   if (filter === 'skipped') sql += " AND e.event_type = 'skipped'";
   if (filter === 'corrected') sql += ' AND e.correction_count > 0';
   if (cursor) {
+    // Truncate created_at on both sides of the comparison: the cursor carries
+    // an ISO string at ms precision, so the column must be compared at the
+    // same precision or same-millisecond rows are skipped. Same-ms rows then
+    // order by id, and the ORDER BY below matches, so no row is lost or repeated.
     params.push(cursor.createdAt, cursor.id);
-    sql += ` AND (e.created_at, e.id) < ($${params.length - 1}, $${params.length})`;
+    sql += ` AND (date_trunc('milliseconds', e.created_at), e.id) < ($${params.length - 1}::timestamptz, $${params.length})`;
   }
   params.push(limit + 1);
-  sql += ` ORDER BY e.created_at DESC, e.id DESC LIMIT $${params.length}`;
+  sql += ` ORDER BY date_trunc('milliseconds', e.created_at) DESC, e.id DESC LIMIT $${params.length}`;
   const result = await db.query(sql, params, client);
   return result.rows;
 }
 
-async function correct(userId, id, data, client) {
+async function correct(userId, id, { mood, note, version }, client) {
+  // Presence-based SET: an explicit null clears the field (mood: null clears
+  // mood instead of being swallowed by COALESCE). The integer version column
+  // is the optimistic-lock guard — timestamp comparison breaks on the
+  // Postgres µs vs JS ms precision mismatch.
+  const sets = [
+    'version = version + 1',
+    'corrected_at = NOW()',
+    'correction_count = correction_count + 1',
+    'updated_at = NOW()',
+  ];
+  const params = [userId, id, version];
+  if (mood !== undefined) {
+    params.push(mood);
+    sets.push(`mood = $${params.length}`);
+  }
+  if (note !== undefined) {
+    params.push(note);
+    sets.push(`note = $${params.length}`);
+  }
   const result = await db.query(
     `UPDATE check_in_events
-     SET mood = COALESCE($3, mood), note = CASE WHEN $4::boolean THEN $5 ELSE note END,
-       corrected_at = NOW(), correction_count = correction_count + 1, updated_at = NOW()
-     WHERE user_id = $1 AND id = $2 AND updated_at = $6::timestamptz
+     SET ${sets.join(', ')}
+     WHERE user_id = $1 AND id = $2 AND version = $3
      RETURNING *`,
-    [userId, id, data.mood || null, data.note !== undefined, data.note ?? null, data.version], client
+    params,
+    client
   );
   return result.rows[0] || null;
 }
@@ -82,13 +105,16 @@ async function remove(userId, id, client) {
   return result.rows[0] || null;
 }
 
-async function countByUser(userId, { from, to } = {}, client) {
+async function countByUser(userId, { from, to, timezone } = {}, client) {
+  // from/to are 'YYYY-MM-DD' day keys in the caller's timezone; the bounds
+  // are the UTC instants of local midnight, computed in Postgres (DST-safe),
+  // so they align with the timezone-aware buckets built by the service.
   const result = await db.query(
     `SELECT COUNT(*)::int AS count FROM check_in_events
      WHERE user_id = $1
-       AND ($2::timestamptz IS NULL OR created_at >= $2)
-       AND ($3::timestamptz IS NULL OR created_at < $3)`,
-    [userId, from || null, to || null], client
+       AND ($2::date IS NULL OR created_at >= ($2::date::timestamp AT TIME ZONE $4::text))
+       AND ($3::date IS NULL OR created_at < ($3::date::timestamp AT TIME ZONE $4::text))`,
+    [userId, from || null, to || null, timezone || 'UTC'], client
   );
   return result.rows[0]?.count || 0;
 }

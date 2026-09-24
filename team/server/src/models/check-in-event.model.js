@@ -52,7 +52,7 @@ const correctionSchema = z.object({
   mood: z.enum(moods).nullable().optional(),
   note: z.string().trim().max(500).nullable().optional(),
   reason_code: z.enum(reasonCodes).optional(),
-  version: z.string().datetime(),
+  version: z.coerce.number().int().min(0),
 }).strict().refine((value) => value.mood !== undefined || value.note !== undefined, {
   message: 'Minimal satu field koreksi wajib dikirim.',
 });

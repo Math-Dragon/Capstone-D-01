@@ -80,7 +80,7 @@ function detailView(event) {
       corrected_at: iso(event.corrected_at),
       count: event.correction_count,
     },
-    version: iso(event.updated_at || event.created_at),
+    version: event.version,
   };
 }
 
@@ -149,7 +149,10 @@ class ProgressService {
     if (current.event_type === 'skipped') {
       throw httpError(400, 'VALIDATION_ERROR', 'Event yang dilewati tidak dapat dikoreksi.');
     }
-    const updated = await repos.checkInEvent.correct(userId, id, payload);
+    // reason_code is audit-only; the repo takes the fields plus the integer version guard.
+    const updated = await repos.checkInEvent.correct(userId, id, {
+      mood: payload.mood, note: payload.note, version: payload.version,
+    });
     if (!updated) throw httpError(409, 'CONFLICT', 'Riwayat telah berubah. Muat ulang sebelum mengoreksi.');
     await repos.audit.create({
       user_id: userId,
@@ -186,7 +189,16 @@ class ProgressService {
       const key = dateKey(task.planned_date, timezone);
       return key && key >= from && key <= today;
     });
-    const completed = scoped.filter((task) => ['done', 'completed'].includes(task.status));
+    // Completions are defined by completed_at-in-period (not scoped-planned):
+    // a completion with no in-period completed_at would count in the headline
+    // but land in no activity bucket. Late completions from earlier plans can
+    // therefore push the ratio above 1; completion_rate is "completions in
+    // period ÷ tasks planned in period".
+    const completed = tasks.filter((task) => {
+      if (!['done', 'completed'].includes(task.status)) return false;
+      const key = dateKey(task.completed_at, timezone);
+      return key !== null && key >= from && key <= today;
+    });
     const totalMinutes = scoped.reduce((sum, task) => sum + (task.duration_estimate || 0), 0);
     const completedMinutes = completed.reduce((sum, task) => sum + (task.actual_duration || task.duration_estimate || 0), 0);
     const difficulty = scoped.filter((task) => task.feedback_difficulty != null).map((task) => Number(task.feedback_difficulty));
@@ -207,7 +219,7 @@ class ProgressService {
     }
     const nextDay = shiftDate(today, 1);
     const signalCount = await repos.checkInEvent.countByUser(userId, {
-      from: `${from}T00:00:00.000Z`, to: `${nextDay}T00:00:00.000Z`,
+      from, to: nextDay, timezone,
     });
     const completionRate = scoped.length ? completed.length / scoped.length : 0;
     const insight = scoped.length === 0 ? null : completionRate >= 0.7
@@ -222,7 +234,7 @@ class ProgressService {
       period: { key: periodKey, from, to: today, bucket: 'day' },
       insight,
       health: {
-        progress_percent: Math.round(completionRate * 100),
+        progress_percent: Math.min(100, Math.round(completionRate * 100)),
         completed_tasks: completed.length,
         total_tasks: scoped.length,
         completed_minutes: completedMinutes,

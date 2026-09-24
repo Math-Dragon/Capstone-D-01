@@ -16,9 +16,13 @@ describe('db.query observability', () => {
       warn: jest.fn(),
       error: jest.fn(),
     };
+    const mockTypes = {
+      setTypeParser: jest.fn(),
+    };
 
     jest.doMock('pg', () => ({
       Pool: jest.fn(() => mockPool),
+      types: mockTypes,
     }));
 
     jest.doMock('../../src/utils/logger', () => mockLogger);
@@ -28,7 +32,7 @@ describe('db.query observability', () => {
     }));
 
     const db = require('../../src/db');
-    return { db, mockPool, mockLogger };
+    return { db, mockPool, mockLogger, mockTypes };
   }
 
   test('logs slow queries over 500ms', async () => {
@@ -57,5 +61,14 @@ describe('db.query observability', () => {
     await db.query('SELECT 1', []);
 
     expect(mockLogger.warn).not.toHaveBeenCalled();
+  });
+
+  test('registers the DATE string parser (OID 1082) once', async () => {
+    const { mockTypes } = loadDbWithMocks();
+
+    expect(mockTypes.setTypeParser).toHaveBeenCalledTimes(1);
+    const [oid, parse] = mockTypes.setTypeParser.mock.calls[0];
+    expect(oid).toBe(1082);
+    expect(parse('2026-09-24')).toBe('2026-09-24');
   });
 });

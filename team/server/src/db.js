@@ -1,7 +1,12 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 const config = require('./config');
 const logger = require('./utils/logger');
 const { withRetry, isTransientPgError } = require('./utils/retry');
+
+// Parse Postgres DATE columns (OID 1082) as 'YYYY-MM-DD' strings instead of
+// server-local-midnight Date objects, so date-only values (planned_date,
+// deadline) never shift a day when reformatted in the profile timezone.
+types.setTypeParser(1082, (value) => value);
 
 const pool = new Pool({
   connectionString: config.databaseUrl,

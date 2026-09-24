@@ -9,6 +9,10 @@ describe('week utilities', () => {
     test('returns correct format YYYY-Www', () => {
       expect(getISOWeek('2026-06-15')).toMatch(/^\d{4}-W\d{2}$/);
     });
+
+    test('date-only strings behave like local-midnight Dates (tz-independent)', () => {
+      expect(getISOWeek('2026-09-24')).toBe(getISOWeek(new Date(2026, 8, 24)));
+    });
   });
 
   describe('getCurrentWeek', () => {
