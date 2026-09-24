@@ -1,4 +1,5 @@
 const repos = require('../repositories');
+const { deriveCoachStrategy } = require('./progress-evidence.service');
 
 const MOOD_LABELS = {
   great: 'Sangat baik',
@@ -176,9 +177,10 @@ class ProgressService {
   }
 
   async getOverview(userId, periodKey, now = new Date()) {
-    const [profile, tasks] = await Promise.all([
+    const [profile, tasks, metrics] = await Promise.all([
       repos.profile.findByUserId(userId),
       repos.task.listByUser(userId, { limit: 0 }),
+      repos.studentMetrics.findByUserId(userId),
     ]);
     const timezone = profile?.timezone || 'Asia/Jakarta';
     const today = dateKey(now, timezone);
@@ -202,6 +204,14 @@ class ProgressService {
     const totalMinutes = scoped.reduce((sum, task) => sum + (task.duration_estimate || 0), 0);
     const completedMinutes = completed.reduce((sum, task) => sum + (task.actual_duration || task.duration_estimate || 0), 0);
     const difficulty = scoped.filter((task) => task.feedback_difficulty != null).map((task) => Number(task.feedback_difficulty));
+    const completionRate = scoped.length ? completed.length / scoped.length : 0;
+    const completedCount = completed.length;
+    const plannedCount = scoped.length;
+    const avgDifficulty = difficulty.length ? difficulty.reduce((a, b) => a + b, 0) / difficulty.length : null;
+    const difficultySampleCount = difficulty.length;
+    const streakDays = metrics?.streak_days || 0;
+    const lastMood = metrics?.last_mood || null;
+    const consecutiveSkips = metrics?.consecutive_skips || 0;
     const buckets = dateBuckets(from, today).map((key) => ({
       from: key,
       to: key,
@@ -221,7 +231,6 @@ class ProgressService {
     const signalCount = await repos.checkInEvent.countByUser(userId, {
       from, to: nextDay, timezone,
     });
-    const completionRate = scoped.length ? completed.length / scoped.length : 0;
     const insight = scoped.length === 0 ? null : completionRate >= 0.7
       ? { code: 'momentum_positive', tone: 'positive', text: 'Penyelesaian tugasmu berjalan baik pada periode ini.' }
       : completionRate >= 0.4
@@ -246,10 +255,16 @@ class ProgressService {
       activity: buckets,
       distribution: { dimension: 'task_type', items: [...distributionMap.values()] },
       evidence: { available: signalCount > 0, signal_count: signalCount },
-      coach_strategy: scoped.length ? {
-        text: completionRate < 0.4 ? 'Mulai dari satu tugas singkat, lalu evaluasi kembali kapasitas belajarmu.' : 'Pertahankan ritme dan sesuaikan beban jika diperlukan.',
-        source: 'rule_based',
-      } : null,
+      coach_strategy: scoped.length ? deriveCoachStrategy({
+        completionRate,
+        completedCount,
+        plannedCount,
+        avgDifficulty,
+        difficultySampleCount,
+        streakDays,
+        lastMood,
+        consecutiveSkips,
+      }) : null,
       pending_proposal: null,
     };
   }

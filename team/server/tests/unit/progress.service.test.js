@@ -150,6 +150,53 @@ describe('progressService.getOverview', () => {
     const result = await progressService.getOverview('user-1', '7d', now);
     expect(result.timezone).toBe('Asia/Jakarta');
   });
+
+  test('coach_strategy follows rules for low completion rate', async () => {
+    repos.task.listByUser.mockResolvedValue([
+      { id: 't1', status: 'done', planned_date: '2026-09-20', completed_at: new Date('2026-09-20'), duration_estimate: 30 },
+      { id: 't2', status: 'todo', planned_date: '2026-09-21', completed_at: null, duration_estimate: 30 },
+      { id: 't3', status: 'todo', planned_date: '2026-09-23', completed_at: null, duration_estimate: 45 },
+    ]);
+    repos.studentMetrics.findByUserId.mockResolvedValue({ streak_days: 1, last_mood: null, consecutive_skips: 0 });
+    const result = await progressService.getOverview('user-1', '7d', now);
+    expect(result.coach_strategy).not.toBeNull();
+    expect(result.coach_strategy.text).toBe('Mulai dari satu tugas singkat, lalu evaluasi kembali kapasitas belajarmu.');
+    expect(result.coach_strategy.source).toBe('rule_based');
+  });
+
+  test('coach_strategy crisis for consecutive_skips >= 3', async () => {
+    repos.task.listByUser.mockResolvedValue([
+      { id: 't1', status: 'done', planned_date: '2026-09-20', completed_at: new Date('2026-09-20'), duration_estimate: 30 },
+      { id: 't2', status: 'done', planned_date: '2026-09-21', completed_at: new Date('2026-09-21'), duration_estimate: 30 },
+      { id: 't3', status: 'done', planned_date: '2026-09-22', completed_at: new Date('2026-09-22'), duration_estimate: 30 },
+    ]);
+    repos.studentMetrics.findByUserId.mockResolvedValue({ streak_days: 1, last_mood: null, consecutive_skips: 3 });
+    const result = await progressService.getOverview('user-1', '7d', now);
+    expect(result.coach_strategy).not.toBeNull();
+    expect(result.coach_strategy.text).toBe('Kurangi beban dulu: pilih satu tugas paling ringan dan beri ruang pemulihan.');
+    expect(result.coach_strategy.source).toBe('rule_based');
+  });
+
+  test('coach_strategy maintain for rate >= 0.7', async () => {
+    repos.task.listByUser.mockResolvedValue([
+      { id: 't1', status: 'done', planned_date: '2026-09-20', completed_at: new Date('2026-09-20'), duration_estimate: 30 },
+      { id: 't2', status: 'done', planned_date: '2026-09-21', completed_at: new Date('2026-09-21'), duration_estimate: 30 },
+      { id: 't3', status: 'done', planned_date: '2026-09-22', completed_at: new Date('2026-09-22'), duration_estimate: 30 },
+    ]);
+    repos.studentMetrics.findByUserId.mockResolvedValue({ streak_days: 2, last_mood: null, consecutive_skips: 0 });
+    const result = await progressService.getOverview('user-1', '7d', now);
+    expect(result.coach_strategy).not.toBeNull();
+    expect(result.coach_strategy.text).toBe('Pertahankan ritme dan sesuaikan beban jika diperlukan.');
+    expect(result.coach_strategy.source).toBe('rule_based');
+  });
+
+  test('coach_strategy is null and completion_rate is 0 when no scoped tasks', async () => {
+    repos.task.listByUser.mockResolvedValue([]);
+    const result = await progressService.getOverview('user-1', '7d', now);
+    expect(result.coach_strategy).toBeNull();
+    expect(result.health.completion_rate).toBe(0);
+    expect(result.health.progress_percent).toBe(0);
+  });
 });
 
 describe('progressService.getHistory', () => {

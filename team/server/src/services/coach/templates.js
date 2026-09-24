@@ -1,5 +1,10 @@
 const TASK_STRUCT = '"tasks": [{"title": "...", "description": "...", "task_type": "acquire|practice|recall|interleave|synthesize|review|assess|reflect", "duration_estimate": 25-90, "planned_date": "YYYY-MM-DD", "planned_slot": "morning|afternoon|evening", "priority": "high|medium|low", "completion_criteria": "...", "prerequisites": [], "rationale": [{"factor": "preference_match|availability|learning_science|difficulty_fit|sequence_fit|workload_balance", "explanation": "..."}], "confidence": "low|medium|high"}]';
 
+const evidenceBlock = (ctx) => {
+  const text = ctx && ctx.progressEvidenceText;
+  return text ? `Progress evidence (rule-based):\n${text}\n\n` : '';
+};
+
 const TEMPLATES = {
   initial_plan: (ctx) =>
     (() => {
@@ -17,6 +22,7 @@ const TEMPLATES = {
     `Preferred study slots: ${ctx.profile.preferred_slots}\n` +
     `Available days: ${(ctx.profile.available_days || ['mon', 'tue', 'wed', 'thu', 'fri']).join(', ')}\n` +
     `Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
+    `${evidenceBlock(ctx)}` +
     `${taskInstruction} Every task description must reference the specific goal topic — never output a bare generic description. Respond with JSON only in this exact structure:\n` +
     `{${TASK_STRUCT}, "summary": "brief overview of the plan"}\n` +
     'No conversational text outside the JSON.'
@@ -57,6 +63,7 @@ const TEMPLATES = {
     `- Mood/energy: ${ctx.payload.mood}\n` +
     `- Streak: ${ctx.metrics.streak_days} days\n` +
     `- Consecutive skips: ${ctx.metrics.consecutive_skips}\n\n` +
+    `${evidenceBlock(ctx)}` +
     `Completed since last check-in:\n${ctx.completedSummary}\n\n` +
     `Skipped since last check-in:\n${ctx.skippedSummary}\n\n` +
     `Remaining plan:\n${ctx.remainingTasksJson}\n\n` +
@@ -74,6 +81,7 @@ const TEMPLATES = {
     '[session_type: adjustment]\n\n' +
     `Adjustment reason: ${ctx.payload.type || 'custom'}\n` +
     `Detail: ${ctx.payload.message || ''}\n\n` +
+    `${evidenceBlock(ctx)}` +
     `Current plan:\n${ctx.remainingTasksJson}\n\n` +
     'Completion metrics:\n' +
     `- Completion rate (7d): ${Math.round((ctx.metrics.completion_rate_7d || 0) * 100)}%\n` +
@@ -122,6 +130,7 @@ const TEMPLATES = {
     `- Mood: ${ctx.metrics.last_mood}\n` +
     `- Consecutive skips: ${ctx.metrics.consecutive_skips}\n` +
     `- Completion rate (3d): ${Math.round((ctx.metrics.completion_rate_3d || 0) * 100)}%\n\n` +
+    `${evidenceBlock(ctx)}` +
     `Current plan:\n${ctx.remainingTasksJson}\n\n` +
     `Available days: ${(ctx.profile.available_days || ['mon', 'tue', 'wed', 'thu', 'fri']).join(', ')}\n` +
     `Weekly target hours: ${ctx.profile.weekly_available_hours}\n` +
@@ -139,6 +148,7 @@ const TEMPLATES = {
     `- Weekly hours: ${ctx.profile.weekly_available_hours}\n` +
     `- Available days: ${(ctx.profile.available_days || ['mon', 'tue', 'wed', 'thu', 'fri']).join(', ')}\n` +
     `- Deadline: ${ctx.profile.deadline || 'open-ended'}\n\n` +
+    `${evidenceBlock(ctx)}` +
     'Generate the next phase. Increase difficulty by 10-15%. Acknowledge the achievement.\n\n' +
     `Respond with JSON only. Use this exact format:\n{${TASK_STRUCT}, "summary": "concise description of the next phase", "next_check_in": "YYYY-MM-DD", "adaptation_notes": "acknowledgment of achievement and explanation of increased difficulty"}\nNo conversational text outside the JSON.`,
 };

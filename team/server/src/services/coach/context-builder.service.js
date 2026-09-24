@@ -1,4 +1,5 @@
 const repos = require('../../repositories');
+const { buildProgressEvidence, formatProgressEvidence } = require('../progress-evidence.service');
 
 async function checkLastMoodDrained(userId) {
   try {
@@ -80,6 +81,14 @@ async function buildContext(userId, sessionType, payload) {
     else if (ratio > 0.3) currentLevel = 'intermediate';
   }
 
+  const completionRate = Number.isFinite(metrics.completion_rate_7d) ? metrics.completion_rate_7d : (totalTasks ? completedCount / totalTasks : null);
+  const plannedCount = totalTasks;
+  const avgDifficulty = Number.isFinite(metrics.avg_difficulty_7d) ? metrics.avg_difficulty_7d : null;
+  const difficultySampleCount = tasks.filter((t) => t.feedback_difficulty != null).length;
+  const streakDays = metrics.streak_days || 0;
+  const lastMood = metrics.last_mood || null;
+  const consecutiveSkips = metrics.consecutive_skips || 0;
+
   let profileGoal = activeGoal.title || '';
   let profileSubjects = activeGoal.description || '';
   let profileDeadline = activeGoal.deadline || null;
@@ -110,6 +119,17 @@ async function buildContext(userId, sessionType, payload) {
   if (!Array.isArray(profileAvailableDays) || profileAvailableDays.length === 0) {
     profileAvailableDays = ['mon', 'tue', 'wed', 'thu', 'fri'];
   }
+
+  const input = {
+      completionRate,
+      completedCount,
+      plannedCount,
+      avgDifficulty,
+      difficultySampleCount,
+      streakDays,
+      lastMood,
+      consecutiveSkips,
+    };
 
   return {
     user,
@@ -145,6 +165,7 @@ async function buildContext(userId, sessionType, payload) {
     chatHistory: chatHistoryStr || 'No prior conversation.',
     sessionType,
     goalId: activeGoal.id || null,
+    progressEvidenceText: formatProgressEvidence(buildProgressEvidence(input)),
   };
 }
 

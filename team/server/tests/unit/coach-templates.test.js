@@ -20,6 +20,16 @@ const baseMetrics = {
   total_completed: 15,
 };
 
+const baseCtxWithEvidence = {
+  profile: baseProfile,
+  metrics: baseMetrics,
+  payload: { type: 'reschedule', mood: 'good' },
+  completedSummary: 'Task 1',
+  skippedSummary: 'None',
+  remainingTasksJson: '[]',
+  progressEvidenceText: '- Completion rate (7d): 70% (10/15 tasks)\n- Average difficulty (7d): 3.5/5 (8 samples)\n- Streak: 3 days',
+};
+
 describe('TEMPLATES.initial_plan', () => {
   test('generates prompt with profile data', () => {
     const result = TEMPLATES.initial_plan({ profile: baseProfile });
@@ -45,6 +55,119 @@ describe('TEMPLATES.initial_plan', () => {
     const result = TEMPLATES.initial_plan({ profile: baseProfile, compactMode: true });
     expect(result).toContain('Task count proportional to goal scope');
     expect(result).toContain('rationale must remain an array');
+  });
+
+  test('renders evidence block when progressEvidenceText is set', () => {
+    const result = TEMPLATES.initial_plan(baseCtxWithEvidence);
+    expect(result).toContain('Progress evidence (rule-based):');
+    expect(result).toContain('Completion rate (7d): 70% (10/15 tasks)');
+  });
+
+  test('absent evidence block when progressEvidenceText is undefined', () => {
+    const result = TEMPLATES.initial_plan({ profile: baseProfile });
+    expect(result).not.toContain('Progress evidence (rule-based)');
+  });
+});
+
+describe('TEMPLATES.adjustment', () => {
+  test('generates adjustment prompt', () => {
+    const result = TEMPLATES.adjustment({
+      payload: { type: 'reschedule', message: 'Need to move tasks' },
+      metrics: baseMetrics,
+      remainingTasksJson: '[]',
+      profile: baseProfile,
+    });
+    expect(result).toContain('[session_type: adjustment]');
+    expect(result).toContain('reschedule');
+    expect(result).toContain('Need to move tasks');
+  });
+
+  test('uses defaults for missing payload fields', () => {
+    const result = TEMPLATES.adjustment({
+      payload: {},
+      metrics: baseMetrics,
+      remainingTasksJson: '[]',
+      profile: baseProfile,
+    });
+    expect(result).toContain('custom');
+  });
+
+  test('renders evidence block when progressEvidenceText is set', () => {
+    const result = TEMPLATES.adjustment(baseCtxWithEvidence);
+    expect(result).toContain('Progress evidence (rule-based):');
+  });
+
+  test('absent evidence block when progressEvidenceText is undefined', () => {
+    const result = TEMPLATES.adjustment({ profile: baseProfile, metrics: baseMetrics, remainingTasksJson: '[]', payload: {} });
+    expect(result).not.toContain('Progress evidence (rule-based)');
+  });
+});
+
+describe('TEMPLATES.check_in', () => {
+  test('generates check-in prompt', () => {
+    const result = TEMPLATES.check_in({
+      payload: { mood: 'great' },
+      metrics: baseMetrics,
+      completedSummary: 'Task 1, Task 2',
+      skippedSummary: 'None',
+      remainingTasksJson: '[]',
+    });
+    expect(result).toContain('[session_type: check_in]');
+    expect(result).toContain('great');
+    expect(result).toContain('Task 1, Task 2');
+  });
+
+  test('renders evidence block when progressEvidenceText is set', () => {
+    const result = TEMPLATES.check_in(baseCtxWithEvidence);
+    expect(result).toContain('Progress evidence (rule-based):');
+  });
+
+  test('absent evidence block when progressEvidenceText is undefined', () => {
+    const result = TEMPLATES.check_in({ profile: baseProfile, metrics: baseMetrics, payload: {}, completedSummary: '', skippedSummary: '', remainingTasksJson: '[]' });
+    expect(result).not.toContain('Progress evidence (rule-based)');
+  });
+});
+
+describe('TEMPLATES.crisis', () => {
+  test('generates crisis prompt', () => {
+    const result = TEMPLATES.crisis({
+      metrics: { ...baseMetrics, last_mood: 'drained', consecutive_skips: 5, completion_rate_3d: 0.2 },
+      remainingTasksJson: '[]',
+      profile: baseProfile,
+    });
+    expect(result).toContain('[session_type: crisis]');
+    expect(result).toContain('drained');
+  });
+
+  test('renders evidence block when progressEvidenceText is set', () => {
+    const result = TEMPLATES.crisis(baseCtxWithEvidence);
+    expect(result).toContain('Progress evidence (rule-based):');
+  });
+
+  test('absent evidence block when progressEvidenceText is undefined', () => {
+    const result = TEMPLATES.crisis({ profile: baseProfile, metrics: baseMetrics, remainingTasksJson: '[]' });
+    expect(result).not.toContain('Progress evidence (rule-based)');
+  });
+});
+
+describe('TEMPLATES.milestone', () => {
+  test('generates milestone prompt', () => {
+    const result = TEMPLATES.milestone({
+      metrics: { ...baseMetrics, total_completed: 20 },
+      profile: baseProfile,
+    });
+    expect(result).toContain('[session_type: milestone]');
+    expect(result).toContain('20 tasks');
+  });
+
+  test('renders evidence block when progressEvidenceText is set', () => {
+    const result = TEMPLATES.milestone(baseCtxWithEvidence);
+    expect(result).toContain('Progress evidence (rule-based):');
+  });
+
+  test('absent evidence block when progressEvidenceText is undefined', () => {
+    const result = TEMPLATES.milestone({ profile: baseProfile, metrics: baseMetrics });
+    expect(result).not.toContain('Progress evidence (rule-based)');
   });
 });
 
