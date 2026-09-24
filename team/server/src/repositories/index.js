@@ -13,6 +13,7 @@ const planSnapshotRepo = require('./plan-snapshot.repo');
 const webhookSubscriptionRepo = require('./webhook-subscription.repo');
 const otpChallengeRepo = require('./otp-challenge.repo');
 const passwordResetSessionRepo = require('./password-reset-session.repo');
+const checkInEventRepo = require('./check-in-event.repo');
 
 module.exports = {
   user: userRepo,
@@ -30,4 +31,5 @@ module.exports = {
   webhookSubscription: webhookSubscriptionRepo,
   otpChallenge: otpChallengeRepo,
   passwordResetSession: passwordResetSessionRepo,
+  checkInEvent: checkInEventRepo,
 };

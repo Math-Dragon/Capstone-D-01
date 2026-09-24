@@ -31,6 +31,9 @@ export const ROUTES = {
 export const STORAGE_KEYS = {
   TOKEN: 'token',
   USER: 'user',
+  FORGOT_PASSWORD_IDENTIFIER: 'forgot_password_identifier',
+  FORGOT_PASSWORD_CHANNEL: 'forgot_password_channel',
+  RESET_TOKEN: 'reset_token',
 };
 
 export const TASK_TYPE_PALETTE = {

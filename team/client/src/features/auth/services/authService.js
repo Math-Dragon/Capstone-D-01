@@ -37,6 +37,31 @@ export const authService = {
     const data = await api.get('/auth/me');
     return data;
   },
+
+  requestPasswordReset: async ({ identifier, channel }) => {
+    const data = await api.post('/auth/forgot-password', { identifier, channel });
+    return data;
+  },
+
+  verifyPasswordResetOtp: async ({ identifier, channel, otp }) => {
+    const data = await api.post('/auth/forgot-password/verify-otp', { identifier, channel, otp });
+    return data;
+  },
+
+  resetPassword: async ({ resetToken, password }) => {
+    const data = await api.post('/auth/reset-password', { resetToken, password });
+    return data;
+  },
+
+  requestPhoneVerification: async ({ phoneNumber }) => {
+    const data = await api.post('/auth/phone/request-verify', { phoneNumber });
+    return data;
+  },
+
+  confirmPhoneVerification: async ({ phoneNumber, otp }) => {
+    const data = await api.post('/auth/phone/verify', { phoneNumber, otp });
+    return data;
+  },
 };
 
 export default authService;

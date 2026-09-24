@@ -4,6 +4,13 @@ const { z } = require('zod');
 const { authenticate } = require('../middleware/authenticate');
 const { validate } = require('../middleware/validate');
 const progressService = require('../services/progress.service');
+const {
+  createEventSchema,
+  historyQuerySchema,
+  historyParamsSchema,
+  correctionSchema,
+  overviewQuerySchema,
+} = require('../models/check-in-event.model');
 
 const ISO_WEEK_REGEX = /^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$/;
 
@@ -15,6 +22,52 @@ const trendQuerySchema = z.object({
 });
 
 router.use(authenticate);
+
+router.post('/events', validate({ body: createEventSchema }), async (req, res, next) => {
+  try {
+    const result = await progressService.createEvent(req.user.id, req.body);
+    res.status(result.replayed ? 200 : 201).json({
+      success: true,
+      data: result.data,
+      meta: { idempotent_replay: result.replayed },
+    });
+  } catch (err) { next(err); }
+});
+
+router.get('/history', validate({ query: historyQuerySchema }), async (req, res, next) => {
+  try {
+    const data = await progressService.getHistory(req.user.id, req.query);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+router.get('/history/:id', validate({ params: historyParamsSchema }), async (req, res, next) => {
+  try {
+    const data = await progressService.getHistoryDetail(req.user.id, req.params.id);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+router.patch('/history/:id', validate({ params: historyParamsSchema, body: correctionSchema }), async (req, res, next) => {
+  try {
+    const data = await progressService.correctHistory(req.user.id, req.params.id, req.body);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+router.delete('/history/:id', validate({ params: historyParamsSchema }), async (req, res, next) => {
+  try {
+    const data = await progressService.deleteHistory(req.user.id, req.params.id);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+router.get('/overview', validate({ query: overviewQuerySchema }), async (req, res, next) => {
+  try {
+    const data = await progressService.getOverview(req.user.id, req.query.period);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
 
 router.get('/stats', async (req, res, next) => {
   try {
