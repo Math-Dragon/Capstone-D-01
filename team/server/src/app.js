@@ -7,12 +7,13 @@ const { requestLogger } = require('./middleware/requestLogger');
 const { responseEnricher } = require('./middleware/responseEnricher');
 const { errorHandler } = require('./middleware/errorHandler');
 const { authenticate } = require('./middleware/authenticate');
-const { authLimiter, aiLimiter, generalLimiter } = require('./middleware/rateLimiter');
+const { authLimiter, aiLimiter, generalLimiter, oauthTokenLimiter } = require('./middleware/rateLimiter');
 const { metricsAuth } = require('./middleware/metricsAuth');
 
 const healthRoutes = require('./routes/health');
 const metricsRoutes = require('./routes/metrics');
 const authRoutes = require('./routes/auth');
+const oauthRoutes = require('./routes/oauth');
 const goalRoutes = require('./routes/goals');
 const taskRoutes = require('./routes/tasks');
 const calendarRoutes = require('./routes/calendar');
@@ -57,6 +58,9 @@ app.use(responseEnricher);
 
 app.use('/health', healthRoutes);
 app.use('/metrics', metricsAuth, metricsRoutes);
+// Mounted before /api/auth so the OAuth2 token endpoint gets its own rate-limit budget
+// (and form-urlencoded parsing) instead of inheriting the auth limiter.
+app.use('/api/auth/oauth', express.urlencoded({ extended: false }), oauthTokenLimiter, oauthRoutes);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/goals', generalLimiter, goalRoutes);
 app.use('/api/tasks', generalLimiter, taskRoutes);

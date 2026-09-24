@@ -80,6 +80,25 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const loginWithOtp = async ({ email, otp }) => {
+    dispatch(setLoading(true));
+    dispatch(setError(null));
+    try {
+      const data = await authService.loginWithOtp({ email, otp });
+      localStorage.setItem('token', data.access_token);
+      dispatch(setUser(data.user));
+      return data;
+    } catch (err) {
+      const friendly = /invalid_grant|invalid_request/.test(err.message)
+        ? 'Kode OTP tidak valid atau sudah kedaluwarsa.'
+        : err.message;
+      dispatch(setError(friendly));
+      throw err;
+    } finally {
+      dispatch(setLoading(false));
+    }
+  };
+
   const register = async (userData) => {
     dispatch(setLoading(true));
     dispatch(setError(null));
@@ -114,7 +133,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isInitialized, loading, error, login, loginWithGoogle, register, logout, refreshProfile }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, isInitialized, loading, error, login, loginWithGoogle, loginWithOtp, register, logout, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

@@ -11,6 +11,7 @@ jest.mock('../../src/services/auth.service', () => ({
   googleLogin: jest.fn(),
   refresh: jest.fn(),
   logout: jest.fn(),
+  requestLoginOtp: jest.fn(),
   formatUserAuthProfile: jest.fn(),
 }));
 
@@ -188,5 +189,27 @@ describe('POST /api/auth/logout', () => {
       .set('x-test-user', 'u1');
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
+  });
+});
+
+describe('POST /api/auth/passwordless/start', () => {
+  test('returns a generic success response', async () => {
+    const authService = require('../../src/services/auth.service');
+    const request = require('supertest');
+    authService.requestLoginOtp.mockResolvedValue({ message: 'Jika data akun cocok, kode masuk akan dikirim.' });
+    const res = await request(createApp())
+      .post('/api/auth/passwordless/start')
+      .send({ email: 'user@test.com' });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(authService.requestLoginOtp).toHaveBeenCalledWith('user@test.com', expect.anything());
+  });
+
+  test('rejects an invalid email', async () => {
+    const request = require('supertest');
+    const res = await request(createApp())
+      .post('/api/auth/passwordless/start')
+      .send({ email: 'not-an-email' });
+    expect(res.status).toBe(400);
   });
 });

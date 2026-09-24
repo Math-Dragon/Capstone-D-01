@@ -74,6 +74,7 @@ module.exports = {
   jwtSecret: process.env.JWT_SECRET,
   jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
   jwtAccessExpiry: '15m',
+  jwtAccessExpirySeconds: 15 * 60,
   jwtRefreshExpiry: '7d',
   llmProvider,
   geminiKey: (process.env.GEMINI_API_KEY || '').trim(),
@@ -102,6 +103,7 @@ module.exports = {
   firebaseProjectId: process.env.FIREBASE_PROJECT_ID || 'auth-aiweb',
 
   otpHashSecret: process.env.OTP_HASH_SECRET || '',
+  emailProvider: process.env.EMAIL_PROVIDER || 'smtp',
   mailFrom: process.env.MAIL_FROM || 'StepUp <no-reply@stepup.local>',
   smtp: {
     host: process.env.SMTP_HOST || '',
@@ -115,6 +117,11 @@ module.exports = {
     authToken: process.env.TWILIO_AUTH_TOKEN || '',
     fromNumber: process.env.TWILIO_FROM_NUMBER || '',
   },
+  phoneVerifyEnabled: process.env.PHONE_VERIFY_ENABLED === 'true',
+  phoneVerifyWhitelist: (process.env.PHONE_VERIFY_WHITELIST || '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean),
   passwordResetOtpTtlMinutes,
   passwordResetOtpCooldownSeconds,
   passwordResetMaxAttempts,

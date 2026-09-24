@@ -38,6 +38,23 @@ export const authService = {
     return data;
   },
 
+  requestLoginOtp: async ({ email }) => {
+    const data = await api.post('/auth/passwordless/start', { email });
+    return data;
+  },
+
+  loginWithOtp: async ({ email, otp }) => {
+    const body = new URLSearchParams({
+      grant_type: 'urn:stepup:params:grant-type:email-otp',
+      username: email,
+      otp,
+    });
+    const data = await api.post('/auth/oauth/token', body, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+    return data;
+  },
+
   requestPasswordReset: async ({ identifier, channel }) => {
     const data = await api.post('/auth/forgot-password', { identifier, channel });
     return data;

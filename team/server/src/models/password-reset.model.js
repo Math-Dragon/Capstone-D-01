@@ -12,6 +12,10 @@ const requestPasswordResetSchema = z.object({
   channel: channelEnum,
 });
 
+const requestLoginOtpSchema = z.object({
+  email: z.string().min(1).email(),
+});
+
 const verifyPasswordResetOtpSchema = z.object({
   identifier: z.string().min(1),
   channel: channelEnum,
@@ -34,6 +38,7 @@ const verifyPhoneSchema = z.object({
 
 module.exports = {
   requestPasswordResetSchema,
+  requestLoginOtpSchema,
   verifyPasswordResetOtpSchema,
   resetPasswordSchema,
   requestPhoneVerifySchema,

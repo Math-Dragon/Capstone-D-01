@@ -4,10 +4,12 @@ const authService = require('../services/auth.service');
 const config = require('../config');
 const repos = require('../repositories');
 const { authenticate } = require('../middleware/authenticate');
+const { phoneVerifyGate } = require('../middleware/phoneVerifyGate');
 const { validate } = require('../middleware/validate');
 const { registerSchema, loginSchema } = require('../models/user.model');
 const {
   requestPasswordResetSchema,
+  requestLoginOtpSchema,
   verifyPasswordResetOtpSchema,
   resetPasswordSchema,
   requestPhoneVerifySchema,
@@ -18,6 +20,7 @@ const {
   verifyOtpLimiter,
   resetPasswordLimiter,
   phoneVerifyLimiter,
+  loginOtpLimiter,
 } = require('../middleware/rateLimiter');
 
 function requestContext(req) {
@@ -87,6 +90,18 @@ router.post('/logout', authenticate, async (req, res, next) => {
 });
 
 router.post(
+  '/passwordless/start',
+  loginOtpLimiter,
+  validate({ body: requestLoginOtpSchema }),
+  async (req, res, next) => {
+    try {
+      const data = await authService.requestLoginOtp(req.body.email, requestContext(req));
+      res.json({ success: true, data });
+    } catch (err) { next(err); }
+  },
+);
+
+router.post(
   '/forgot-password',
   forgotPasswordLimiter,
   validate({ body: requestPasswordResetSchema }),
@@ -138,6 +153,7 @@ router.post(
 router.post(
   '/phone/request-verify',
   authenticate,
+  phoneVerifyGate,
   phoneVerifyLimiter,
   validate({ body: requestPhoneVerifySchema }),
   async (req, res, next) => {
@@ -155,6 +171,7 @@ router.post(
 router.post(
   '/phone/verify',
   authenticate,
+  phoneVerifyGate,
   verifyOtpLimiter,
   validate({ body: verifyPhoneSchema }),
   async (req, res, next) => {

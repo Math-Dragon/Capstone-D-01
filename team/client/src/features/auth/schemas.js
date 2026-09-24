@@ -54,3 +54,11 @@ export const phoneVerifyConfirmSchema = z.object({
   phoneNumber: phoneRule,
   otp: z.string().min(1, 'Kode OTP harus diisi').regex(/^\d{6}$/, 'Kode OTP harus 6 digit angka'),
 });
+
+export const loginOtpRequestSchema = z.object({
+  email: z.string().min(1, 'Email harus diisi').email('Email tidak valid'),
+});
+
+export const loginOtpCodeSchema = z.object({
+  otp: z.string().min(1, 'Kode OTP harus diisi').regex(/^\d{6}$/, 'Kode OTP harus 6 digit angka'),
+});

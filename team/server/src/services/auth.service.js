@@ -19,6 +19,7 @@ const {
 } = require('../utils/otp');
 
 const GENERIC_RESET_MSG = 'Jika data akun cocok, kode reset password akan dikirim.';
+const GENERIC_LOGIN_MSG = 'Jika data akun cocok, kode masuk akan dikirim.';
 const GENERIC_OTP_ERROR = 'Kode OTP tidak valid atau sudah kedaluwarsa.';
 
 
@@ -33,6 +34,27 @@ function refreshExpiryDate() {
 }
 
 class AuthService {
+  async _issueSession(user) {
+    const accessToken = jwt.sign(
+      { id: user.id, email: user.email },
+      config.jwtSecret,
+      { expiresIn: config.jwtAccessExpiry }
+    );
+    const refreshToken = jwt.sign(
+      { id: user.id, jti: crypto.randomUUID() },
+      config.jwtRefreshSecret,
+      { expiresIn: config.jwtRefreshExpiry }
+    );
+
+    await repos.refreshToken.create({
+      user_id: user.id,
+      token_hash: hashToken(refreshToken),
+      expires_at: refreshExpiryDate(),
+    });
+
+    return { accessToken, refreshToken };
+  }
+
   async register({ email, password, timezone, preferred_time, weekly_target_hours }) {
     const existing = await repos.user.findByEmail(email);
     if (existing) {
@@ -76,22 +98,7 @@ class AuthService {
 
     const profile = await repos.profile.findByUserId(user.id);
 
-    const accessToken = jwt.sign(
-      { id: user.id, email: user.email },
-      config.jwtSecret,
-      { expiresIn: config.jwtAccessExpiry }
-    );
-    const refreshToken = jwt.sign(
-      { id: user.id, jti: crypto.randomUUID() },
-      config.jwtRefreshSecret,
-      { expiresIn: config.jwtRefreshExpiry }
-    );
-
-    await repos.refreshToken.create({
-      user_id: user.id,
-      token_hash: hashToken(refreshToken),
-      expires_at: refreshExpiryDate(),
-    });
+    const { accessToken, refreshToken } = await this._issueSession(user);
 
     return {
       accessToken,
@@ -142,22 +149,7 @@ class AuthService {
 
     // 3. Generate JWT
     const profile = await repos.profile.findByUserId(user.id);
-    const accessToken = jwt.sign(
-      { id: user.id, email: user.email },
-      config.jwtSecret,
-      { expiresIn: config.jwtAccessExpiry }
-    );
-    const refreshToken = jwt.sign(
-      { id: user.id, jti: crypto.randomUUID() },
-      config.jwtRefreshSecret,
-      { expiresIn: config.jwtRefreshExpiry }
-    );
-
-    await repos.refreshToken.create({
-      user_id: user.id,
-      token_hash: hashToken(refreshToken),
-      expires_at: refreshExpiryDate(),
-    });
+    const { accessToken, refreshToken } = await this._issueSession(user);
 
     return {
       accessToken,
@@ -257,6 +249,12 @@ class AuthService {
     return true;
   }
 
+  // Google-only accounts created without an email get a placeholder address that must
+  // never receive mail.
+  _isEmailable(email) {
+    return Boolean(email) && !email.endsWith('@placeholder.com');
+  }
+
   async _assertCooldown(identifierHash, purpose, channel) {
     const latest = await repos.otpChallenge.findLatestCreated({ identifierHash, purpose, channel });
     if (!latest) return;
@@ -289,8 +287,13 @@ class AuthService {
 
     await sendFn(otp);
 
+    const requestedEvent = {
+      password_reset: 'AUTH_PASSWORD_RESET_REQUESTED',
+      phone_verify: 'AUTH_PHONE_VERIFY_REQUESTED',
+      login: 'AUTH_LOGIN_OTP_REQUESTED',
+    }[purpose] || 'AUTH_OTP_REQUESTED';
     this._logAuthEvent(
-      purpose === 'password_reset' ? 'AUTH_PASSWORD_RESET_REQUESTED' : 'AUTH_PHONE_VERIFY_REQUESTED',
+      requestedEvent,
       { identifier_hash: identifierHash, channel, purpose, ip: context.ip },
     );
 
@@ -431,6 +434,109 @@ class AuthService {
 
       return { message: 'Password berhasil diperbarui. Silakan login kembali.' };
     });
+  }
+
+  async requestLoginOtp(email, context = {}) {
+    const normalized = normalizeEmail(email);
+    const identifierHash = hashIdentifier(`email:${normalized}`);
+    const generic = { message: GENERIC_LOGIN_MSG };
+
+    const user = await repos.user.findByEmail(normalized);
+    if (!user || !this._isEmailable(user.email)) {
+      this._logAuthEvent('AUTH_LOGIN_OTP_REQUESTED', {
+        identifier_hash: identifierHash,
+        channel: 'email',
+        reason: 'skipped_ineligible',
+        ip: context.ip,
+      });
+      return generic;
+    }
+
+    await this._assertCooldown(identifierHash, 'login', 'email');
+
+    await this._createOtpChallengeAndNotify({
+      user,
+      identifier: normalized,
+      identifierHash,
+      channel: 'email',
+      purpose: 'login',
+      userId: user.id,
+      context,
+      sendFn: (otp) => notificationService.sendLoginOtp({
+        to: normalized,
+        otp,
+        expiresInMinutes: config.passwordResetOtpTtlMinutes,
+      }),
+    });
+
+    return generic;
+  }
+
+  async verifyLoginOtp(email, otp, context = {}) {
+    const normalized = normalizeEmail(email);
+    const identifierHash = hashIdentifier(`email:${normalized}`);
+    const challenge = await repos.otpChallenge.findLatestPending({
+      identifierHash, purpose: 'login', channel: 'email',
+    });
+
+    if (!challenge) {
+      this._logAuthEvent('AUTH_LOGIN_OTP_FAILED', {
+        identifier_hash: identifierHash, reason: 'not_found', ip: context.ip,
+      });
+      const err = new Error(GENERIC_OTP_ERROR);
+      err.statusCode = 400;
+      err.code = 'INVALID_OTP';
+      throw err;
+    }
+
+    if (challenge.attempt_count >= config.passwordResetMaxAttempts) {
+      await repos.otpChallenge.lock(challenge.id);
+      const err = new Error(GENERIC_OTP_ERROR);
+      err.statusCode = 400;
+      err.code = 'INVALID_OTP';
+      throw err;
+    }
+
+    if (hashOtp(otp) !== challenge.otp_hash) {
+      const updated = await repos.otpChallenge.incrementAttempt(challenge.id);
+      if (updated.attempt_count >= config.passwordResetMaxAttempts) {
+        await repos.otpChallenge.lock(challenge.id);
+      }
+      this._logAuthEvent('AUTH_LOGIN_OTP_FAILED', {
+        identifier_hash: identifierHash, reason: 'invalid_otp', ip: context.ip,
+      });
+      const err = new Error(GENERIC_OTP_ERROR);
+      err.statusCode = 400;
+      err.code = 'INVALID_OTP';
+      throw err;
+    }
+
+    const consumed = await repos.otpChallenge.consume(challenge.id);
+    if (!consumed) {
+      const err = new Error(GENERIC_OTP_ERROR);
+      err.statusCode = 400;
+      err.code = 'INVALID_OTP';
+      throw err;
+    }
+
+    const user = await repos.user.findById(consumed.user_id);
+    if (!user) {
+      const err = new Error(GENERIC_OTP_ERROR);
+      err.statusCode = 400;
+      err.code = 'INVALID_OTP';
+      throw err;
+    }
+
+    const profile = await repos.profile.findByUserId(user.id);
+    const { accessToken, refreshToken } = await this._issueSession(user);
+
+    this._logAuthEvent('AUTH_LOGIN_OTP_VERIFIED', { user_id: user.id, ip: context.ip });
+
+    return {
+      accessToken,
+      refreshToken,
+      user: { id: user.id, email: user.email, profile, isAdmin: config.adminEmails.includes(user.email) },
+    };
   }
 
   async requestPhoneVerification(userId, phoneNumber, context = {}) {

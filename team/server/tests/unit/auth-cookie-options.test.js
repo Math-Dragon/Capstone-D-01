@@ -21,6 +21,8 @@ jest.mock('../../src/middleware/rateLimiter', () => ({
   verifyOtpLimiter: (_req, _res, next) => next(),
   resetPasswordLimiter: (_req, _res, next) => next(),
   phoneVerifyLimiter: (_req, _res, next) => next(),
+  loginOtpLimiter: (_req, _res, next) => next(),
+  oauthTokenLimiter: (_req, _res, next) => next(),
 }));
 
 const ORIGINAL_ENV = { ...process.env };

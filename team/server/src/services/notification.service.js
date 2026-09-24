@@ -13,8 +13,12 @@ async function sendPasswordResetOtp({ channel, to, otp, expiresInMinutes }) {
   throw err;
 }
 
+async function sendLoginOtp({ to, otp, expiresInMinutes }) {
+  return emailService.sendLoginOtp({ to, otp, expiresInMinutes });
+}
+
 async function sendPhoneVerifyOtp({ to, otp, expiresInMinutes }) {
   return smsService.sendPhoneVerifyOtp({ to, otp, expiresInMinutes });
 }
 
-module.exports = { sendPasswordResetOtp, sendPhoneVerifyOtp };
+module.exports = { sendPasswordResetOtp, sendLoginOtp, sendPhoneVerifyOtp };

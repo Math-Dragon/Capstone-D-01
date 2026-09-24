@@ -181,6 +181,42 @@ const phoneVerifyLimiter = makeLimiter({
   },
 });
 
+const loginOtpMax = parseInt(process.env.LOGIN_OTP_RATE_LIMIT_MAX, 10) || 5;
+const oauthTokenMax = parseInt(process.env.OAUTH_TOKEN_RATE_LIMIT_MAX, 10) || 30;
+
+const loginOtpLimiter = makeLimiter({
+  windowMs: otpWindowMs,
+  max: loginOtpMax,
+  prefix: 'login-otp',
+  keyGenerator: (req) => req.ip,
+  handler: (req, res) => {
+    const retryAfterSeconds = getRetryAfterSeconds(req);
+    res.status(429).json({
+      success: false,
+      error: {
+        code: 'RATE_LIMITED',
+        message: `Too many login code requests, please try again in ${retryAfterSeconds} seconds`,
+        retryAfterSeconds,
+      },
+    });
+  },
+});
+
+const oauthTokenLimiter = makeLimiter({
+  windowMs: otpWindowMs,
+  max: oauthTokenMax,
+  prefix: 'oauth-token',
+  keyGenerator: (req) => req.ip,
+  handler: (req, res) => {
+    const retryAfterSeconds = getRetryAfterSeconds(req);
+    res.locals.skipEnrich = true;
+    res.status(429).json({
+      error: 'temporarily_unavailable',
+      error_description: `Too many token requests, please try again in ${retryAfterSeconds} seconds`,
+    });
+  },
+});
+
 module.exports = {
   authLimiter,
   aiLimiter,
@@ -189,4 +225,6 @@ module.exports = {
   verifyOtpLimiter,
   resetPasswordLimiter,
   phoneVerifyLimiter,
+  loginOtpLimiter,
+  oauthTokenLimiter,
 };
