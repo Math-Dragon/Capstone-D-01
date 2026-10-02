@@ -11,6 +11,7 @@ jest.mock('../../src/repositories', () => ({
     countByUser: jest.fn(),
   },
   audit: { create: jest.fn() },
+  adaptiveProposal: { findLatestPending: jest.fn() },
 }));
 
 const repos = require('../../src/repositories');
@@ -118,6 +119,7 @@ describe('progressService.getOverview', () => {
     repos.profile.findByUserId.mockResolvedValue({ timezone: 'Asia/Jakarta' });
     repos.task.listByUser.mockResolvedValue(fixtures());
     repos.checkInEvent.countByUser.mockResolvedValue(4);
+    repos.adaptiveProposal.findLatestPending.mockResolvedValue(null);
   });
 
   test('buckets reconcile with the headline and evidence uses local-day bounds', async () => {
@@ -136,7 +138,19 @@ describe('progressService.getOverview', () => {
     expect(repos.checkInEvent.countByUser).toHaveBeenCalledWith('user-1', {
       from: '2026-09-18', to: '2026-09-25', timezone: 'Asia/Jakarta',
     });
-    expect(result.evidence).toEqual({ available: true, signal_count: 4 });
+    // Evidence now reports the sanitized rule signals (max 3) instead of the raw
+    // check-in event volume; the raw volume survives as evidence.event_count.
+    expect(result.evidence).toEqual({
+      available: true,
+      signal_count: 2,
+      signals: [
+        { code: 'completion_rate_7d', summary: 'Completion rate (7d): 75% (3/4 tasks)', window: '7d', count: 4 },
+        { code: 'avg_difficulty_7d', summary: 'Average difficulty (7d): 3.5/5 (2 samples)', window: '7d', count: 2 },
+      ],
+      event_count: 4,
+    });
+    expect(repos.adaptiveProposal.findLatestPending).toHaveBeenCalledWith('user-1');
+    expect(result.pending_proposal).toBeNull();
     expect(result.insight.code).toBe('momentum_positive');
   });
 

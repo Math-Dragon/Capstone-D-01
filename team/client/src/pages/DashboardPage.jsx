@@ -1,6 +1,10 @@
 import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { Skeleton, SkeletonCard } from '../components/ui/Skeleton';
+import { useToast } from '../components/ui/Toast';
+import ProposalOverlay from '../features/coach/components/ProposalOverlay';
+import proposalService from '../features/coach/services/proposalService';
+import progressService from '../features/progress/services/progressService';
 import api from '../services/api';
 import { useAuth } from '../features/auth/hooks/useAuth';
 import { onDataChanged } from '../utils/invalidation';
@@ -9,6 +13,43 @@ import { toDateKey } from '../utils/helpers';
 const DashboardCharts = lazy(() => import('../components/DashboardCharts'));
 
 const focusTypes = ['practice', 'synthesize', 'assess', 'interleave'];
+
+// Label periode overview, dipakai sebagai cap ruang lingkup angka di ring.
+const PERIOD_LABELS = { '7d': '7 hari terakhir', '30d': '30 hari terakhir', all: 'Semua waktu' };
+
+const PROPOSAL_ERROR_TEXT = {
+  PROPOSAL_STALE: 'Rencana sudah berubah. Muat ulang halaman untuk melihat versi terbarunya.',
+  PROPOSAL_EXPIRED: 'Proposal ini sudah kedaluwarsa.',
+  PROPOSAL_ALREADY_RESOLVED: 'Proposal ini sudah diputuskan sebelumnya.',
+};
+
+function periodLabelOf(period) {
+  if (!period) return null;
+  if (PERIOD_LABELS[period.key]) return PERIOD_LABELS[period.key];
+  if (period.from && period.to) return `${period.from} - ${period.to}`;
+  return period.key || null;
+}
+
+function expiryLabelOf(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const day = date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+  const time = date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+  return `Berlaku sampai ${day}, ${time}`;
+}
+
+// Ringkasan minimum dari teaser overview, dipakai saat GET detail gagal
+// supaya pengguna tetap bisa menerima/menolak lewat ID yang sama.
+function minimalProposal(teaser) {
+  return {
+    id: teaser.id,
+    summary: teaser.summary,
+    base_plan_version: teaser.base_plan_version,
+    evidence: [],
+    changes: null,
+  };
+}
 
 function CircularGauge({ pct }) {
   const r = 28;
@@ -64,21 +105,51 @@ const STAT_CARDS = [
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { addToast } = useToast();
   const [tasks, setTasks] = useState([]);
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Overview dijalankan terpisah dari tasks/goals: kegagalannya tidak boleh
+  // menjatuhkan dashboard, cukup menurunkan state ke fallback lokal.
+  const [overview, setOverview] = useState(null);
+  const [overviewError, setOverviewError] = useState(false);
+
+  const [overlayProposal, setOverlayProposal] = useState(null);
+  const [proposalLoading, setProposalLoading] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [proposalError, setProposalError] = useState(null);
+
   const today = toDateKey(new Date());
 
   const loadData = useCallback(async (signal) => {
+    setOverviewError(false);
+    // Async IIFE: `await` di sini menangkap rejection overview (termasuk
+    // error sync) sehingga Promise.all tasks/goals tetap menentukan status halaman.
+    const overviewResult = (async () => {
+      try {
+        return { ok: true, data: await progressService.getOverview('7d', { signal }) };
+      } catch (err) {
+        return { ok: false, err };
+      }
+    })();
+
     try {
-      const [fetchedTasks, fetchedGoals] = await Promise.all([
+      const [fetchedTasks, fetchedGoals, settledOverview] = await Promise.all([
         api.get('/tasks', { signal }),
         api.get('/goals', { signal }),
+        overviewResult,
       ]);
       setTasks(Array.isArray(fetchedTasks) ? fetchedTasks : []);
       setGoals(Array.isArray(fetchedGoals) ? fetchedGoals : []);
+      if (settledOverview.ok) {
+        setOverview(settledOverview.data || null);
+      } else {
+        setOverview(null);
+        if (settledOverview.err?.name !== 'AbortError') setOverviewError(true);
+      }
       setError(null);
     } catch (err) {
       if (err.name !== 'AbortError') {
@@ -173,6 +244,85 @@ export default function DashboardPage() {
 
   const displayName = user?.email ? user.email.split('@')[0] : 'there';
 
+  const pendingProposal = overview?.pending_proposal || null;
+  const periodLabel = periodLabelOf(overview?.period);
+  const timezoneLabel = overview?.timezone || null;
+  const insightText = overview?.insight?.text || null;
+  const strategyText = overview?.coach_strategy?.text || null;
+  const expiryLabel = expiryLabelOf(pendingProposal?.expires_at);
+
+  const closeProposal = useCallback(() => {
+    setOverlayProposal(null);
+    setProposalError(null);
+  }, []);
+
+  const openProposal = useCallback(async () => {
+    if (!pendingProposal?.id) return;
+    setProposalLoading(true);
+    setProposalError(null);
+    try {
+      const detail = await proposalService.getById(pendingProposal.id);
+      setOverlayProposal(detail || minimalProposal(pendingProposal));
+    } catch {
+      // Ringkasan teaser cukup untuk memutuskan; detail hanya pelengkap.
+      setOverlayProposal(minimalProposal(pendingProposal));
+      setProposalError('Detail proposal tidak dapat dimuat. Keputusan tetap bisa diambil di sini.');
+    } finally {
+      setProposalLoading(false);
+    }
+  }, [pendingProposal]);
+
+  const handleAccept = useCallback(async () => {
+    const id = overlayProposal?.id || pendingProposal?.id;
+    if (!id) return;
+    setAccepting(true);
+    setProposalError(null);
+    try {
+      await proposalService.accept(id, {
+        basePlanVersion: overlayProposal?.base_plan_version ?? pendingProposal?.base_plan_version,
+        idempotencyKey: proposalService.newIdempotencyKey(),
+      });
+      setOverlayProposal(null);
+      addToast('Rencana baru sudah diterapkan.', 'success');
+      loadData();
+    } catch (err) {
+      const lifecycleText = PROPOSAL_ERROR_TEXT[err?.code];
+      if (lifecycleText) {
+        setOverlayProposal(null);
+        addToast(lifecycleText, 'warning');
+        loadData();
+      } else {
+        setProposalError(err?.message || 'Gagal menerima proposal. Coba lagi.');
+      }
+    } finally {
+      setAccepting(false);
+    }
+  }, [overlayProposal, pendingProposal, addToast, loadData]);
+
+  const handleReject = useCallback(async () => {
+    const id = overlayProposal?.id || pendingProposal?.id;
+    if (!id) return;
+    setRejecting(true);
+    setProposalError(null);
+    try {
+      await proposalService.reject(id, { idempotencyKey: proposalService.newIdempotencyKey() });
+      setOverlayProposal(null);
+      addToast('Proposal ditolak.', 'info');
+      loadData();
+    } catch (err) {
+      const lifecycleText = PROPOSAL_ERROR_TEXT[err?.code];
+      if (lifecycleText) {
+        setOverlayProposal(null);
+        addToast(lifecycleText, 'warning');
+        loadData();
+      } else {
+        setProposalError(err?.message || 'Gagal menolak proposal. Coba lagi.');
+      }
+    } finally {
+      setRejecting(false);
+    }
+  }, [overlayProposal, pendingProposal, addToast, loadData]);
+
   if (loading) {
     return (
       <div className="space-y-8" role="status" aria-live="polite" aria-busy="true">
@@ -230,15 +380,57 @@ export default function DashboardPage() {
                 Goal: {activeGoal?.title || '—'}
               </p>
             </div>
-            <p className="text-primary-400 text-sm mt-1.5">
-              Ini ringkasan progres belajarmu minggu ini.
-            </p>
           </div>
-          <div className="flex flex-col items-center shrink-0">
+          <div className="flex flex-col items-center shrink-0 gap-2">
             <CircularGauge pct={progressPercent} />
+            {(periodLabel || timezoneLabel) && (
+              <p className="max-w-[7rem] text-center text-[11px] leading-tight text-primary-400">
+                {periodLabel && (
+                  <span className="block font-semibold text-primary-500">{periodLabel}</span>
+                )}
+                {timezoneLabel && <span className="block">{timezoneLabel}</span>}
+              </p>
+            )}
           </div>
         </div>
       </section>
+
+      {/* Overview fallback: ringkasan 7 hari gagal, dashboard tetap jalan */}
+      {overviewError && (
+        <p role="status" className="rounded-xl border border-primary-100 bg-primary-50/70 px-4 py-3 text-xs text-primary-500">
+          Ringkasan 7 hari belum bisa dimuat. Angka di bawah tetap dari tugasmu.
+        </p>
+      )}
+
+      {/* Adaptive teaser: hanya muncul bila backend punya proposal pending */}
+      {pendingProposal && (
+        <section
+          aria-labelledby="proposal-teaser-title"
+          className="rounded-2xl border border-warm-200 bg-warm-50/50 p-5 shadow-sm sm:p-6"
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+            <div className="min-w-0 flex-1">
+              <h3 id="proposal-teaser-title" className="text-sm font-bold text-primary-900">
+                Ada saran untuk rencana belajarmu
+              </h3>
+              <p className="mt-1.5 text-sm leading-relaxed break-words text-primary-600">
+                {pendingProposal.summary}
+              </p>
+              {expiryLabel && (
+                <p className="mt-2 text-xs font-medium text-primary-400">{expiryLabel}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={openProposal}
+              disabled={proposalLoading}
+              className="btn-primary min-h-11 w-full shrink-0 sm:w-auto"
+            >
+              {proposalLoading ? 'Memuat...' : 'Lihat saran'}
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-live="polite" aria-atomic="true">
@@ -262,6 +454,27 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Sinyal perhatian dari overview: diringkas, tanpa evidence mentah */}
+      {(insightText || strategyText) && (
+        <section className={`grid gap-4 ${insightText && strategyText ? 'sm:grid-cols-2' : ''}`}>
+          {insightText && (
+            <article className="card p-5">
+              <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-primary-400">
+                Ringkasan periode
+              </h3>              <p className="text-sm leading-relaxed break-words text-primary-600">{insightText}</p>
+            </article>
+          )}
+          {strategyText && (
+            <article className="card p-5">
+              <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-primary-400">
+                Strategi coach
+              </h3>
+              <p className="text-sm leading-relaxed break-words text-primary-600">{strategyText}</p>
+            </article>
+          )}
+        </section>
+      )}
 
       {/* Charts Row */}
       <Suspense fallback={<div className="grid lg:grid-cols-2 gap-6"><SkeletonCard /><SkeletonCard /></div>}>
@@ -352,7 +565,6 @@ export default function DashboardPage() {
             <div className="flex flex-col items-center justify-center py-10 rounded-xl bg-gradient-to-b from-green-50 to-white border border-green-100" role="status">
               <span className="text-4xl mb-3">🎉</span>
               <p className="text-lg font-bold text-primary-900">Semua tugas hari ini selesai!</p>
-              <p className="text-sm text-primary-400 mt-1">Great work today!</p>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-10 rounded-xl bg-primary-50/60 border border-primary-100" role="status">
@@ -365,6 +577,16 @@ export default function DashboardPage() {
           )}
         </div>
       </section>
+
+      <ProposalOverlay
+        proposal={overlayProposal}
+        onAccept={handleAccept}
+        onReject={handleReject}
+        onDismiss={closeProposal}
+        accepting={accepting}
+        rejecting={rejecting}
+        error={proposalError}
+      />
     </div>
   );
 }

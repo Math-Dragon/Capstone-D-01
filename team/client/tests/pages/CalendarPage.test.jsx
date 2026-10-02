@@ -30,7 +30,7 @@ vi.mock('react-redux', () => ({
   }),
 }));
 
-vi.mock('../../src/hooks/useTaskActions', () => ({
+vi.mock('../../src/features/tasks/hooks/useTaskActions', () => ({
   default: () => ({
     proposal: null,
     activeModal: null,
@@ -51,27 +51,27 @@ vi.mock('../../src/hooks/useTaskActions', () => ({
   }),
 }));
 
-vi.mock('../../src/components/AdjustmentPanel', () => ({
+vi.mock('../../src/features/coach/components/AdjustmentPanel', () => ({
   default: () => <div data-testid="adjustment-panel" />,
 }));
 
-vi.mock('../../src/components/ModifyTaskModal', () => ({
+vi.mock('../../src/features/tasks/components/ModifyTaskModal', () => ({
   default: () => null,
 }));
 
-vi.mock('../../src/components/SkipTaskModal', () => ({
+vi.mock('../../src/features/tasks/components/SkipTaskModal', () => ({
   default: () => null,
 }));
 
-vi.mock('../../src/components/FeedbackModal', () => ({
+vi.mock('../../src/features/tasks/components/FeedbackModal', () => ({
   default: () => null,
 }));
 
-vi.mock('../../src/components/TaskDetailModal', () => ({
+vi.mock('../../src/features/tasks/components/TaskDetailModal', () => ({
   default: () => null,
 }));
 
-vi.mock('../../src/components/ProposalOverlay', () => ({
+vi.mock('../../src/features/coach/components/ProposalOverlay', () => ({
   default: () => null,
 }));
 

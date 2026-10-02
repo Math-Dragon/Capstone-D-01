@@ -2,9 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import { useCoach } from '../hooks/useCoach';
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import CoachObservabilityDrawer from './CoachObservabilityDrawer';
-import AdaptationBanner from '../../../components/AdaptationBanner';
-import AdjustmentPanel from '../../../components/AdjustmentPanel';
-import RationaleDisplay from '../../../components/RationaleDisplay';
+import AdaptationBanner from './AdaptationBanner';
+import AdjustmentPanel from './AdjustmentPanel';
+import RationaleDisplay from '../../tasks/components/RationaleDisplay';
 import useFocusTrap from '../../../hooks/useFocusTrap';
 
 function TypingIndicator() {

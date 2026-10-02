@@ -166,6 +166,8 @@ async function buildContext(userId, sessionType, payload) {
     sessionType,
     goalId: activeGoal.id || null,
     progressEvidenceText: formatProgressEvidence(buildProgressEvidence(input)),
+    // Frozen evidence input, reused when a staged proposal needs its signals.
+    evidenceInput: input,
   };
 }
 

@@ -7,7 +7,7 @@ import Layout from './layouts/MainLayout';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
-import CheckInGateway from './components/CheckInGateway';
+import CheckInGateway from './features/coach/components/CheckInGateway';
 import { SkeletonList } from './components/ui/Skeleton';
 import { GoalsProvider } from './features/goals/context/GoalsContext';
 import { ToastProvider } from './components/ui/Toast';

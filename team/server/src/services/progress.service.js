@@ -1,5 +1,7 @@
 const repos = require('../repositories');
-const { deriveCoachStrategy } = require('./progress-evidence.service');
+const logger = require('../utils/logger');
+const { deriveCoachStrategy, buildProgressEvidence } = require('./progress-evidence.service');
+const adaptiveProposalService = require('./adaptive-proposal.service');
 
 const MOOD_LABELS = {
   great: 'Sangat baik',
@@ -237,6 +239,21 @@ class ProgressService {
         ? { code: 'momentum_stable', tone: 'neutral', text: 'Pola belajarmu masih stabil pada periode ini.' }
         : { code: 'momentum_needs_attention', tone: 'supportive', text: 'Beberapa tugas masih terbuka. Pilih langkah kecil yang paling memungkinkan untuk dilanjutkan.' };
 
+    // One input object feeds both the evidence signals and the coach strategy so
+    // the two never drift apart.
+    const strategyInput = {
+      completionRate,
+      completedCount,
+      plannedCount,
+      avgDifficulty,
+      difficultySampleCount,
+      streakDays,
+      lastMood,
+      consecutiveSkips,
+    };
+    const evidence = buildProgressEvidence({ ...strategyInput, window: periodKey });
+    const pendingProposal = await this._pendingProposal(userId);
+
     return {
       generated_at: now.toISOString(),
       timezone,
@@ -254,19 +271,26 @@ class ProgressService {
       },
       activity: buckets,
       distribution: { dimension: 'task_type', items: [...distributionMap.values()] },
-      evidence: { available: signalCount > 0, signal_count: signalCount },
-      coach_strategy: scoped.length ? deriveCoachStrategy({
-        completionRate,
-        completedCount,
-        plannedCount,
-        avgDifficulty,
-        difficultySampleCount,
-        streakDays,
-        lastMood,
-        consecutiveSkips,
-      }) : null,
-      pending_proposal: null,
+      evidence: {
+        available: evidence.available,
+        signal_count: evidence.signals.length,
+        signals: evidence.signals,
+        // Raw check-in event volume for the period; kept so the old meaning of
+        // signal_count is still reachable under its own name.
+        event_count: signalCount,
+      },
+      coach_strategy: scoped.length ? deriveCoachStrategy(strategyInput) : null,
+      pending_proposal: pendingProposal,
     };
+  }
+
+  async _pendingProposal(userId) {
+    try {
+      return await adaptiveProposalService.getPending(userId);
+    } catch (err) {
+      logger.warn({ userId, err: err.message }, 'Failed to load pending adaptive proposal');
+      return null;
+    }
   }
 
   async getStats(userId) {

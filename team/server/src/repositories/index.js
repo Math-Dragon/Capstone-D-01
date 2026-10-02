@@ -14,6 +14,7 @@ const webhookSubscriptionRepo = require('./webhook-subscription.repo');
 const otpChallengeRepo = require('./otp-challenge.repo');
 const passwordResetSessionRepo = require('./password-reset-session.repo');
 const checkInEventRepo = require('./check-in-event.repo');
+const adaptiveProposalRepo = require('./adaptive-proposal.repo');
 
 module.exports = {
   user: userRepo,
@@ -32,4 +33,5 @@ module.exports = {
   otpChallenge: otpChallengeRepo,
   passwordResetSession: passwordResetSessionRepo,
   checkInEvent: checkInEventRepo,
+  adaptiveProposal: adaptiveProposalRepo,
 };

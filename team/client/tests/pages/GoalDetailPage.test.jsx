@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import GoalDetailPage from '../../src/pages/GoalDetailPage';
 import api from '../../src/services/api';
 
-vi.mock('../../src/components/AdjustmentPanel', () => ({
+vi.mock('../../src/features/coach/components/AdjustmentPanel', () => ({
   default: () => null,
 }));
 
@@ -12,11 +12,11 @@ vi.mock('../../src/services/api', () => ({
   default: { get: vi.fn(), patch: vi.fn() },
 }));
 
-vi.mock('../../src/components/ModifyTaskModal', () => ({ default: () => null }));
-vi.mock('../../src/components/SkipTaskModal', () => ({ default: () => null }));
-vi.mock('../../src/components/FeedbackModal', () => ({ default: () => null }));
-vi.mock('../../src/components/TaskDetailModal', () => ({ default: () => null }));
-vi.mock('../../src/components/ProposalOverlay', () => ({ default: () => null }));
+vi.mock('../../src/features/tasks/components/ModifyTaskModal', () => ({ default: () => null }));
+vi.mock('../../src/features/tasks/components/SkipTaskModal', () => ({ default: () => null }));
+vi.mock('../../src/features/tasks/components/FeedbackModal', () => ({ default: () => null }));
+vi.mock('../../src/features/tasks/components/TaskDetailModal', () => ({ default: () => null }));
+vi.mock('../../src/features/coach/components/ProposalOverlay', () => ({ default: () => null }));
 
 vi.mock('../../src/services/api', () => ({
   default: { get: vi.fn(), patch: vi.fn() },
@@ -26,7 +26,7 @@ vi.mock('../../src/features/goals/hooks/useGoals', () => ({
   useGoals: () => ({ update: vi.fn(), remove: vi.fn() }),
 }));
 
-vi.mock('../../src/hooks/useTaskActions', () => ({
+vi.mock('../../src/features/tasks/hooks/useTaskActions', () => ({
   default: () => ({
     proposal: null,
     activeModal: null,

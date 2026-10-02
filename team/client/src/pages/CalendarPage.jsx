@@ -2,16 +2,16 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchStudentMetrics } from '../store/slices/observabilitySlice';
 import api from '../services/api';
-import useTaskActions from '../hooks/useTaskActions';
-import TaskDetailModal from '../components/TaskDetailModal';
-import TaskCard from '../components/TaskCard';
-import SlotDivider from '../components/SlotDivider';
-import StreakBadge from '../components/StreakBadge';
-import AdjustmentPanel from '../components/AdjustmentPanel';
-import ProposalOverlay from '../components/ProposalOverlay';
-import ModifyTaskModal from '../components/ModifyTaskModal';
-import SkipTaskModal from '../components/SkipTaskModal';
-import FeedbackModal from '../components/FeedbackModal';
+import useTaskActions from '../features/tasks/hooks/useTaskActions';
+import TaskDetailModal from '../features/tasks/components/TaskDetailModal';
+import TaskCard from '../features/tasks/components/TaskCard';
+import SlotDivider from '../features/tasks/components/SlotDivider';
+import StreakBadge from '../features/tasks/components/StreakBadge';
+import AdjustmentPanel from '../features/coach/components/AdjustmentPanel';
+import ProposalOverlay from '../features/coach/components/ProposalOverlay';
+import ModifyTaskModal from '../features/tasks/components/ModifyTaskModal';
+import SkipTaskModal from '../features/tasks/components/SkipTaskModal';
+import FeedbackModal from '../features/tasks/components/FeedbackModal';
 import { Skeleton, SkeletonList } from '../components/ui/Skeleton';
 import { onDataChanged } from '../utils/invalidation';
 import { SLOT_ORDER, TASK_TYPE_PALETTE } from '../utils/constants';
@@ -213,10 +213,11 @@ export default function CalendarPage() {
   };
 
   const {
-    proposal, activeModal, activeTask, actionLoading, proposalAccepting,
+    proposal, activeModal, activeTask, actionLoading,
+    proposalAccepting, proposalRejecting, proposalError,
     handleComplete, handleSkip, handleModify,
     confirmSkip, confirmModify, submitFeedback,
-    acceptProposal, rejectProposal, closeModal,
+    acceptProposal, rejectProposal, dismissProposal, closeModal,
   } = useTaskActions({
     onUpdateTasks: (updater) => setTasks(prev => updater(prev)),
     refreshData: async () => {
@@ -1193,7 +1194,10 @@ export default function CalendarPage() {
         proposal={proposal}
         onAccept={acceptProposal}
         onReject={rejectProposal}
+        onDismiss={dismissProposal}
         accepting={proposalAccepting}
+        rejecting={proposalRejecting}
+        error={proposalError}
       />
     </div>
   );

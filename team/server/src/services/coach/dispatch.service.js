@@ -11,6 +11,8 @@ const responseFormatter = require('./response-formatter.service');
 const { normalizeRationale } = require('./response-formatter.service');
 const planValidator = require('./plan-validator.service');
 const adaptationTrigger = require('../adaptation-trigger.service');
+const adaptiveProposal = require('../adaptive-proposal.service');
+const { buildProgressEvidence } = require('../progress-evidence.service');
 
 class DispatchService {
   async dispatch(userId, action, payload) {
@@ -25,6 +27,8 @@ class DispatchService {
       await this._updateState(userId, action, payload, sessionId);
     }
 
+    // Legacy HITL path: the client still resolves proposals through the Coach
+    // action. Keep it until the FE moves to /api/adaptive/proposals/*.
     if (action === 'ACCEPT_PROPOSAL') {
       return responseFormatter.acceptProposal(userId, payload, sessionId);
     }
@@ -287,21 +291,36 @@ class DispatchService {
       });
     }
 
+    let basePlanSnapshotId = null;
     if (triggerFired && ['milestone', 'adjustment'].includes(effectiveSessionType)) {
       const activeTasks = await repos.task.findActiveByUser(userId);
       if (activeTasks.length > 0) {
-        await repos.planSnapshot.create({
+        const baseSnapshot = await repos.planSnapshot.create({
           user_id: userId,
           trigger_id: triggerFired.id,
           adaptation_type: effectiveSessionType,
           tasks_snapshot: activeTasks,
           plan_summary: validated.summary || null,
+          goal_id: goalId,
+          snapshot_kind: 'base',
         });
+        basePlanSnapshotId = baseSnapshot.id;
       }
     }
 
+    let proposal = null;
     if (['crisis', 'milestone', 'adjustment'].includes(effectiveSessionType)) {
-      await responseFormatter.replacePlan(userId, validated, goalId);
+      // HITL: stage the proposal only. Active tasks stay untouched until the
+      // user accepts through POST /api/adaptive/proposals/:id/accept.
+      proposal = await adaptiveProposal.stageProposal(userId, {
+        plan: validated,
+        goalId,
+        adaptationType: effectiveSessionType,
+        triggerId: triggerFired ? triggerFired.id : null,
+        evidence: buildProgressEvidence(ctx.evidenceInput || {}).signals,
+        sessionId,
+        basePlanSnapshotId,
+      });
     } else {
       await responseFormatter.persistPlan(userId, validated, goalId);
     }
@@ -328,6 +347,7 @@ class DispatchService {
       data: validated,
       adaptationType: triggerFired ? triggerFired.sessionType : null,
       triggerId: triggerFired ? triggerFired.id : null,
+      ...(proposal ? { proposal: { id: proposal.id } } : {}),
       meta: llmMeta,
     };
   }

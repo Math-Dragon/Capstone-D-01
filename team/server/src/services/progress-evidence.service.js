@@ -10,6 +10,7 @@
  *   streakDays,            // number, default 0
  *   lastMood,              // string|null
  *   consecutiveSkips,      // number, default 0
+ *   window,                // string, default '7d' — echoed on every signal
  */
 
 function buildProgressEvidence(input) {
@@ -21,6 +22,7 @@ function buildProgressEvidence(input) {
   const difficultySampleCount = src.difficultySampleCount !== undefined ? src.difficultySampleCount : 0;
   const streakDays = src.streakDays !== undefined ? src.streakDays : 0;
   const lastMood = src.lastMood;
+  const window = src.window || '7d';
 
   const signals = [];
 
@@ -29,7 +31,7 @@ function buildProgressEvidence(input) {
     signals.push({
       code: 'completion_rate_7d',
       summary: `Completion rate (7d): ${Math.round(completionRate * 100)}% (${completedCount}/${plannedCount} tasks)`,
-      window: '7d',
+      window,
       count: plannedCount,
     });
   }
@@ -39,14 +41,14 @@ function buildProgressEvidence(input) {
     signals.push({
       code: 'avg_difficulty_7d',
       summary: `Average difficulty (7d): ${avgDifficulty.toFixed(1)}/5 (${difficultySampleCount} samples)`,
-      window: '7d',
+      window,
       count: difficultySampleCount,
     });
   } else if (lastMood) {
     signals.push({
       code: 'last_mood',
       summary: `Last mood: ${lastMood}`,
-      window: '7d',
+      window,
       count: 1,
     });
   }
@@ -56,7 +58,7 @@ function buildProgressEvidence(input) {
     signals.push({
       code: 'streak_days',
       summary: `Streak: ${streakDays} days`,
-      window: '7d',
+      window,
       count: streakDays,
     });
   }
