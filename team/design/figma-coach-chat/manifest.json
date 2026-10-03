@@ -1,0 +1,10 @@
+{
+  "name": "Coach Chat Rework",
+  "id": "4172936501847293",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["none"]
+  }
+}

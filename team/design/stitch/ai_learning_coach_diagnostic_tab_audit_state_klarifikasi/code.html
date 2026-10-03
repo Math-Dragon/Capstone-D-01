@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AI Learning Coach - Diagnostic Tab Audit &amp; Clarification State</title>
+<!-- Load Tailwind CSS v3 with forms and container-queries -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              navy: '#172554',
+              hoverNavy: '#1e3a8a',
+              blueBorder: '#bfdbfe',
+              blueBg: '#eff6ff',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-scrollbars">
+    /* Subtle custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-white text-slate-800 antialiased h-screen flex flex-col font-sans overflow-hidden">
+<!-- BEGIN: MainHeader -->
+<header class="h-14 border-b border-slate-200 px-6 flex items-center justify-between flex-shrink-0 bg-white z-10" data-purpose="main-header">
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+<h1 class="text-sm font-semibold text-slate-900 tracking-tight">AI Learning Coach</h1>
+</div>
+<span class="text-xs text-slate-400">|</span>
+<p class="text-xs text-slate-500">Tanya apa saja tentang rencana belajarmu.</p>
+</div>
+<!-- Header action buttons -->
+<div class="flex items-center gap-3">
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 transition-colors shadow-sm" type="button">
+<span>Diagnostik</span>
+<kbd class="text-[10px] text-slate-400 font-mono tracking-tighter">[Ctrl+Shift+D]</kbd>
+</button>
+<button class="px-3.5 py-1.5 text-xs font-medium text-white bg-[#172554] rounded-md hover:bg-slate-800 transition-colors shadow-sm" type="button">
+        Buat Rencana Belajar
+      </button>
+</div>
+</header>
+<!-- END: MainHeader -->
+<!-- BEGIN: MainContainer -->
+<div class="flex-1 flex overflow-hidden">
+<!-- BEGIN: ChatWorkspace -->
+<main class="flex-1 flex flex-col h-full bg-[#fafbfc] border-r border-slate-200 relative overflow-hidden" data-purpose="chat-panel">
+<!-- Chat message scrollable area -->
+<div class="flex-1 overflow-y-auto px-8 py-6 space-y-5" data-purpose="chat-scroll-area">
+<!-- System Status Pill -->
+<div class="flex justify-center">
+<div class="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-500 bg-slate-100/90 border border-slate-200/80 px-3 py-0.5 rounded-full shadow-2xs">
+<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+            Check-in pagi dicatat
+          </div>
+</div>
+<!-- User Message Bubble -->
+<div class="flex justify-end">
+<div class="max-w-[70%] bg-[#172554] text-white px-4 py-2.5 rounded-2xl rounded-tr-xs shadow-xs">
+<p class="text-[13px] leading-relaxed select-text">Kenapa jadwalku selalu padat di hari Selasa?</p>
+</div>
+</div>
+<!-- Coach Message Card (Clarification / Ambiguous State) -->
+<!-- Highlighted border to reflect linked audit turn -->
+<div class="flex justify-start">
+<div class="max-w-[82%] bg-white rounded-xl border-2 border-blue-400 shadow-sm p-4 space-y-3.5 ring-2 ring-blue-50/50" data-purpose="clarification-message-card">
+<!-- Message Body -->
+<p class="text-[13px] text-slate-800 leading-relaxed font-normal">
+              Aku ingin memastikan maksudmu supaya salah satu topik yang benar-benar pakai. Yang mana yang kamu maksud?
+            </p>
+<!-- Clarification Status Tag -->
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded">
+                Perlu klarifikasi
+              </span>
+</div>
+<!-- Candidate Buttons -->
+<div class="flex flex-wrap gap-2 pt-0.5">
+<span class="text-xs text-slate-500 self-center mr-1">Kandidat topik:</span>
+<button class="px-2.5 py-1 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-md transition-colors" type="button">
+                Manajemen waktu
+              </button>
+<button class="px-2.5 py-1 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-md transition-colors" type="button">
+                Manajemen proyek
+              </button>
+</div>
+<!-- Accordion / Context Section: "Mengapa jawaban ini?" -->
+<div class="border-t border-slate-100 pt-2.5 text-xs space-y-1.5" data-purpose="why-this-answer-box">
+<div class="font-medium text-slate-700 pb-0.5 text-[11.5px]">Mengapa jawaban ini?</div>
+<div class="grid grid-cols-[120px_1fr] text-[11px] gap-y-1 text-slate-600">
+<span class="text-slate-400">Jalur</span>
+<span>Menunggu kepastian topik</span>
+<span class="text-slate-400">Topik</span>
+<span>Belum pasti — kandidatnya ada di bubble ini</span>
+<span class="text-slate-400">Sumber</span>
+<span class="text-slate-400">—</span>
+</div>
+<!-- Knowledge Retrieved Status Note -->
+<p class="text-[11px] text-slate-500 pt-1.5 border-t border-dashed border-slate-100 leading-normal">
+<span class="font-medium text-slate-700">Pengetahuan diambil?</span> Belum — pertanyaan asli kamu akan diputar ulang setelah topik pasti.
+              </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Chat Input Field -->
+<footer class="p-4 bg-white border-t border-slate-200" data-purpose="chat-input-bar">
+<form class="flex items-center gap-2 max-w-4xl mx-auto" onsubmit="event.preventDefault()">
+<input class="flex-1 text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white text-slate-800 placeholder-slate-400 transition" placeholder="Tulis pesan untuk coach..." type="text"/>
+<button class="px-4 py-2.5 text-xs font-medium text-white bg-[#172554] rounded-md hover:bg-slate-800 transition-colors shadow-xs" type="submit">
+            Kirim
+          </button>
+</form>
+</footer>
+</main>
+<!-- END: ChatWorkspace -->
+<!-- BEGIN: DiagnosticDock -->
+<aside class="w-[360px] xl:w-[380px] bg-white flex flex-col h-full flex-shrink-0 text-slate-800 select-text" data-purpose="diagnostic-dock">
+<!-- Dock Top Header -->
+<div class="px-4 pt-3.5 pb-2.5 border-b border-slate-200">
+<div class="flex items-center justify-between text-xs">
+<div class="flex items-center gap-1.5">
+<span class="font-semibold text-slate-900">Turn #14</span>
+<span class="text-slate-400">·</span>
+<span class="text-slate-500 text-[11px]">14:32</span>
+<span class="text-[10px] text-slate-400 font-mono tracking-tight ml-1">[audit: request_id]</span>
+</div>
+<button class="text-xs text-slate-400 hover:text-slate-600 transition" type="button">
+            tutup
+          </button>
+</div>
+<p class="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+<span class="w-1 h-1 rounded-full bg-blue-500 inline-block"></span>
+          Terkait ke pesan coach yang disorot di sebelah kiri.
+        </p>
+</div>
+<!-- Dock Navigation Tabs -->
+<div class="border-b border-slate-200 px-4 bg-slate-50/50 flex gap-4 text-xs font-medium">
+<button class="py-2.5 text-slate-500 hover:text-slate-700 transition" type="button">
+          Turn ini
+        </button>
+<button class="py-2.5 text-slate-500 hover:text-slate-700 transition" type="button">
+          Pipeline
+        </button>
+<!-- Active Tab: Audit -->
+<button class="py-2.5 text-blue-600 border-b-2 border-blue-600 font-semibold relative" type="button">
+          Audit
+        </button>
+<button class="py-2.5 text-slate-500 hover:text-slate-700 transition" type="button">
+          Metrik
+        </button>
+</div>
+<!-- Dock Tab Content (Audit View) -->
+<div class="flex-1 overflow-y-auto px-4 py-3.5 space-y-4 text-xs leading-relaxed" data-purpose="tab-audit-content">
+<!-- Tab explanatory note -->
+<div class="bg-slate-50 p-2.5 rounded border border-slate-200/70 text-[11px] text-slate-500 leading-normal">
+          Daftar aksi struktural per turn. Ringkasannya memakai kode dan tipe, bukan kutipan isi percakapan. Tanpa focus trap.
+        </div>
+<!-- Audit Turn Header Label -->
+<div class="flex items-center justify-between pt-1">
+<div class="text-[11.5px] font-semibold text-slate-800">
+            Turn #14 <span class="text-slate-400 font-normal">· 14:32</span>
+</div>
+<span class="text-[10px] text-slate-400 font-mono">[audit: request_id]</span>
+</div>
+<!-- Section: Riwayat aksi turn ini -->
+<div class="space-y-2">
+<div class="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+            Riwayat aksi turn ini
+          </div>
+<!-- Timeline list of actions -->
+<div class="border-l-2 border-slate-200 ml-1.5 pl-3 space-y-3.5">
+<!-- Step 1: kirim_pertanyaan -->
+<div class="relative">
+<div class="absolute -left-[17px] top-1 w-2 h-2 rounded-full bg-slate-300 ring-2 ring-white"></div>
+<div class="flex items-center justify-between text-[11.5px]">
+<span class="font-mono font-medium text-slate-800">kirim_pertanyaan</span>
+<span class="text-[10.5px] font-mono text-slate-400">14:32:04</span>
+</div>
+<div class="text-[11px] font-mono text-slate-500 mt-0.5">
+                govk_id: gu_7e21 · 412 karakter
+              </div>
+</div>
+<!-- Step 2: ambil_pengetahuan -->
+<div class="relative">
+<div class="absolute -left-[17px] top-1 w-2 h-2 rounded-full bg-slate-300 ring-2 ring-white"></div>
+<div class="flex items-center justify-between text-[11.5px]">
+<span class="font-mono font-medium text-slate-800">ambil_pengetahuan</span>
+<span class="text-[10.5px] font-mono text-slate-400">14:32:05</span>
+</div>
+<div class="text-[11px] font-mono text-slate-500 mt-0.5">
+                2 sumber masuk · 1 disaring
+              </div>
+</div>
+<!-- Step 3: susun_jawaban -->
+<div class="relative">
+<div class="absolute -left-[17px] top-1 w-2 h-2 rounded-full bg-slate-300 ring-2 ring-white"></div>
+<div class="flex items-center justify-between text-[11.5px]">
+<span class="font-mono font-medium text-slate-800">susun_jawaban</span>
+<span class="text-[10.5px] font-mono text-slate-400">14:32:06</span>
+</div>
+<div class="text-[11px] font-mono text-slate-500 mt-0.5">
+                provider: openai · 386 token keluar
+              </div>
+</div>
+<!-- Step 4: catat_proposal -->
+<div class="relative">
+<div class="absolute -left-[17px] top-1 w-2 h-2 rounded-full bg-slate-300 ring-2 ring-white"></div>
+<div class="flex items-center justify-between text-[11.5px]">
+<span class="font-mono font-medium text-slate-800">catat_proposal</span>
+<span class="text-[10.5px] font-mono text-slate-400">14:32:07</span>
+</div>
+<div class="text-[11px] font-mono text-slate-500 mt-0.5">
+                proposal: pr_2791 · menunggu
+              </div>
+</div>
+</div>
+<p class="text-[10.5px] text-slate-400 italic pt-1">
+            Ringkasan bersifat struktural — tanpa kutipan isi percakapan.
+          </p>
+</div>
+<!-- Section: Identitas -->
+<div class="border-t border-slate-200 pt-3 space-y-1.5" data-purpose="audit-identity-section">
+<div class="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1">
+            Identitas
+          </div>
+<div class="grid grid-cols-[90px_1fr] text-[11px] font-mono gap-y-1 text-slate-700">
+<span class="text-slate-400">turn_id</span>
+<span>tr_8f02</span>
+<span class="text-slate-400">request_id</span>
+<span>req_Av9t5Q</span>
+<span class="text-slate-400">durasi total</span>
+<span>1.842 ms</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- END: DiagnosticDock -->
+</div>
+<!-- END: MainContainer -->
+</body></html>

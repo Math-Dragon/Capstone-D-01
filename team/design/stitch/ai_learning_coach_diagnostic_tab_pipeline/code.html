@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AI Learning Coach - Dock: tab Pipeline</title>
+<!-- Tailwind CSS v3 with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+          },
+          colors: {
+            slate: {
+              850: '#151f32',
+              900: '#0f172a',
+              950: '#080d1a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<style data-purpose="custom-scrollbars">
+    /* Subtle custom scrollbar for clean UI layout */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-white text-slate-900 font-sans antialiased min-h-screen flex flex-col h-screen overflow-hidden select-none">
+<!-- BEGIN: MainHeader -->
+<header class="h-16 border-b border-slate-200 px-6 flex items-center justify-between shrink-0 bg-white z-20">
+<!-- Brand & Subtitle -->
+<div class="flex items-center space-x-3">
+<div class="flex items-center space-x-2">
+<h1 class="text-base font-bold text-slate-900 tracking-tight">AI Learning Coach</h1>
+<!-- Online Status Pill -->
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          Online
+        </span>
+</div>
+<span class="text-slate-300">|</span>
+<p class="text-xs text-slate-500 hidden sm:inline-block">Tanya apa saja tentang rencana belajarmu.</p>
+</div>
+<!-- Header Actions -->
+<div class="flex items-center space-x-2.5">
+<!-- Diagnostik Toggle (Active State) -->
+<button class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-blue-500/80 bg-blue-50/70 text-blue-700 text-xs font-medium transition hover:bg-blue-100 shadow-sm" data-purpose="toggle-diagnostics" type="button">
+<svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span>Diagnostik</span>
+<span class="text-[10px] text-blue-500/80 font-mono font-normal ml-0.5">[Ctrl+Shift+D]</span>
+</button>
+<!-- Primary Action Button -->
+<button class="inline-flex items-center px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition shadow-sm" data-purpose="create-study-plan" type="button">
+        Buat Rencana Belajar
+      </button>
+</div>
+</header>
+<!-- END: MainHeader -->
+<!-- BEGIN: WorkspaceLayout -->
+<div class="flex flex-1 overflow-hidden">
+<!-- BEGIN: ChatArea (Left/Center) -->
+<main class="flex-1 flex flex-col h-full bg-[#fcfcfd] border-r border-slate-200 min-w-0" data-purpose="main-chat-viewport">
+<!-- Chat Conversation History -->
+<div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+<div class="max-w-3xl mx-auto space-y-6">
+<!-- System Pill / Check-in indicator -->
+<div class="flex justify-center">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs text-slate-600 bg-white border border-slate-200/80 shadow-sm font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              Check-in pagi dicatat
+            </span>
+</div>
+<!-- User Message 1 -->
+<div class="flex justify-end">
+<div class="max-w-[78%] bg-slate-900 text-white px-4 py-2.5 rounded-2xl rounded-tr-sm text-[13px] leading-relaxed shadow-sm font-normal">
+              Kenapa jadwalku selalu padat di hari Selasa?
+            </div>
+</div>
+<!-- Assistant Turn #14 (Highlighted/Inspected card) -->
+<div class="flex justify-start">
+<div class="max-w-[85%] bg-white rounded-2xl rounded-tl-sm border-2 border-blue-500 p-4 shadow-sm relative transition-all">
+<!-- Turn Indicator Tag -->
+<div class="inline-flex items-center space-x-1.5 mb-2.5 px-2 py-0.5 rounded bg-blue-50 border border-blue-200">
+<span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+<span class="text-[10px] font-bold text-blue-700 font-mono uppercase tracking-wider">Turn #14</span>
+<span class="text-[10px] text-blue-500 font-medium">· Terhubung ke dock</span>
+</div>
+<!-- Content Message -->
+<p class="text-[13px] text-slate-800 leading-relaxed font-normal">
+                Selasa kamu punya dua tugas 90 menit di slot pagi, sementara target mingguanmu 5 jam. Satu tugas bisa dipindah ke Kamis tanpa melewati tenggat.
+              </p>
+<!-- Semantic Chips -->
+<div class="flex flex-wrap items-center gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700">
+                  Topik: Manajemen waktu
+                </span>
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700">
+                  2 sumber
+                </span>
+</div>
+<!-- Accordion Link -->
+<div class="mt-2.5 pt-2 border-t border-slate-100">
+<button class="inline-flex items-center space-x-1 text-xs text-slate-500 hover:text-slate-800 transition" type="button">
+<span class="font-medium">Mengapa jawaban ini?</span>
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+<!-- User Message 2 -->
+<div class="flex justify-end">
+<div class="max-w-[78%] bg-slate-900 text-white px-4 py-2.5 rounded-2xl rounded-tr-sm text-[13px] leading-relaxed shadow-sm font-normal">
+              Kalau aku pindahkan, apakah tenggatnya masih aman?
+            </div>
+</div>
+<!-- Assistant Turn #15 (Standard response) -->
+<div class="flex justify-start">
+<div class="max-w-[85%] bg-white rounded-2xl rounded-tl-sm border border-slate-200 p-4 shadow-sm">
+<p class="text-[13px] text-slate-800 leading-relaxed">
+                Aman. Tenggat goal kamu 30 hari lagi, dan sisa beban setelah pemindahan tetap di bawah target mingguan.
+              </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Chat Bottom Input Container -->
+<footer class="p-4 bg-white border-t border-slate-200">
+<form class="max-w-3xl mx-auto flex items-center space-x-2" onsubmit="event.preventDefault()">
+<input class="flex-1 bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-800 focus:border-slate-800 transition" placeholder="Tulis pesan untuk coach..." type="text"/>
+<button class="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition shadow-sm shrink-0" type="submit">
+            Kirim
+          </button>
+</form>
+</footer>
+</main>
+<!-- END: ChatArea -->
+<!-- BEGIN: DiagnosticDock (Right Sidebar - Tab Pipeline) -->
+<aside class="w-96 shrink-0 bg-white flex flex-col h-full overflow-hidden border-l border-slate-200" data-purpose="diagnostic-inspector">
+<!-- Dock Header -->
+<div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
+<div class="flex items-center space-x-2">
+<span class="text-xs font-bold text-slate-900 tracking-tight">Turn #14</span>
+<span class="text-slate-400 text-xs">·</span>
+<span class="text-xs text-slate-500 font-mono">14:32</span>
+<span class="text-[11px] font-mono px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded border border-slate-200">
+            [audit: request_id]
+          </span>
+</div>
+<button class="text-xs text-slate-400 hover:text-slate-700 transition font-medium underline" type="button">
+          tutup
+        </button>
+</div>
+<!-- Dock Annotation / Scope info -->
+<div class="px-5 py-2 bg-blue-50/50 border-b border-blue-100/60 shrink-0">
+<p class="text-[11px] text-blue-900/80 leading-normal flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0"></span>
+          Terkait ke pesan coach yang disorot di sebelah kiri.
+        </p>
+</div>
+<!-- Diagnostic Tabs Navigation -->
+<div class="px-5 border-b border-slate-200 bg-white flex items-center space-x-5 text-xs shrink-0">
+<button class="py-2.5 text-slate-500 hover:text-slate-800 transition font-medium border-b-2 border-transparent" type="button">
+          Turn ini
+        </button>
+<!-- ACTIVE TAB: Pipeline -->
+<button class="py-2.5 text-blue-600 font-bold border-b-2 border-blue-600 flex items-center space-x-1" type="button">
+<span>Pipeline</span>
+</button>
+<button class="py-2.5 text-slate-500 hover:text-slate-800 transition font-medium border-b-2 border-transparent" type="button">
+          Audit
+        </button>
+<button class="py-2.5 text-slate-500 hover:text-slate-800 transition font-medium border-b-2 border-transparent" type="button">
+          Metrik
+        </button>
+</div>
+<!-- Tab Content: Pipeline -->
+<div class="flex-1 overflow-y-auto px-5 py-4 space-y-5 text-xs text-slate-700">
+<!-- Section: Percobaan & Pemanggilan Model -->
+<div class="space-y-2.5">
+<div class="flex items-center justify-between">
+<h2 class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Percobaan &amp; pemanggilan model
+            </h2>
+</div>
+<!-- Card: Percobaan 1 (Success) -->
+<div class="rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-sm space-y-2.5 hover:border-slate-300 transition">
+<div class="flex items-center justify-between border-b border-slate-100 pb-2">
+<span class="font-semibold text-slate-900 text-xs">Percobaan 1</span>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                selesai
+              </span>
+</div>
+<dl class="space-y-1.5 text-[11px]">
+<div class="flex justify-between items-baseline">
+<dt class="text-slate-500 font-normal">provider</dt>
+<dd class="font-mono text-slate-800 font-medium">openai · gpt-4o-mini</dd>
+</div>
+<div class="flex justify-between items-baseline">
+<dt class="text-slate-500 font-normal">status</dt>
+<dd class="text-emerald-600 font-medium">sukses</dd>
+</div>
+<div class="flex justify-between items-baseline">
+<dt class="text-slate-500 font-normal">durasi</dt>
+<dd class="font-mono text-slate-800">1.842 ms</dd>
+</div>
+<div class="flex justify-between items-baseline">
+<dt class="text-slate-500 font-normal">token</dt>
+<dd class="font-mono text-slate-800">1.142 masuk · 386 keluar</dd>
+</div>
+</dl>
+</div>
+<!-- Card: Percobaan 2 (Skipped / Fallback) -->
+<div class="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-3.5 space-y-2.5">
+<div class="flex items-center justify-between border-b border-slate-200/70 pb-2">
+<span class="font-medium text-slate-600 text-xs">Percobaan 2</span>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-200/70 text-slate-600">
+                tidak dijalankan
+              </span>
+</div>
+<dl class="space-y-1.5 text-[11px]">
+<div class="flex justify-between items-baseline">
+<dt class="text-slate-400 font-normal">alasan</dt>
+<dd class="text-slate-600 text-right">percobaan pertama sudah sukses</dd>
+</div>
+<div class="flex justify-between items-baseline">
+<dt class="text-slate-400 font-normal">durasi</dt>
+<dd class="text-slate-400 font-mono">—</dd>
+</div>
+<div class="flex justify-between items-baseline">
+<dt class="text-slate-400 font-normal">token</dt>
+<dd class="text-slate-400 font-mono">—</dd>
+</div>
+</dl>
+</div>
+</div>
+<!-- Section: Urutan Eksekusi -->
+<div class="space-y-2.5 pt-2 border-t border-slate-100">
+<h2 class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            Urutan
+          </h2>
+<div class="bg-slate-50 rounded-lg p-3 border border-slate-200/80 space-y-2">
+<div class="flex items-center text-[11px] font-mono text-slate-700 leading-snug">
+<span>1. ambil pengetahuan → 2. susun jawaban → 3. catat turn</span>
+</div>
+<div class="flex items-center justify-between text-[11px] pt-1.5 border-t border-slate-200/60 font-mono">
+<span class="text-slate-500 font-sans">durasi total</span>
+<span class="text-slate-800 font-semibold">1.842 ms</span>
+</div>
+</div>
+</div>
+<!-- Footer / Explanatory Note -->
+<div class="p-3 bg-slate-50/80 rounded-lg border border-slate-200/70 text-[11px] text-slate-500 leading-relaxed">
+<p>
+            Alur eksekusi dan pemanggilan model dalam bentuk terstruktur. Bukan model tanpa acuan, jadi chat tetap terbaca di sebelahnya.
+          </p>
+</div>
+</div>
+</aside>
+<!-- END: DiagnosticDock -->
+</div>
+<!-- END: WorkspaceLayout -->
+</body></html>
