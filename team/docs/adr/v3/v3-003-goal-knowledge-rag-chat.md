@@ -1,243 +1,120 @@
-# ADR v3-003: Coach Chatbot Grounded-Goal — Thread/Goal Binding, Chat Tanpa Mutasi Rencana, Knowledge (R1 diadopsi, R2 bergerbang)
+# ADR v3-003: Chat Coach Berbasis Pengetahuan per Goal
 
 ## Status
 
-**Proposed — belum diterima.** Konsep arsitektur sudah stabil dan siap dipromosikan dari PoC, tetapi status acceptance **ditahan** sampai gerbang validasi mode `real` terpenuhi (lihat §"Gerbang acceptance").
+**Proposed — 3 Oktober 2026.** Keputusan di bawah dirumuskan dari uji coba (PoC) di `team/.idea/post-demo/llm-poc/code-v2/` yang diringkas dalam satu paket bukti (`docs/19-basis-adr-v3-003.md`). ADR ini memutuskan arsitektur untuk kode `team/`, bukan mencatat interior PoC: detail harness, path berkas PoC, dan perintah reproduksi tetap tinggal di dokumen PoC.
 
-**Revisi 28 Sep 2026 (konten diselaraskan dengan penerapan):** keputusan *chat context integrity* (thread scoping + goal binding immutable; chat tidak pernah memutasi rencana) yang semula dinyatakan sebagai utas terpisah kini **menjadi bagian ADR ini** (Keputusan §8–§11), karena grounded-goal chat tidak bisa ditegakkan tanpanya. Status tetap **Proposed**; acceptance tetap ditahan sampai gerbang mode `real`.
-
-- Tanggal draft: 28 September 2026
-- Asal: PoC RAG goal-distillation — [`03-results.md`](../../../.idea/post-demo/llm-poc/03-results.md), [`04-decision-memo.md`](../../../.idea/post-demo/llm-poc/04-decision-memo.md)
-- SRS pendamping: [`srs-input-rag-goal-knowledge-chat.md`](../../../.idea/post-demo/srs-draft/srs-input-rag-goal-knowledge-chat.md)
-- Bukti kode: `team/.idea/post-demo/llm-poc/code/`
-- Sifat dokumen: **keputusan baru** (bukan amandemen). Melengkapi v3-001/v3-002 tanpa mengubah guardrail-nya.
-- Cakupan: kontekstualisasi chat berbasis knowledge per-goal (fact card terdistilasi), plus penempatan semantic retrieval sebagai rung terpisah.
+Karena bukti PoC masih terbatas (korpus sintetis yang sempit, satu kali pengukuran gerbang, penilai berupa model bukan manusia), sebagian keputusan bersifat **bersyarat**: berlaku dengan gerbang penerimaan yang tercantum di tiap keputusan. Status fase PoC tidak diubah ADR ini: pengujian memori personal lulus, pengujian retrieval semantik ditahan, pengujian percakapan selesai, dan riset agen domain masih sebatas seam status.
 
 ## Konteks
 
-Pipeline chat saat ini (`team/server/src/services/coach/dispatch.service.js`, `context-builder.service.js`) mengirim konteks terstruktur — profil, task, metrics, dan **6 pesan terakhir** — lalu memanggil LLM. Tidak ada embedding, vector store, maupun retrieval (terverifikasi nihil di codebase: tidak ada `embedding`/`vector`/`chunk`). Akibatnya, fakta yang dikatakan user **di luar window 6 pesan** (batasan jadwal, preferensi slot, deadline eksternal, preferensi gaya) hilang dari jawaban chat.
+### Latar belakang dan masalah
 
-PoC 3-arm (A0 konteks terstruktur · A1 + fact card terdistilasi · A2 + retrieval semantik) dijalankan pada 48 pertanyaan × 3 arm dalam **mode mock** (offline, deterministik). Hasil proksi: target fact-hit A0 `0.000` → A1 `0.958` → A2 `0.917`; tidak ada regresi kontrol; **0 PII**; 8/8 unit test lulus. Ambang S4 direvisi 0.15 → 0.80 (pagar absolut $0.002 tetap) sehingga verdict mock = `go` **provisional**.
+Chat coach saat ini merakit konteks dari profil, tugas, dan hanya beberapa pesan terakhir. Akibatnya fakta yang disampaikan pengguna di luar jendela itu — batasan jadwal, preferensi, tenggat eksternal, gaya belajar — hilang dari jawaban. Kebutuhan arsitekturnya: memberi coach **ingatan lintas sesi** dan **pengetahuan domain yang bersumber**, dengan tiga syarat yang tidak boleh dilanggar (diwarisi ADR v3-001/v3-002 dan ADR-007): tidak ada kebocoran fakta antar pengguna atau antar goal, tidak ada tebakan saat topik belum pasti, dan chat tidak pernah mengubah rencana tanpa persetujuan pengguna (HITL).
 
-Dua kenyataan menentukan bentuk keputusan ini: (a) A1 **tidak kalah** dari A2 pada fact-hit (0.958 vs 0.917) sementara A2 memakai token **lebih sedikit** (381.6 vs 414.6); (b) **mode `real` tidak dijalankan** — rubrik relevansi 0–3 (inti H1), anti-halusinasi sungguhan, dan biaya absolut belum terukur (tanpa `GEMINI_API_KEY`, SDK embedding belum terpasang). Karena itu retrieval semantik belum punya bukti nilai tambah di atas distilasi.
+### Bukti yang tersedia — dan batasnya
+
+PoC menguji tiga perlakuan dalam kondisi identik (sistem prompt, model, dan suhu sama; hanya isi konteks yang dibedakan) dan dinilai dengan rubrik relevansi 0–3 oleh model penilai independen:
+
+| Istilah PoC | Arti dalam bahasa arsitektur | Hasil ringkas |
+| --- | --- | --- |
+| Konteks dasar | Profil + tugas + riwayat thread, tanpa memori tambahan | Skor 0,917 — fakta lintas sesi praktis tidak terjawab |
+| + Fakta personal (distilasi riwayat menjadi kartu fakta atomik per pengguna-per-goal) | Ingatan lintas sesi tanpa pencarian semantik | Skor 2,875 (selisih +1,958; ulangan +1,792) — lulus gerbang |
+| + Retrieval semantik (embedding + vector store, ambil top-k relevan) | Ingatan lintas sesi dengan pencarian semantik | Selisih 0,000 terhadap fakta personal — gerbang tidak lolos, ditahan |
+
+Bukti pendukung lain: isolasi partisi dan pengikatan thread–goal lulus uji termasuk probe adversarial (mencoba membaca thread pengguna lain dan goal asing, keduanya ditolak); penentuan topik domain tanpa tebakan mencapai nol salah-arah pada tiga perangkat uji independen; klarifikasi tuntas dalam satu thread yang sama; sitasi mekanik terverifikasi pada 36 dari 37 klaim dengan 4 dari 4 kasus adversarial tertolak; tiga topik sensitif hanya lolos lewat tinjauan manusia bernama (dua diterima, satu dinyatakan bukti-belum-cukup); akses jaringan terbatas pada 11 host yang disetujui dengan pagu $0,50 per run (terpakai $0,006665); status pengetahuan bertahan across restart pada pengandar ganda memori/Postgres yang diuji live.
+
+Batas bukti yang harus dibaca bersama setiap keputusan: (1) topik uji masih artifisial dan sempit (contoh: mekanika gitar/drum/bass), belum topik edukasi nyata; (2) tiap gerbang baru diukur satu kali — angka presisi sempurna pada kecocokan-persis berdiri di atas satu sampel, bukan distribusi; (3) penilai adalah model, bukan manusia atau panel; (4) antarmuka streaming/state baru dijamin kontrak dan uji statis, belum uji browser nyata. Karena itu keputusan bernomor 2, 3, dan 4 di bawah membuka kembali saat bukti nyata tersedia, dengan gerbang yang eksplisit.
+
+### Batasan yang ditetapkan pemilik (diterima sebagai input, bukan diputuskan di sini)
+
+Lanjut versi sederhana; fitur berat ditahan (akses di luar daftar izin, aktivasi otomatis, dan jawab-otomatis di luar kecocokan persis). Prinsip "bertanya bila ragu" tetap berlaku untuk versi pertama, dengan persiapan 10–15 contoh berlabel per topik dan sasaran presisi ≥0,95 sebelum jawab-otomatis apa pun dibuka. Daftar izin berisi 11 host. Tinjauan manusia tahap pertama dikerjakan bernama oleh muhamad.
 
 ## Keputusan
 
-### 1. Adopsi R1 sebagai rung pertama: fact card atomik hasil distilasi
+### 1. Ingatan lintas sesi dibangun dari fakta personal yang didistilasi, diisolasi per pengguna-per-goal
 
-Goal-knowledge chat dimulai dari **distilasi riwayat → Goal Fact Card atomik** (tanpa embedding). Fact card ditambahkan ke konteks sebagai `facts[]`, memakai **prompt sistem, model, dan temperature yang sama** dengan A0 — hanya isi `context` yang berbeda, agar efek dapat diatribusikan.
+Coach menyimpan ringkasan fakta atomik (satu fakta per kartu: batasan, preferensi, tenggat, atau gaya, beserta sumber asalnya dan tingkat keyakinannya) yang diekstrak dari riwayat per pasangan pengguna–goal. Setiap fakta terikat pada partisi miliknya; retrieval tidak pernah melintasi partisi. Percakapan berjalan di atas thread eksplisit yang terikat pada tepat satu goal secara immutable; thread tanpa goal hanya memakai konteks dasar tanpa menyentuh partisi mana pun, dan tidak ada fallback diam-diam ke goal lain.
 
-Alasan A1 lebih dulu: lompatan proksi terbesar (A0 0 → A1 0.958), footprint paling kecil (tanpa vector store, tanpa biaya embedding), privasi paling sederhana, dan reversibel via flag.
+*Dasar bukti: isolasi partisi + binding thread/goal (paket bukti §1 baris 1); fakta personal menaikkan relevansi +1,958 pada gerbang mode nyata (baris 2). Berlaku penuh; bukan bersyarat.*
 
-### 2. Semantic retrieval (R2) ditahan di belakang gerbang keputusan
+### 2. Pencarian semantik (embedding/vector store) ditahan sampai terbukti menambah nilai
 
-R2 (embedder + vector store + retrieval top-k) **tidak** dibuka otomatis. Implementasi interface disiapkan (pluggable) tetapi pengaktifan di produksi menunggu gerbang §"Gerbang acceptance". Pada proksi, R2 belum mengalahkan R1, sehingga membuka R2 sekarang berarti menambah infrastruktur dan permukaan privasi tanpa bukti manfaat.
+Infrastruktur embedding dan vector store disiapkan sebagai antarmuka yang dapat dipasang-cabut, tetapi tidak diaktifkan di produksi. Alasannya: pada bukti yang ada ia tidak mengungguli injeksi fakta personal langsung (selisih 0,000, jauh di bawah syarat +0,5), sementara ia menambah biaya, latensi, dan permukaan privasi. Pintu dibuka kembali bila salah satu terpenuhi pada pengukuran nyata: korpus per-goal yang jauh lebih besar menunjukkan pencarian top-k memilih lebih baik, atau hipotesis dirumuskan ulang sebagai efisiensi (kualitas setara dengan token/latensi lebih rendah).
 
-### 3. Ketiga arm hidup di belakang satu flag
+*Dasar bukti: gerbang mode nyata baris 3 (3 dari 4 kriteria lolos; yang gagal hanya margin relevansi). Keputusan bersyarat dengan gerbang di atas.*
 
-`CHAT_ARM=A0|A1|A2` (pola sama dengan `AI_MODE=mock|real`) memilih arm per deployment; override per request hanya untuk demo/eval. Ini menjaga harness eval dapat memanggil ketiga arm dalam satu proses dan memungkinkan rollback ke A0 tanpa migrasi data.
+### 3. Topik ditentukan eksplisit tanpa tebakan; yang meragukan diklarifikasi dalam thread yang sama; tanpa kepastian tidak ada pengambilan pengetahuan
 
-### 4. Partisi `user:goal` wajib untuk vector store
+Hanya pertanyaan yang cocok persis dengan satu topik yang dijawab langsung. Sisanya — kecocokan leksikal, ambiguitas, atau di luar korpus — dijawab dengan klarifikasi yang menyajikan kandidat, dan jawaban klarifikasi pengguna menuntaskan resolusi di thread dan goal yang sama (pertanyaan asli diputar ulang, bukan dibuang). Selama topik belum terkonfirmasi, sistem tidak melakukan pencarian, tidak mengambil cache, dan tidak mengambil pengetahuan domain. Jawaban dikirim bertahap (streaming) dengan status percakapan yang eksplisit dan terpisah dari status pengetahuan domain.
 
-Setiap vektor disimpan dengan `partition_key = ${userId}:${goalId}`. Retrieval tanpa partisi berisiko membocorkan fakta antar goal (atau antar user). Isolasi ini diuji sebagai acceptance criterion, bukan opsional. Migrasi ke pgvector nanti mengganti isi interface, bukan kontraknya.
+*Dasar bukti: nol salah-arah pada tiga harness independen + klarifikasi 3-turn satu-thread stabil (baris 4–5); kontrak streaming dan UI 4-state stabil (baris 6). Berlaku penuh; pelonggaran pencocokan adalah pekerjaan lanjutan bergerbang (lihat Konsekuensi).*
 
-### 5. Fact card atomik + schema-first (bukan chunking dokumen)
+### 4. Setiap klaim berpengetahuan wajib tertelusur ke sumber yang benar-benar diambil; topik sensitif wajib lewat manusia
 
-Distilasi menghasilkan **satu fakta atomik per kartu** dengan `category ∈ {constraint, preference, deadline, style}`, `source_ref` (untuk audit, bukan isi mentah), dan `confidence ∈ {stated, inferred}`, divalidasi Zod (`fact.schema.js`). Ini memetakan langsung ke 4 jenis fakta tanam eksperimen dan memungkinkan penilaian per kategori, bukan hanya agregat.
+Setiap fakta domain menyimpan identitas sumbernya, judul dan waktu ambil, serta penunjuk ke potongan sumber yang mendukungnya; pemeriksa terpisah memastikan potongan itu benar-benar mendukung klaim sebelum fakta disimpan — alamat URL saja tidak cukup. Topik berisiko (agama, kesehatan, keuangan, dan sejenisnya) tidak pernah berstatus siap-tayang tanpa penerimaan eksplisit peninjau manusia bernama; penolakan berarti korpus dinyatakan bukti-belum-cukup (keterbatasan sumber, bukan vonis atas isi), dan pengisian ulang lewat jalur riset yang sama.
 
-### 6. Jawaban chat wajib transparan dan anti-halusinasi
+*Dasar bukti: sitasi mekanik 36/37 + adversarial 4/4 (baris 7); tiga topik medium ditinjau bernama, nol siap-otomatis (baris 8). Berlaku penuh.*
 
-`ChatAnswerSchema` mewajibkan `used_facts[]` (fakta yang benar-benar dipakai) dan `needs_clarification` (menolak/klarifikasi saat di luar konteks). `used_facts` adalah instrumen transparansi user sekaligus dasar penilaian otomatis "fakta kunci ada".
+### 5. Akses jaringan hanya ke daftar sumber yang disetujui, gagal-tertutup, dengan pagu biaya yang ditegakkan
 
-### 7. Privasi: pii_scan sebelum embed/simpan
+Satu-satunya komponen yang boleh keluar ke jaringan adalah pengambil sumber, dan hanya ke host dalam daftar izin (default menolak). Batas transport (protokol, redirect, ukuran konten) ditegakkan; kegagalan dalam bentuk apa pun menutup akses, bukan membukanya. Setiap run riset tunduk pada pagu $0,50 yang diperiksa sebelum pemanggilan provider; model cadangan hanya untuk kegagalan laju/batas/transien dan setiap pemakaiannya tercatat. Isi halaman web diperlakukan sebagai data tak-tepercaya, bukan instruksi.
 
-Sebelum teks masuk `embed()` atau disimpan sebagai fact card, `pii_scan` (regex email/telepon/NIK-like) dijalankan; kartu ber-PII dibuang. Konteks ke LLM tidak pernah memuat `user_id`/email/nama (mewarisi `sanitizeContext`). Target: **0** temuan PII pada konten ter-embed.
+*Dasar bukti: 11 host, belanja $0,006665 dari pagu $0,50, fallback tak pernah terpakai namun tercatat (baris 9). Berlaku penuh; penambahan host adalah keputusan pemilik.*
 
-### 8. Thread sebagai entitas; binding goal immutable (goal 1 ─ N thread)
+### 6. Status pengetahuan persisten, berversi, dan dapat diaudit; pemetaan baru tidak mengubah perilaku diam-diam
 
-Chat grounded-goal berjalan di atas **thread** eksplisit: `{ id, user_id, goal_id, status, created_at, closed_at }`. `thread_id` adalah id opaque yang di-generate server (immutable, unik) dan selalu di-lookup owner-scoped `(user_id, thread_id)`. Riwayat pesan **thread-scoped** — menggantikan perilaku lama `findRecentByUser` yang membocorkan riwayat antar sesi.
+Status resolusi topik, status korpus, antrean tinjauan, dan versi indeks bertahan across restart (pengandar memori untuk pengembangan, Postgres untuk layanan; baca selalu dari memori, tulis ke database diantrekan dengan kegagalan yang aman-tidak-mengubah-hasil). Pemetaan goal ke topik hanya lahir dari penulisan eksplisit (kurasi atau persetujuan pengguna) — tidak pernah diturunkan otomatis — sehingga penambahan pemetaan tidak mengubah perilaku goal lama dan tidak mengikat ulang thread berjalan secara diam-diam. Setiap anggota pemetaan hanya dibaca bila korpusnya berstatus siap; anggota yang belum siap dilewati dengan status degradasi yang terlihat, bukan klaim tanpa dukungan.
 
-`goal_id` adalah **properti thread yang immutable** dan nullable. Satu goal boleh memiliki banyak thread (goal 1 ─ N thread); satu thread memiliki tepat satu `goal_id`. `goal_id = null` berarti **mode umum**: hanya R0 dengan profil + riwayat thread, **nol partisi pengetahuan**. Tidak ada fallback diam-diam ke goal terbaru akun. `goal_id` per turn hanya dipakai untuk membuat thread atau meng-assert konsistensi (mismatch → error), bukan untuk me-rebind thread.
-
-### 9. Jalur chat tidak pernah memutasi rencana (kontrak tanpa `plan`)
-
-`ChatAnswer` **tidak punya field `plan`**. Handler chat tidak memiliki jalur persist rencana. Niat mengubah rencana dipetakan (deterministik) ke **proposal HITL** lewat `plan-bridge`, yang tidak pernah auto-persist dan menolak `goal_id` null (tidak membuat goal diam-diam). Jaring pengaman `plan_leak`: bila keluaran mentah model masih membawa `plan != null`, field di-strip dan kejadiannya dicatat di audit sebagai `plan_leak` (bukan kegagalan turn).
-
-### 10. Scope metrik: goal-level, rollup user-global terpisah
-
-Metrik dasar dicatat per **goal** (`scope = goal|general`, `path = R0|plan`), dengan `goal_id` pada catatan audit. Agregat **user-global** disediakan sebagai rollup terpisah dan berlabel; tidak pernah dicampur ke metrik goal. Query task/progress yang benar-benar goal-scoped adalah prasyarat agar angka "goal-level" tidak sekadar alias dari metrik user-global.
-
-### 11. Drift / goal-less: eksplisit, tanpa rebind
-
-Thread goal-less adalah kontainer kelas satu (R0-only). Drift topik **tidak** me-rebind thread berjalan: eskalasinya adalah (i) thread baru pada goal yang sama, lalu (b) usulan goal/topic baru lewat HITL. `plan-bridge` menolak `goal_id` null sehingga jalur HITL pun tidak bisa menciptakan goal secara diam-diam.
-
-### Gerbang acceptance
-
-ADR ini menjadi **Accepted** hanya bila run mode `real` memenuhi **semua**:
-
-1. Rubrik relevansi target: **A2 − A1 ≥ +0.5** (bukan hanya A2 > A0) — membuktikan retrieval mengalahkan distilasi saja; **dan**
-2. Biaya absolut A2 **≤ $0.002/turn**; **dan**
-3. A2 context-assembly p95 **≤ 800 ms**; **dan**
-4. **0** PII pada konten ter-embed.
-
-Bila A2 ≤ A1 pada rubrik real, R2 tetap tertutup dan hanya R1 yang berjalan (keputusan tetap valid dengan mengubah cakupan R2 menjadi "rejected/deferred"). Bila rubrik real tidak memisahkan A0 vs A1, kill criteria K1/K3 terpenuhi dan keputusan ini di-**supersede**.
-
-## Alur Data Rancangan
-
-Dua fase dipisahkan tegas: **ingestasi/distilasi** (jarang, 1× per goal, tidak memblokir chat) dan **query time** (per turn). Kotak bergaris putus-putus = masih di belakang gerbang.
+*Dasar bukti: roundtrip Postgres hijau + hydrate dan validasi ulang (baris 10); pemetaan eksplisit tanpa perubahan perilaku, diverifikasi byte-identik (baris 11). Berlaku penuh untuk lingering; Postgres produksi menunggu keputusan tersendiri.*
 
 ```mermaid
 flowchart TD
-    subgraph ING["Fase ingestasi &amp; distilasi — 1x per goal (async, tidak memblokir chat)"]
-        H["Riwayat goal<br/>task events · feedback ·<br/>ringkasan chat · check-in"]
-        DF["distillation.service<br/>+ distill_system.md"]
-        FC["Goal Fact Card atomik<br/>fact · category · source_ref · confidence"]
-        PIIQ{"pii_scan<br/>findings &gt; 0?"}
-        DROP["Buang kartu + catat temuan"]
-        EMB["embed(fact)<br/>— hanya R2"]
-        VS[("Vector store<br/>partisi user:goal")]
-        H --> DF --> FC --> PIIQ
-        PIIQ -->|ya| DROP
-        PIIQ -->|tidak| EMB --> VS
-    end
-
-    subgraph QRY["Fase query time — per turn"]
-        U["Pesan user + goal_id"] --> ARM{"CHAT_ARM"}
-        ARM -->|A0| A0["Konteks terstruktur<br/>profil + goal + tasks<br/>+ history 6 pesan"]
-        ARM -->|A1| A1["A0 + semua fact card<br/>tanpa embedding"]
-        ARM -->|A2| A2["A1 + retrieval top-k<br/>embed(query) →<br/>query(partisi user:goal) → dedup"]
-        VS -.->|fakta tersimpan| A1
-        VS -.->|hanya R2| A2
-        A0 --> PROMPT["chat_system.md + context JSON"]
-        A1 --> PROMPT
-        A2 --> PROMPT
-        PROMPT --> LLM["callLLM (mock / real / local)<br/>+ retry &amp; backoff"]
-        LLM --> VAL{"validateChatAnswer<br/>Zod"}
-        VAL -->|valid| AUD["audit: arm · retrieval_trace ·<br/>context_assembly_ms · token · pii_scan"]
-        VAL -->|invalid| ERR["retry → error terklasifikasi"]
-        AUD --> OUT["Response: answer ·<br/>used_facts[] · needs_clarification"]
-    end
-
-    GATE{"Gerbang acceptance (mode real):<br/>A2 − A1 ≥ +0.5 · biaya ≤ $0.002/turn ·<br/>p95 ≤ 800 ms · 0 PII"}
-    GATE -.->|"lolos → R2 boleh aktif"| A2
-
-    classDef r2 fill:#e0ffe0,stroke:#080
-    classDef gate fill:#fff3cd,stroke:#b58900,stroke-dasharray:5 5
-    class A2,EMB,VS r2
-    class GATE gate
+    U["Pesan pengguna (goal-bound)"] --> R{"Topik pasti?"}
+    R -->|cocok persis| K["Ambil pengetahuan:\npersonal per pengguna-goal\n+ domain per topik siap"]
+    R -->|ragu / di luar korpus| C["Klarifikasi + kandidat\ndi thread yang sama"]
+    C -->|pengguna mengonfirmasi| K
+    K --> M["Rakit konteks + persona"]
+    M --> L["Model bahasa + validasi skema"]
+    L --> J["Jawaban + sumber + status"]
+    U2["Minta ubah rencana"] --> H["Proposal HITL\n(chat tak pernah menulis rencana)"]
+    style C fill:#fff3cd,stroke:#b58900
+    style H fill:#f5f5f5,stroke:#999
 ```
-
-**Cara membaca:** R1 = jalur `A1` (pakai `facts[]` langsung dari fase ingestasi). R2 = jalur `A2` + `embed`/`Vector store`, hanya aktif bila gerbang lolos. Jalur `A0` tidak menyentuh knowledge sama sekali. Semua arm berbagi `PROMPT`, `LLM`, `VALID`, dan `AUDIT` yang identik agar efek terisolasi.
-
-## Batas Cakupan & Utas Terkait (yang sengaja TIDAK ada di diagram)
-
-Diagram di atas hanya memuat **knowledge personal** (partisi `user:goal`). **Web search / research agent untuk korpus domain** — §12 [`artifacts/roadmap.md`](../../../.idea/post-demo/llm-poc/artifacts/roadmap.md) — berada **di luar cakupan ADR ini** dan belum diimplementasikan di PoC (`code/` tidak punya `research-agent/`). Alasannya:
-
-- **Domain berbeda.** Fact card di sini berisi fakta *tentang user*; research agent mengambil pengetahuan *tentang topik/dunia*. Menyatukannya membuat dua variabel independen (efek retrieval personal vs efek grounding domain) tercampur dalam satu verdict.
-- **Profil risiko berbeda.** Research agent butuh **egress jaringan** (`source-fetcher`), sitasi wajib, dan **review queue manusia** untuk domain sensitif (agama/kesehatan/keuangan) — kebutuhan infra & governance yang tidak ada di PoC 3 hari.
-- **Golden set berbeda.** Penilaian faktual/sitasi ≠ rubrik relevansi 0–3; butuh harness penilaian sendiri.
-- **Utang yang sudah dicatat.** Roadmap §12 sudah mendesainnya (partisi terpisah `domain:{topic_key}`, `DomainFactCardSchema`, `trust_tier`), termasuk catatan "jangan digabung ke timebox PoC ini".
-
-```mermaid
-flowchart LR
-    subgraph INSCOPE["Dalam cakupan ADR v3-003 (personal knowledge)"]
-        U["User + goal_id"] --> P[("Partisi personal<br/>user:goal")]
-        P --> A["R1 fact card · R2 retrieval (bergerbang)"]
-    end
-
-    subgraph OUTSCOPE["Future — utas terpisah (roadmap §12), BUKAN bagian ADR ini"]
-        G["Goal dibuat"] --> DC["domain-classifier"]
-        DC --> CACHE{"cache domain?"}
-        CACHE -->|miss| FETCH["source-fetcher<br/>web search + fetch"]
-        FETCH --> DD["distilasi domain<br/>+ source_url wajib"]
-        DD --> RISK{"risk tier"}
-        RISK -->|sensitif| REV["review queue (manusia)"]
-        RISK -->|rendah| AUTO["auto"]
-        REV --> DP[("Partisi domain<br/>domain:topic_key")]
-        AUTO --> DP
-    end
-
-    A -.->|"nanti: retrieval gabungan 2 partisi"| DP
-    style OUTSCOPE fill:#f5f5f5,stroke:#999,stroke-dasharray:5 5
-```
-
-**chat context integrity** (session scoping + goal binding) kini **termasuk** cakupan ADR ini (Keputusan §8–§11) sebagai prasyarat grounded-goal chat; reference kondisi aktualnya tetap di `reference/chat-pipeline-graph.md`. Utas lain yang tetap **di luar** ADR ini (jangan dicampur): **provider management** (draf ADR terpisah, jadi `v3-004`) dan **transport streaming** (decision memo terpisah).
-
-## Alasan
-
-1. **Urutan bukti, bukan urutan gengsi.** Distilasi (R1) memindahkan fakta yang tak terjangkau window 6 pesan; retrieval (R2) hanya efisiensi/semantik tambahan. Proksi mendukung R1 kuat, R2 belum.
-2. **Biaya/kegagalan minimal lebih dulu.** R1 tidak menambah infra (vector DB, biaya embedding) maupun permukaan privasi baru; risiko adopsi terkecil pada iterasi pertama.
-3. **Isolasi data adalah syarat keamanan, bukan optimasi.** Partisi `user:goal` mencegah kebocoran lintas goal/user.
-4. **Transparansi + schema-first menjaga trust dan testability**, mewarisi pola `ai-integration-demo` (prompt terpisah, Zod, mock/real, audit).
-5. **Reversibilitas.** Semua arm di balik flag; embedding/vector store adalah interface pluggable — mematikan R1/R2 kembali ke A0 tanpa migrasi.
 
 ## Konsekuensi
 
 ### Positif
 
-- Kebutuhan "ingat fakta lintas sesi" terjawab oleh komponen berisiko rendah (fact card) tanpa mengunci keputusan infra retrieval.
-- Isolasi percakapan menjadi struktural: riwayat thread-scoped + binding `goal_id` immutable membuat retrieval tidak mungkin melintasi partisi selama satu thread hidup.
-- Jalur chat tidak lagi bisa memutasi rencana: kontrak `ChatAnswer` tanpa `plan` + `plan-bridge` HITL menutup kebocoran auto-persist.
-- Keputusan R2 memiliki gerbang terukur (A2 vs A1, biaya absolut), bukan bergantung pada proksi.
-- Isolasi `user:goal` dan transparansi `used_facts` menjadi bagian kontrak sejak awal.
-- Migrasi pgvector tidak mengubah route/frontend (kontrak interface tetap).
+- Fakta lintas sesi terjawab oleh komponen berisiko rendah (fakta personal + isolasi partisi) tanpa mengunci keputusan infrastruktur retrieval.
+- Jalur domain tertutup terhadap tebakan: tanpa kepastian tidak ada retrieval, sehingga halusinasi topik tertekan di sumbernya.
+- Kepercayaan terbangun struktural: sitasi tertelusur + gerbang manusia untuk sensitif + jaringan berdaftar-izin.
+- Semua yang berat (retrieval semantik, multi-topik, pengayaan otomatis) tetap di belakang gerbang terukur, bukan dihapus — dapat dibuka dengan bukti, bukan dengan keyakinan.
 
 ### Negatif dan trade-off
 
-- R1 meng-inject **semua** fact card per turn (token lebih tinggi dari top-k); perlu batas jumlah kartu/korpus agar tidak membengkak.
-- Klaim "metrik goal-level" baru sah setelah query task/progress di-scope per goal; sebelum itu angka tersebut harus diperlakukan sebagai user-global.
-- Binding immutable berarti perpindahan goal mengharuskan thread baru; tidak ada migrasi identitas sesi chat legacy (tidak ada data untuk dimigrasikan).
-- Distilasi berjalan 1× per goal; fact card bisa **stale** bila riwayat terus bertambah — produksi butuh trigger re-distilasi (mis. tiap N event).
-- `pii_scan` berbasis regex cukup untuk data sintetis; sebelum data nyata, perlu classifier lebih kuat.
-- Verdict dari data mock **provisional**; ADR tidak boleh di-Accept sebelum run real.
-- Penomoran ADR perlu koordinasi dengan draf provider management yang juga mengincar `v3-003`.
+- Fakta personal disuntik seluruhnya per turn: token tumbuh bersama korpus sampai retrieval semantik dibuka sebagai jawaban efisiensi.
+- Penentu topik yang ketat menolak pertanyaan wajar yang berfrasa bebas; pengalaman percakapan terasa bertanya terus sampai pencocokan dilonggarkan dan presisinya dibuktikan ulang.
+- Pengikatan goal yang immutable berarti pindah goal wajib thread baru; tidak ada migrasi sesi lama.
+- Fakta hasil distilasi dapat basi bila riwayat bertambah; produksi butuh pemicu distilasi ulang.
+- Pemindai privasi bawaan hanya regex; sebelum data nyata perlu klasifikasi lebih kuat.
 
-## Alternatif yang ditolak
+### Alternatif yang ditolak
 
-| Alternatif | Alasan ditolak |
+| Alternatif | Alasan ditolak / gerbang pembuka |
 | --- | --- |
-| **Do nothing** (tetap A0) | Tidak menjawab kebutuhan memori lintas sesi; proksi menunjukkan A0 target fact-hit `0.000`. |
-| **Buka R2 sekarang** | Belum ada bukti (hanya proksi) A2 > A1; menambah infra, biaya embedding, dan permukaan privasi tanpa manfaat terbukti. |
-| **Embed raw turns, bukan fact card terdistilasi** | Biaya embedding & privasi lebih besar, dedup dan kategori lebih sulit diaudit; ditahan sampai ada kebutuhan yang terbukti. |
-| **Satu index vektor tanpa partisi** | Risiko kebocoran lintas goal/user; isolasi `user:goal` adalah syarat, bukan opsi. |
-| **pgvector sejak hari-1** | Terlalu dini sebelum R2 terbukti; in-memory + interface pluggable sudah memadai untuk menilai arah, dengan catatan latensi produksi berbeda. |
-| **Binding goal per-turn / active-goal akun** | Membuat transcript tidak koheren dan berisiko bocor antar goal; melanggar aturan "tanpa fallback diam-diam". |
-| **Membiarkan chat menulis rencana saat model mengembalikan `plan`** | Melanggar HITL; inilah kebocoran auto-persist yang ditutup Keputusan §9. |
-| **Auto-rebind thread ke goal terdekat saat drift** | Fallback diam-diam; merusak isolasi partisi `user:goal`. |
-
-## More Information
-
-- PoC results (mock) + status mode real: [`03-results.md`](../../../.idea/post-demo/llm-poc/03-results.md)
-- Decision memo (opsi, evidence, decision rule, reversibility): [`04-decision-memo.md`](../../../.idea/post-demo/llm-poc/04-decision-memo.md)
-- Experiment plan + ambang §6: [`02-experiment-plan.md`](../../../.idea/post-demo/llm-poc/02-experiment-plan.md)
-- SRS pendamping: [`srs-input-rag-goal-knowledge-chat.md`](../../../.idea/post-demo/srs-draft/srs-input-rag-goal-knowledge-chat.md)
-- Kode PoC: `team/.idea/post-demo/llm-poc/code/` (arm A0/A1/A2, `knowledge/`, `eval/`, `tests/`)
-
-## Confirmation
-
-Kepatuhan diverifikasi melalui:
-
-- **Unit test** `code/tests/poc.test.js` — 8/8 lulus, termasuk **isolasi partisi** `user:goal` dan isolasi antar-goal.
-- **Harness P0 grounded-goal** `code-v2/tests/p0.test.js` — 10/10 lulus (mock deterministik, tanpa API key): isolasi thread & goal, skema valid/invalid, `plan=null` tanpa auto-persist saat mock mengembalikan `plan`, `pii_scan`, routing deterministik, dan pemisahan scope metrik. Probe adversarial: cross-user `THREAD_NOT_FOUND`, foreign goal `GOAL_NOT_FOUND`, plan-leak pada thread general → `plan=null` + `plan_leak`, output invalid → error + `plan=null`, `persistPlan` calls = 0.
-- **Harness eval** `code/eval/run-eval.js` + `code/eval/evaluate-thresholds.js` — fungsi murni S1–S5/K1–K3; `npm run eval` mereproduksi agregat + verdict.
-- **Uji anti-halusinasi & rubrik relevansi** dijalankan di mode `real` (belum; bagian dari gerbang acceptance).
-- Setelah implementasi produksi: test kebocoran partisi + audit `pii_scan` pada CI.
+| Buka retrieval semantik sekarang | Belum ada bukti ia mengalahkan fakta personal; dibuka bila gerbang Keputusan §2 terpenuhi |
+| Jawab-otomatis di luar kecocokan persis | Skor top-1 kandidat tak-persis 0,354, jauh di bawah sasaran 0,95; dibuka bila presisi ≥0,95 pada 10–15 contoh/topik |
+| Retrieval lintas-topik, hierarki, loop pengayaan katalog | Masih rancangan tanpa implementasi; dibuka berurutan setelah pemetaan eksplisit + bukti ulang presisi |
+| Campuran konteks personal–domain sekaligus | Aturan kombinasinya belum diputuskan; dibuka bila disepakati (fakta personal tak boleh menentukan topik) |
+| Ambang keyakinan sebagai kebijakan tetap | Baru satu pengukuran; presisi sempurna berdiri di atas satu sampel |
+| Postgres produksi, aktivasi otomatis, bukti browser-nyata | Masing-masing menunggu pengujiannya sendiri (beban produksi, keputusan fase, uji browser) |
 
 ## Keputusan terkait
 
 | Dokumen | Hubungan |
 | --- | --- |
-| [ADR v3-001: Arsitektur Adaptive Check-In](./v3-001-adaptive-check-in-architecture.md) | Guardrail static-first/rule-first/HITL dan evidence yang tidak boleh dilanggar chat knowledge. |
-| [ADR v3-002: Penyimpanan & Siklus Hidup Proposal Adaptif](./v3-002-adaptive-proposal-storage-lifecycle.md) | Pola persistence/audit dan ownership yang diikuti komponen knowledge. |
-| [ADR-004: AI Multi-Provider](../004-ai-multi-provider.md) | Chain fallback & validasi output 4 lapis yang diwarisi `callLLM`. |
-| [ADR-007: AI Coach HITL](../007-ai-coach-hitl.md) | Chat knowledge tidak boleh melewati HITL untuk perubahan rencana. |
-| [ADR-008: Observability](../008-observability.md) | Audit trail sebagai sumber observability; `pii_scan` + `retrieval_trace` masuk metadata. |
-| [ADR-009: Schema Validation & Input Security](../009-schema-validation-input-security.md) | Schema-first Zod yang diperluas untuk fact card & chat answer. |
-| Draf provider management (`.idea/post-demo/adr-draft/adr-v3-001-llm-provider-management.md`) | **Koordinasi penomoran:** dokumen ini memakai `v3-003`; bila provider management ikut dipromosikan, beri `v3-004` dan catat pemetaannya di `00-index.md`. |
-
-## Status History
-
-| Tanggal | Status | Catatan |
-| --- | --- | --- |
-| 2026-09-28 | Proposed | Dipromosikan dari PoC mock; acceptance ditahan sampai gerbang run mode `real`. |
-| 2026-09-28 | Proposed (revisi) | Konten diselaraskan dengan penerapan: chat context integrity (thread/goal binding, chat tanpa mutasi rencana, scope metrik) masuk Keputusan §8–§11; bukti harness deterministik `code-v2/tests/p0.test.js` (10/10). Acceptance tetap ditahan sampai gerbang mode `real`. |
+| [ADR v3-001: Arsitektur Adaptive Check-In](./v3-001-adaptive-check-in-architecture.md) | Guardrail static-first/rule-first/HITL dan evidence yang tidak boleh dilanggar chat berpengetahuan. |
+| [ADR v3-002: Penyimpanan dan Siklus Hidup Proposal Adaptif](./v3-002-adaptive-proposal-storage-lifecycle.md) | Pola persistence, audit, dan ownership yang diikuti komponen pengetahuan. |
+| Paket bukti `team/.idea/post-demo/llm-poc/code-v2/docs/19-basis-adr-v3-003.md` | Satu-satunya sumber angka ADR ini; tetap non-governed, tidak naik tingkat oleh ADR ini. |
+| [ADR-007: AI Coach with Human-in-the-Loop](../007-ai-coach-hitl.md) | Chat berpengetahuan tidak boleh melewati HITL untuk perubahan rencana. |
